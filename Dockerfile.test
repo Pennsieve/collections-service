@@ -1,0 +1,14 @@
+FROM golang:1.22-alpine
+
+WORKDIR /test
+
+ENV CGO_ENABLED=0
+
+COPY go.mod .
+RUN ["go", "mod", "download"]
+
+COPY cmd cmd
+COPY internal internal
+RUN ["go", "mod", "tidy"]
+
+CMD ["go", "test", "-v", "./..."]
