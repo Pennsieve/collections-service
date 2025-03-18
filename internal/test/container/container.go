@@ -8,7 +8,7 @@ import (
 
 type IntegrationTestContainer struct {
 	Config     config.Config
-	postgresdb postgres.PostgresDB
+	postgresdb postgres.DB
 }
 
 func NewIntegrationTestContainer() *IntegrationTestContainer {
@@ -19,7 +19,7 @@ func NewIntegrationTestContainer() *IntegrationTestContainer {
 	}
 }
 
-func (c *IntegrationTestContainer) PostgresDB() postgres.PostgresDB {
+func (c *IntegrationTestContainer) PostgresDB() postgres.DB {
 	if c.postgresdb == nil {
 		pgConfig := c.Config.PostgresDB
 		c.postgresdb = test.NewPostgresDB(
@@ -34,7 +34,7 @@ func (c *IntegrationTestContainer) PostgresDB() postgres.PostgresDB {
 }
 
 type MockTestContainer struct {
-	MockPostgresDB postgres.PostgresDB
+	MockPostgresDB postgres.DB
 }
 
 func NewMockTestContainer() *MockTestContainer {
@@ -43,6 +43,6 @@ func NewMockTestContainer() *MockTestContainer {
 	}
 }
 
-func (c *MockTestContainer) PostgresDB() postgres.PostgresDB {
+func (c *MockTestContainer) PostgresDB() postgres.DB {
 	return c.MockPostgresDB
 }

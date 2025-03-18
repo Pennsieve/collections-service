@@ -10,7 +10,7 @@ import (
 )
 
 type DependencyContainer interface {
-	PostgresDB() postgres.PostgresDB
+	PostgresDB() postgres.DB
 }
 
 type Container struct {
@@ -37,7 +37,7 @@ func NewContainerFromConfig(config config.Config, awsConfig aws.Config) *Contain
 	}
 }
 
-func (c *Container) PostgresDB() postgres.PostgresDB {
+func (c *Container) PostgresDB() postgres.DB {
 	if c.postgresdb == nil {
 		pgCfg := c.Config.PostgresDB
 		c.postgresdb = postgres.NewRDSProxy(

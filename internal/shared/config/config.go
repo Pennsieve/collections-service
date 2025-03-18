@@ -18,15 +18,19 @@ type PostgresDBConfig struct {
 	CollectionsDatabase string
 }
 
+func LoadPostgresDBConfig() PostgresDBConfig {
+	return PostgresDBConfig{
+		Host:                GetEnvOrDefault("POSTGRES_HOST", "localhost"),
+		Port:                Atoi(GetEnvOrDefault("POSTGRES_PORT", "5432")),
+		User:                getEnv("POSTGRES_USER"),
+		Password:            getEnvOrNil("POSTGRES_PASSWORD"),
+		CollectionsDatabase: GetEnvOrDefault("POSTGRES_COLLECTIONS_DATABASE", "collections_postgres"),
+	}
+}
+
 func LoadConfig() Config {
 	return Config{
-		PostgresDB: PostgresDBConfig{
-			Host:                getEnvOrDefault("POSTGRES_HOST", "localhost"),
-			Port:                Atoi(getEnvOrDefault("POSTGRES_PORT", "5432")),
-			User:                getEnv("POSTGRES_USER"),
-			Password:            getEnvOrNil("POSTGRES_PASSWORD"),
-			CollectionsDatabase: getEnvOrDefault("POSTGRES_COLLECTIONS_DATABASE", "collections_postgres"),
-		},
+		PostgresDB: LoadPostgresDBConfig(),
 	}
 }
 
@@ -40,7 +44,7 @@ func getEnv(key string) string {
 	return value
 }
 
-func getEnvOrDefault(key string, defaultValue string) string {
+func GetEnvOrDefault(key string, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	} else {

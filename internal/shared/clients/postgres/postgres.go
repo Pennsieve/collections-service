@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type PostgresDB interface {
+type DB interface {
 	Connect(ctx context.Context, databaseName string) (*pgx.Conn, error)
 }
 
@@ -45,6 +45,5 @@ func (db *RDSProxy) Connect(ctx context.Context, databaseName string) (*pgx.Conn
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
 		db.host, db.port, db.user, authenticationToken, databaseName,
 	)
-
 	return pgx.Connect(ctx, dsn)
 }
