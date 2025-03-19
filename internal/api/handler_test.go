@@ -11,7 +11,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/pennsieve/collections-service/internal/shared/config"
-	"github.com/pennsieve/collections-service/internal/test/container"
+	"github.com/pennsieve/collections-service/internal/test/containertest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,7 +29,7 @@ func TestAPILambdaHandler(t *testing.T) {
 }
 
 func testDefaultNotFound(t *testing.T) {
-	handler := CollectionsServiceAPIHandler(container.NewMockTestContainer(), config.Config{})
+	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer(), config.Config{})
 
 	req := events.APIGatewayV2HTTPRequest{
 		RouteKey: "GET /unknown",
@@ -54,7 +54,7 @@ func testDefaultNotFound(t *testing.T) {
 }
 
 func testNoClaims(t *testing.T) {
-	handler := CollectionsServiceAPIHandler(container.NewMockTestContainer(), config.Config{})
+	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer(), config.Config{})
 
 	req := events.APIGatewayV2HTTPRequest{
 		RouteKey: "GET /unknown",

@@ -1,10 +1,15 @@
-package container
+package containertest
 
 import (
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/test"
+	"github.com/pennsieve/collections-service/internal/test/configtest"
 )
+
+func Config() config.Config {
+	return config.Config{PostgresDB: configtest.PostgresDBConfig()}
+}
 
 type IntegrationTestContainer struct {
 	Config     config.Config
@@ -12,7 +17,7 @@ type IntegrationTestContainer struct {
 }
 
 func NewIntegrationTestContainer() *IntegrationTestContainer {
-	containerConfig := config.LoadConfig()
+	containerConfig := Config()
 
 	return &IntegrationTestContainer{
 		Config: containerConfig,

@@ -74,6 +74,23 @@ func (m *CollectionsMigrator) Up() error {
 	return nil
 }
 
+func (m *CollectionsMigrator) Down() error {
+	if err := m.wrapped.Down(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			m.wrapped.Log.Printf("no changes")
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// Drop will drop all tables in the collections schema.
+// Used for testing
+func (m *CollectionsMigrator) Drop() error {
+	return m.wrapped.Drop()
+}
+
 func (m *CollectionsMigrator) Close() (source error, database error) {
 	return m.wrapped.Close()
 }
