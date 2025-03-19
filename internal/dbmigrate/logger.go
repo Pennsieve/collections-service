@@ -1,7 +1,9 @@
-package migrate
+package dbmigrate
 
 import "log"
 
+// Logger implements migrate.Logger; if we don't pass migrate.Migrate one of
+// these, it won't do its internal logging.
 type Logger struct {
 	IsVerbose bool
 }

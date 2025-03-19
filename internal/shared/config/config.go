@@ -6,6 +6,8 @@ import (
 	"strconv"
 )
 
+const CollectionsSchemaName = "collections"
+
 type Config struct {
 	PostgresDB PostgresDBConfig
 }
