@@ -3,6 +3,8 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/collections-service/internal/shared/config"
+	"github.com/stretchr/testify/require"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -12,6 +14,12 @@ type PostgresDB struct {
 	port     int
 	user     string
 	password string
+}
+
+func NewPostgresDBFromConfig(t require.TestingT, pgConfig config.PostgresDBConfig) *PostgresDB {
+	Helper(t)
+	require.NotNil(t, pgConfig.Password)
+	return NewPostgresDB(pgConfig.Host, pgConfig.Port, pgConfig.User, *pgConfig.Password)
 }
 
 func NewPostgresDB(host string, port int, user string, password string) *PostgresDB {
@@ -29,4 +37,9 @@ func (db *PostgresDB) Connect(ctx context.Context, databaseName string) (*pgx.Co
 	)
 
 	return pgx.Connect(ctx, dsn)
+}
+
+func CloseConnection(ctx context.Context, t require.TestingT, conn *pgx.Conn) {
+	Helper(t)
+	require.NoError(t, conn.Close(ctx))
 }

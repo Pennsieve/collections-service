@@ -16,7 +16,11 @@ ansiColor('xterm') {
         sh "make test-ci"
       }
 
-      if (isMain) {
+      if (!isMain) {
+        stage('Build') {
+          sh "IMAGE_TAG=${imageTag} make package"
+        }
+      } else {
         stage('Build and Push') {
           sh "IMAGE_TAG=${imageTag} make publish"
         }
@@ -27,10 +31,6 @@ ansiColor('xterm') {
                           string(name: 'IMAGE_TAG', value: imageTag),
                           string(name: 'TERRAFORM_ACTION', value: 'apply')
                   ]
-        }
-      } else {
-        stage('Build') {
-          sh "IMAGE_TAG=${imageTag} make package"
         }
       }
     } catch (e) {
