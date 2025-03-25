@@ -39,7 +39,7 @@ package:
 	@echo "*   Building Collections dbmigrate container   *"
 	@echo "************************************************"
 	@echo ""
-	docker buildx build --platform linux/amd64 -t $(DBMIGRATE_IMAGE_NAME) -f Dockerfile.dbmigrate .
+	docker buildx build --platform linux/amd64 -t $(DBMIGRATE_IMAGE_NAME) -f Dockerfile.cloudwrap-dbmigrate .
 
 publish:
 	@echo "*****************************"

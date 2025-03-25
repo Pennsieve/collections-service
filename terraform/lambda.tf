@@ -25,7 +25,6 @@ resource "aws_lambda_function" "collections_service_api_lambda" {
       POSTGRES_HOST                 = data.terraform_remote_state.pennsieve_postgres.outputs.rds_proxy_endpoint,
       POSTGRES_USER                 = "${var.environment_name}_rds_proxy_user",
       POSTGRES_COLLECTIONS_DATABASE = "pennsieve_postgres",
-      VERBOSE_LOGGING               = local.verbose_mmigration_logging
     }
   }
 }

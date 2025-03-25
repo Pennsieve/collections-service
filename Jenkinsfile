@@ -25,6 +25,15 @@ ansiColor('xterm') {
           sh "IMAGE_TAG=${imageTag} make publish"
         }
 
+        stage('Run Migrations') {
+          build job: "Migrations/dev-migrations/dev-collections-service-postgres-migrations",
+                  //TODO update the value of IMAGE_TAG to imageTag once SSM params are in place
+                  //describe2 is an image tag that only runs cloudwrap describe instead of exec
+                  parameters: [
+                          string(name: 'IMAGE_TAG', value: 'describe2')
+                  ]
+        }
+
         stage("Deploy") {
           build job: "service-deploy/pennsieve-non-prod/us-east-1/dev-vpc-use1/dev/${serviceName}",
                   parameters: [

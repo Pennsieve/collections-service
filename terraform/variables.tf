@@ -20,5 +20,4 @@ locals {
     aws_region       = data.aws_region.current_region.name
     environment_name = var.environment_name
   }
-  verbose_mmigration_logging = var.environment_name == "dev" ? "true" : "false"
 }
