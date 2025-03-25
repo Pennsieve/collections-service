@@ -30,7 +30,7 @@ ansiColor('xterm') {
                   //TODO update the value of IMAGE_TAG to imageTag once SSM params are in place
                   //describe2 is an image tag that only runs cloudwrap describe instead of exec
                   parameters: [
-                          string(name: 'IMAGE_TAG', value: 'describe2')
+                          string(name: 'IMAGE_TAG', value: 'describe3')
                   ]
         }
 

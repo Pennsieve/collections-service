@@ -12,5 +12,5 @@ COPY internal internal
 
 RUN ["go", "build", "-o", "./collections-dbmigrate", "cmd/dbmigrate/main.go"]
 
-CMD ["--service", "collections-service-dbmigrate", "exec", "/app/collections-dbmigrate"]
+CMD ["--service", "collections-service", "exec", "/app/collections-dbmigrate"]
 

@@ -20,4 +20,6 @@ locals {
     aws_region       = data.aws_region.current_region.name
     environment_name = var.environment_name
   }
+  pennsieve_postgres_database = "pennsieve_postgres"
+  rds_proxy_user              = "${var.environment_name}_rds_proxy_user"
 }

@@ -23,8 +23,8 @@ resource "aws_lambda_function" "collections_service_api_lambda" {
       REGION = var.aws_region
 
       POSTGRES_HOST                 = data.terraform_remote_state.pennsieve_postgres.outputs.rds_proxy_endpoint,
-      POSTGRES_USER                 = "${var.environment_name}_rds_proxy_user",
-      POSTGRES_COLLECTIONS_DATABASE = "pennsieve_postgres",
+      POSTGRES_USER                 = local.rds_proxy_user,
+      POSTGRES_COLLECTIONS_DATABASE = local.pennsieve_postgres_database,
     }
   }
 }
