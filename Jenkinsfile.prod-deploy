@@ -20,7 +20,7 @@ timestamps {
       }
 
       stage('Deploy') {
-        build job: "service-deploy/pennsieve-prod/us-east-1/prod-vpc-use1/prod/${service}",
+        build job: "service-deploy/pennsieve-prod/us-east-1/prod-vpc-use1/prod/collections-service",
                 parameters: [
                         string(name: 'IMAGE_TAG', value: params.IMAGE_TAG),
                         string(name: "TERRAFORM_ACTION", value: "apply")
