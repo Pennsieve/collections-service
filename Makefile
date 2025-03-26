@@ -4,7 +4,7 @@ LAMBDA_BUCKET ?= "pennsieve-cc-lambda-functions-use1"
 WORKING_DIR   ?= "$(shell pwd)"
 SERVICE_NAME  ?= "collections-service"
 API_PACKAGE_NAME  ?= "${SERVICE_NAME}-api-${IMAGE_TAG}.zip"
-DBMIGRATE_IMAGE_NAME ?= "${SERVICE_NAME}-dbmigrate:${IMAGE_TAG}"
+DBMIGRATE_IMAGE_NAME ?= "pennsieve/${SERVICE_NAME}-dbmigrate:${IMAGE_TAG}"
 
 .DEFAULT: help
 
