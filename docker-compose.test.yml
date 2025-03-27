@@ -13,10 +13,8 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_COLLECTIONS_DATABASE=postgres
 
-  # Using this pennsieve image for testing because, even though
-  # nothing in this repo uses objects outside the collections schema,
-  # the collections schema will be a sibling of the schemas in the
-  # pennsievedb image, so this is its realistic neighborhood.
+  # Using this pennsieve image for testing because collections
+  # schema has a foreign key relation to pennsieve.users table.
   pennsievedb:
     image: pennsieve/pennsievedb:V20241120161735-seed
     restart: always
