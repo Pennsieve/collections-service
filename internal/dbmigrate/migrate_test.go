@@ -2,7 +2,6 @@ package dbmigrate_test
 
 import (
 	"context"
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/dbmigrate"
@@ -36,12 +35,11 @@ func TestCollectionsMigrator_Up(t *testing.T) {
 	var createdAt, updatedAt time.Time
 	require.NoError(t,
 		conn.QueryRow(ctx,
-			"INSERT INTO collections.collections (name, description, owner_node_id, node_id) VALUES (@name, @description, @owner_node_id, @node_id) RETURNING id, created_at, updated_at",
+			"INSERT INTO collections.collections (name, description, node_id) VALUES (@name, @description, @node_id) RETURNING id, created_at, updated_at",
 			pgx.NamedArgs{
-				"name":          uuid.NewString(),
-				"description":   uuid.NewString(),
-				"owner_node_id": fmt.Sprintf("N:user:%s", uuid.NewString()),
-				"node_id":       uuid.NewString()}).
+				"name":        uuid.NewString(),
+				"description": uuid.NewString(),
+				"node_id":     uuid.NewString()}).
 			Scan(&id, &createdAt, &updatedAt),
 	)
 	assert.False(t, createdAt.IsZero())
