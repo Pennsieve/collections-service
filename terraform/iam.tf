@@ -75,7 +75,7 @@ data "aws_iam_policy_document" "collections_service_api_iam_policy_document" {
       "rds-db:connect"
     ]
 
-    resources = ["*"]
+    resources = [local.rds_db_connect_arn]
   }
 
   statement {

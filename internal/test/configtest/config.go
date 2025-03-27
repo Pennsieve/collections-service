@@ -13,3 +13,10 @@ func PostgresDBConfig() config.PostgresDBConfig {
 		WithPostgresPassword("password").
 		Build()
 }
+
+func PennsieveConfig(discoverServiceHost string) config.PennsieveConfig {
+	return config.NewPennsieveConfigBuilder().
+		WithDiscoverServiceHost(discoverServiceHost).
+		WithDOIPrefix("10/9999.9").
+		Build()
+}

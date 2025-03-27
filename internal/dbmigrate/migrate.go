@@ -12,7 +12,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pennsieve/collections-service/internal/shared/config"
 	"io"
 	"net"
 	"net/url"
@@ -127,11 +126,11 @@ func newCollectionsMigrator(ctx context.Context, username, password, host string
 	}
 	// WithInstance will try to ensure that golang-migrate's migration table exists, so we need
 	// to create the schema before it is called.
-	createSchemaQuery := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %q", config.CollectionsSchemaName)
+	createSchemaQuery := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %q", CollectionsSchemaName)
 	if _, err := db.ExecContext(ctx, createSchemaQuery); err != nil {
-		return nil, closeOnError(fmt.Errorf("error creating schema %q: %w", config.CollectionsSchemaName, err), db)
+		return nil, closeOnError(fmt.Errorf("error creating schema %q: %w", CollectionsSchemaName, err), db)
 	}
-	driver, err := pgx.WithInstance(db, &pgx.Config{SchemaName: config.CollectionsSchemaName})
+	driver, err := pgx.WithInstance(db, &pgx.Config{SchemaName: CollectionsSchemaName})
 	if err != nil {
 		return nil, closeOnError(fmt.Errorf("error creating migration database.Driver: %w", err), db)
 	}
@@ -162,7 +161,7 @@ func datasourceName(username, password, host string, port int, databaseName stri
 		User:     url.UserPassword(username, password),
 		Host:     net.JoinHostPort(host, fmt.Sprintf("%d", port)),
 		Path:     databaseName,
-		RawQuery: fmt.Sprintf("search_path=%s", config.CollectionsSchemaName),
+		RawQuery: fmt.Sprintf("search_path=%s", CollectionsSchemaName),
 	}
 	return datasource.String()
 }
