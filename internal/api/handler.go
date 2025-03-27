@@ -2,11 +2,15 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/routes"
+	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/shared/container"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 )
@@ -20,12 +24,11 @@ func Handler() LambdaHandler {
 		log.Fatalf("Failed to initialize dependency container: %v", err)
 	}
 
-	return CollectionsServiceAPIHandler(depContainer, depContainer.Config)
+	return CollectionsServiceAPIHandler(depContainer)
 }
 
 func CollectionsServiceAPIHandler(
 	container container.DependencyContainer,
-	config config.Config,
 ) LambdaHandler {
 	return func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 		claims := authorizer.ParseClaims(request.RequestContext.Authorizer.Lambda)
@@ -37,12 +40,16 @@ func CollectionsServiceAPIHandler(
 			}, nil
 		}
 
+		logger := logging.Default.With(slog.String("routeKey", request.RouteKey))
+
 		switch request.RouteKey {
+		case "POST /collections":
+			route := routes.CreateCollectionRoute{Logger: logger}
+			return routes.Handle(ctx, request, container, claims, route)
 		default:
-			return events.APIGatewayV2HTTPResponse{
-				StatusCode: http.StatusNotFound,
-				Body:       "Not found",
-			}, nil
+			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", request.RouteKey), nil, http.StatusNotFound)
+			routeNotFound.LogError(logger)
+			return routeNotFound.GatewayResponse(), nil
 		}
 	}
 }

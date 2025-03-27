@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/test/containertest"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,7 +28,7 @@ func TestAPILambdaHandler(t *testing.T) {
 }
 
 func testDefaultNotFound(t *testing.T) {
-	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer(), config.Config{})
+	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer())
 
 	req := events.APIGatewayV2HTTPRequest{
 		RouteKey: "GET /unknown",
@@ -42,19 +41,16 @@ func testDefaultNotFound(t *testing.T) {
 
 	WithClaims(&req, ClaimsToMap(DefaultClaims()))
 
-	expectedResponse := events.APIGatewayV2HTTPResponse{
-		StatusCode: http.StatusNotFound,
-		Body:       "Not found",
-	}
-
 	response, err := handler(context.Background(), req)
 
 	assert.NoError(t, err)
-	assert.Equal(t, expectedResponse, response)
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+	assert.Contains(t, response.Body, "not found")
+	assert.Contains(t, response.Body, `"id"`)
 }
 
 func testNoClaims(t *testing.T) {
-	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer(), config.Config{})
+	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer())
 
 	req := events.APIGatewayV2HTTPRequest{
 		RouteKey: "GET /unknown",
