@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/routes"
+	"github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"log"
 	"log/slog"
@@ -24,32 +25,39 @@ func Handler() LambdaHandler {
 		log.Fatalf("Failed to initialize dependency container: %v", err)
 	}
 
-	return CollectionsServiceAPIHandler(depContainer)
+	return CollectionsServiceAPIHandler(depContainer, depContainer.Config)
 }
 
 func CollectionsServiceAPIHandler(
 	container container.DependencyContainer,
+	config config.Config,
 ) LambdaHandler {
 	return func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+		logger := logging.Default.With(slog.String("routeKey", request.RouteKey))
+
 		claims := authorizer.ParseClaims(request.RequestContext.Authorizer.Lambda)
 
 		if claims == nil || claims.UserClaim == nil {
-			return events.APIGatewayV2HTTPResponse{
-				StatusCode: http.StatusUnauthorized,
-				Body:       "Unauthorized",
-			}, nil
+			err := apierrors.NewUnauthorizedError("no user claim in request")
+			err.LogError(logger)
+			return routes.ErrorGatewayResponse(err), nil
 		}
 
-		logger := logging.Default.With(slog.String("routeKey", request.RouteKey))
-
+		routeParams := routes.Params{
+			Request:   request,
+			Container: container,
+			Config:    config,
+			Claims:    claims,
+			Logger:    logger,
+		}
 		switch request.RouteKey {
 		case "POST /collections":
-			route := routes.CreateCollectionRoute{Logger: logger}
-			return routes.Handle(ctx, request, container, claims, route)
+			routeHandler := routes.NewCreateCollectionRouteHandler()
+			return routes.Handle(ctx, routeParams, routeHandler)
 		default:
 			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", request.RouteKey), nil, http.StatusNotFound)
 			routeNotFound.LogError(logger)
-			return routeNotFound.GatewayResponse(), nil
+			return routes.ErrorGatewayResponse(routeNotFound), nil
 		}
 	}
 }

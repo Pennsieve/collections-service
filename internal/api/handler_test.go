@@ -28,7 +28,7 @@ func TestAPILambdaHandler(t *testing.T) {
 }
 
 func testDefaultNotFound(t *testing.T) {
-	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer())
+	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer(), containertest.Config())
 
 	req := events.APIGatewayV2HTTPRequest{
 		RouteKey: "GET /unknown",
@@ -46,11 +46,11 @@ func testDefaultNotFound(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	assert.Contains(t, response.Body, "not found")
-	assert.Contains(t, response.Body, `"id"`)
+	assert.Contains(t, response.Body, `"error_id"`)
 }
 
 func testNoClaims(t *testing.T) {
-	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer())
+	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer(), containertest.Config())
 
 	req := events.APIGatewayV2HTTPRequest{
 		RouteKey: "GET /unknown",
@@ -61,15 +61,10 @@ func testNoClaims(t *testing.T) {
 		},
 	}
 
-	expectedResponse := events.APIGatewayV2HTTPResponse{
-		StatusCode: http.StatusUnauthorized,
-		Body:       "Unauthorized",
-	}
-
 	response, err := handler(context.Background(), req)
 
 	assert.NoError(t, err)
-	assert.Equal(t, expectedResponse, response)
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 }
 
 func WithClaims(request *events.APIGatewayV2HTTPRequest, claims map[string]interface{}) {

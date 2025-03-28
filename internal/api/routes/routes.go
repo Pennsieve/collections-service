@@ -3,37 +3,58 @@ package routes
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/shared/container"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"log/slog"
 )
 
-var DefaultHeaders = map[string]string{"content-type": "application/json"}
-
-type Route[T any] interface {
-	Handle(ctx context.Context, request events.APIGatewayV2HTTPRequest, container container.DependencyContainer, claims *authorizer.Claims) (T, *apierrors.Error)
-	GetLogger() *slog.Logger
-	SuccessfulStatusCode() int
-	Headers() map[string]string
+func DefaultResponseHeaders() map[string]string {
+	return map[string]string{"content-type": "application/json"}
 }
 
-func Handle[T any](ctx context.Context, request events.APIGatewayV2HTTPRequest, container container.DependencyContainer, claims *authorizer.Claims, route Route[T]) (events.APIGatewayV2HTTPResponse, error) {
-	response, err := route.Handle(ctx, request, container, claims)
+type Params struct {
+	Request   events.APIGatewayV2HTTPRequest
+	Container container.DependencyContainer
+	Config    config.Config
+	Claims    *authorizer.Claims
+	Logger    *slog.Logger
+}
+
+type Func[T any] func(ctx context.Context, params Params) (T, *apierrors.Error)
+
+type Handler[T any] struct {
+	Handle            Func[T]
+	SuccessStatusCode int
+	Headers           map[string]string
+}
+
+func Handle[T any](ctx context.Context, params Params, handler Handler[T]) (events.APIGatewayV2HTTPResponse, error) {
+	response, err := handler.Handle(ctx, params)
 	if err != nil {
-		err.LogError(route.GetLogger())
-		return err.GatewayResponse(), nil
+		err.LogError(params.Logger)
+		return ErrorGatewayResponse(err), nil
 	}
 	body, marshalErr := json.Marshal(response)
 	if marshalErr != nil {
-		err = apierrors.NewInternalServerError(marshalErr)
-		err.LogError(route.GetLogger())
-		return err.GatewayResponse(), nil
+		err = apierrors.NewInternalServerError(fmt.Sprintf("error marshalling response body to %T", response), marshalErr)
+		err.LogError(params.Logger)
+		return ErrorGatewayResponse(err), nil
 	}
 	return events.APIGatewayV2HTTPResponse{
-		StatusCode: route.SuccessfulStatusCode(),
-		Headers:    route.Headers(),
+		StatusCode: handler.SuccessStatusCode,
+		Headers:    handler.Headers,
 		Body:       string(body),
 	}, nil
+}
+
+func ErrorGatewayResponse(err *apierrors.Error) events.APIGatewayV2HTTPResponse {
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: err.StatusCode,
+		Headers:    DefaultResponseHeaders(),
+		Body:       fmt.Sprintf(`{"message": %q, "error_id": %q}`, err.UserMessage, err.ID),
+	}
 }

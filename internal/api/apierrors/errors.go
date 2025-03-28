@@ -2,7 +2,6 @@ package apierrors
 
 import (
 	"fmt"
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
 	"log/slog"
 	"net/http"
@@ -24,8 +23,26 @@ func NewError(userMessage string, cause error, statusCode int) *Error {
 	}
 }
 
-func NewInternalServerError(cause error) *Error {
-	return NewError("internal server error", cause, http.StatusInternalServerError)
+func NewInternalServerError(userMessage string, cause error) *Error {
+	if len(userMessage) == 0 {
+		userMessage = "internal server error"
+	}
+	return NewError(userMessage, cause, http.StatusInternalServerError)
+}
+
+func NewRequestUnmarshallError(bodyType any, cause error) *Error {
+	return NewInternalServerError(fmt.Sprintf("error unmarshalling request body to %T", bodyType), cause)
+}
+
+func NewBadRequestError(userMessage string) *Error {
+	return NewError(userMessage, nil, http.StatusBadRequest)
+}
+
+func NewUnauthorizedError(userMessage string) *Error {
+	if len(userMessage) == 0 {
+		userMessage = "unauthorized"
+	}
+	return NewError(userMessage, nil, http.StatusUnauthorized)
 }
 
 func NewCollectionNotFoundError(missingID string) *Error {
@@ -52,12 +69,4 @@ func (e *Error) LogError(logger *slog.Logger) {
 			slog.Any("cause", cause),
 		),
 	)
-}
-
-func (e *Error) GatewayResponse() events.APIGatewayV2HTTPResponse {
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: e.StatusCode,
-		Headers:    map[string]string{"content-type": "application/json"},
-		Body:       fmt.Sprintf(`{"message": %q, "id": %q}`, e.UserMessage, e.ID),
-	}
 }
