@@ -14,12 +14,22 @@ variable "lambda_bucket" {
   default = "pennsieve-cc-lambda-functions-use1"
 }
 
+variable "dbmigrate_service_name" {
+  default = "collections-service-dbmigrate"
+}
+
+variable "dbmigrate_postgres_user" {}
+
+variable "api_postgres_user" {}
+
+variable "pennsieve_postgres_database" {
+  default = "pennsieve_postgres"
+}
+
 locals {
   common_tags = {
     aws_account      = var.aws_account
     aws_region       = data.aws_region.current_region.name
     environment_name = var.environment_name
   }
-  pennsieve_postgres_database = "pennsieve_postgres"
-  rds_proxy_user              = "${var.environment_name}_rds_proxy_user"
 }
