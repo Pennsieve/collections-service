@@ -21,7 +21,7 @@ local-services:
 	docker compose -f docker-compose.test.yml -f docker-compose.local.override.yml up -d pennsievedb
 
 test: local-services
-	go test -v ./...
+	go test -v -p 1 ./...
 
 test-ci:
 	docker compose -f docker-compose.test.yml down --remove-orphans

@@ -3,47 +3,89 @@ package store
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
+	"log/slog"
+	"strings"
 )
 
 type RDSCollectionsStore struct {
 	db           postgres.DB
 	databaseName string
+	logger       *slog.Logger
 }
 
-func NewRDSCollectionsStore(db postgres.DB, collectionsDatabaseName string) *RDSCollectionsStore {
+func NewRDSCollectionsStore(db postgres.DB, collectionsDatabaseName string, logger *slog.Logger) *RDSCollectionsStore {
 	return &RDSCollectionsStore{
 		db:           db,
 		databaseName: collectionsDatabaseName,
+		logger:       logger.With(slog.String("type", "RDSCollectionsStore")),
 	}
 }
 
-func (s *RDSCollectionsStore) CreateCollection(ctx context.Context, nodeID, name, description string, dois []string) error {
+type CreateCollectionResponse struct {
+	ID          int64
+	CreatorRole role.Role
+}
+
+func (s *RDSCollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (*CreateCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
-		return fmt.Errorf("error connecting to database %s: %w", s.databaseName, err)
+		return nil, fmt.Errorf("error connecting to database %s: %w", s.databaseName, err)
 	}
-	defer conn.Close(ctx)
-	//WITH new_collection AS (
-	//    INSERT INTO collections.collections (name, description, node_id) VALUES ('tttestt', 'this is a test', '12345-abcdef')
-	//        RETURNING id),
-	//     t
-	//         AS (INSERT
-	//         INTO collections.dois (collection_id, doi)
-	//             SELECT new_collection.id, doi
-	//             FROM new_collection,
-	//                  (VALUES ('doi-1'), ('doi-2')) as new_dois(doi))
-	//INSERT
-	//INTO collections.collection_user (collection_id, user_id, permission_bit, role)
-	//SELECT id, 1, 32, 'owner'
-	//FROM new_collection
-	//RETURNING (select id from new_collection);
+	defer s.closeConn(ctx, conn)
+	creatorPermission := pgdb.Owner
 
-	_, err = conn.Exec(ctx, "")
-
-	if err != nil {
-		return fmt.Errorf("error inserting new collection %s: %w", name, err)
+	insertCollectionArgs := pgx.NamedArgs{
+		"name":           name,
+		"description":    description,
+		"node_id":        nodeID,
+		"user_id":        userID,
+		"permission_bit": creatorPermission,
+		"role":           PgxRole(creatorPermission.ToRole()),
 	}
+	insertCollectionSQLFormat := `WITH new_collection AS (
+      INSERT INTO collections.collections (name, description, node_id) 
+                                VALUES (@name, @description, @node_id) RETURNING id
+    ) %s
+	INSERT INTO collections.collection_user (collection_id, user_id, permission_bit, role)
+	SELECT id, @user_id, @permission_bit, @role
+	FROM new_collection
+	RETURNING (select id from new_collection);`
 
-	return nil
+	var insertDOISQL string
+	if len(dois) > 0 {
+		var values []string
+		for i, doi := range dois {
+			key := fmt.Sprintf("doi_%d", i)
+			values = append(values, fmt.Sprintf("(@%s)", key))
+			insertCollectionArgs[key] = doi
+		}
+		insertDOISQLFormat := `, t AS (
+                          INSERT INTO collections.dois (collection_id, doi)
+                          SELECT new_collection.id, doi
+                          FROM new_collection, (VALUES %s) AS new_dois(doi)
+                       )`
+		insertDOISQL = fmt.Sprintf(insertDOISQLFormat, strings.Join(values, ", "))
+	}
+	insertCollectionSQL := fmt.Sprintf(insertCollectionSQLFormat, insertDOISQL)
+	var collectionID int64
+	if err := conn.QueryRow(ctx, insertCollectionSQL, insertCollectionArgs).Scan(&collectionID); err != nil {
+		return nil, fmt.Errorf("error inserting new collection %s: %w", name, err)
+	}
+	s.logger.Debug("inserted new collection",
+		slog.Int64("id", collectionID),
+		slog.String("name", name))
+	return &CreateCollectionResponse{
+		ID:          collectionID,
+		CreatorRole: creatorPermission.ToRole(),
+	}, nil
+}
+
+func (s *RDSCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {
+	if err := conn.Close(ctx); err != nil {
+		s.logger.Warn("error closing DB connection", slog.Any("error", err))
+	}
 }

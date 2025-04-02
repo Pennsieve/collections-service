@@ -1,6 +1,9 @@
 package configtest
 
-import "github.com/pennsieve/collections-service/internal/shared/config"
+import (
+	"github.com/pennsieve/collections-service/internal/shared/config"
+	"github.com/pennsieve/collections-service/internal/test"
+)
 
 // PostgresDBConfig returns a config.PostgresDBConfig suitable for use against
 // the pennseivedb instance started for testing. It is preferred in tests over
@@ -17,6 +20,6 @@ func PostgresDBConfig() config.PostgresDBConfig {
 func PennsieveConfig(discoverServiceHost string) config.PennsieveConfig {
 	return config.NewPennsieveConfigBuilder().
 		WithDiscoverServiceHost(discoverServiceHost).
-		WithDOIPrefix("10/9999.9").
+		WithDOIPrefix(test.DOIPrefix).
 		Build()
 }

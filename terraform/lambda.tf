@@ -26,7 +26,8 @@ resource "aws_lambda_function" "collections_service_api_lambda" {
       POSTGRES_USER                 = local.rds_proxy_user,
       POSTGRES_COLLECTIONS_DATABASE = local.pennsieve_postgres_database,
       DISCOVER_SERVICE_HOST         = local.discover_service_host,
-      PENNSIEVE_DOI_PREFIX          = local.pennsieve_doi_prefix
+      PENNSIEVE_DOI_PREFIX          = local.pennsieve_doi_prefix,
+      LOG_LEVEL                     = local.log_level
     }
   }
 }

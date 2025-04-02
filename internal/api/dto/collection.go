@@ -11,4 +11,5 @@ type CollectionResponse struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Size        int    `json:"size"`
+	UserRole    string `json:"user_role"`
 }

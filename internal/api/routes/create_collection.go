@@ -22,10 +22,16 @@ func CreateCollection(ctx context.Context, params Params) (dto.CollectionRespons
 	if err := ccParams.ValidateCreateRequest(createRequest); err != nil {
 		return dto.CollectionResponse{}, err
 	}
-	collectionsStore := store.NewRDSCollectionsStore(params.Container.PostgresDB(), params.Config.PostgresDB.CollectionsDatabase)
+
+	DeduplicateDOIs(&createRequest)
+
+	collectionsStore := store.NewRDSCollectionsStore(params.Container.PostgresDB(),
+		params.Config.PostgresDB.CollectionsDatabase,
+		params.Logger)
 	nodeID := uuid.NewString()
 
-	if err := collectionsStore.CreateCollection(ctx, nodeID, createRequest.Name, createRequest.Description, createRequest.DOIs); err != nil {
+	storeResp, err := collectionsStore.CreateCollection(ctx, params.Claims.UserClaim.Id, nodeID, createRequest.Name, createRequest.Description, createRequest.DOIs)
+	if err != nil {
 		return dto.CollectionResponse{},
 			apierrors.NewInternalServerError(fmt.Sprintf("error creating collection %s", createRequest.Name), err)
 	}
@@ -34,6 +40,7 @@ func CreateCollection(ctx context.Context, params Params) (dto.CollectionRespons
 		Name:        createRequest.Name,
 		Description: createRequest.Description,
 		Size:        len(createRequest.DOIs),
+		UserRole:    storeResp.CreatorRole.String(),
 	}
 	return response, nil
 }
@@ -61,4 +68,23 @@ func (p createCollectionParams) ValidateCreateRequest(request dto.CreateCollecti
 		return err
 	}
 	return nil
+}
+
+func DeduplicateDOIs(createRequest *dto.CreateCollectionRequest) {
+	seenDOIs := map[string]bool{}
+	hasDups := false
+	var deDuped []string
+	// Maybe overly complicated, but trying to maintain order of the dois so that
+	// if there are dups, we take the first one
+	for _, doi := range createRequest.DOIs {
+		if _, seen := seenDOIs[doi]; seen {
+			hasDups = true
+		} else {
+			deDuped = append(deDuped, doi)
+			seenDOIs[doi] = true
+		}
+	}
+	if hasDups {
+		createRequest.DOIs = deDuped
+	}
 }
