@@ -1,0 +1,20 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      - pennsievedb
+    environment:
+      - AWS_ACCESS_KEY_ID=TestAWSKey
+      - AWS_SECRET_ACCESS_KEY=TestAWSSecret
+      - POSTGRES_HOST=pennsievedb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_COLLECTIONS_DATABASE=postgres
+
+  # Using this pennsieve image for testing because collections
+  # schema has a foreign key relation to pennsieve.users table.
+  pennsievedb:
+    image: pennsieve/pennsievedb:V20241120161735-seed
+    restart: always

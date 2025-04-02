@@ -1,0 +1,35 @@
+#!groovy
+
+timestamps {
+  def pennsieveNexusCreds = usernamePassword(
+          credentialsId: 'pennsieve-nexus-ci-login',
+          usernameVariable: 'PENNSIEVE_NEXUS_USER',
+          passwordVariable: 'PENNSIEVE_NEXUS_PW'
+  )
+
+  node('prod-executor') {
+    try {
+      stage('Run migrations') {
+        if (params.RUN_MIGRATIONS) {
+          echo "Running PROD Postgres Collections Service Schema Migrations"
+          build job: "Migrations/prod-migrations/prod-collections-service-postgres-migrations",
+                  parameters: [
+                          string(name: 'IMAGE_TAG', value: params.IMAGE_TAG)
+                  ]
+        }
+      }
+
+      stage('Deploy') {
+        build job: "service-deploy/pennsieve-prod/us-east-1/prod-vpc-use1/prod/collections-service",
+                parameters: [
+                        string(name: 'IMAGE_TAG', value: params.IMAGE_TAG),
+                        string(name: "TERRAFORM_ACTION", value: "apply")
+                ]
+      }
+    } catch (e) {
+      slackSend(color: '#FF0000', message: "FAILED: Production Collections Service Deploy - ${params.IMAGE_TAG}")
+      throw e
+    }
+    slackSend(color: '#00FF00', message: "SUCCESS: Production Collections Service Deploy - ${params.IMAGE_TAG}")
+  }
+}
