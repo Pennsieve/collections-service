@@ -23,8 +23,9 @@ func CollectionDescription(description string) *apierrors.Error {
 }
 
 func PennsieveDOIPrefix(pennsievePrefix string, dois ...string) *apierrors.Error {
+	expectedPrefix := fmt.Sprintf("%s/", pennsievePrefix)
 	for _, doi := range dois {
-		if !strings.HasPrefix(doi, pennsievePrefix) {
+		if !strings.HasPrefix(doi, expectedPrefix) {
 			return apierrors.NewBadRequestError(fmt.Sprintf("DOI %s does not have the required Pennsieve prefix %s",
 				doi, pennsievePrefix))
 		}

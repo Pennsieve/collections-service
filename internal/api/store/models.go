@@ -26,6 +26,8 @@ type CollectionUser struct {
 	Role          PgxRole           `db:"role"`
 }
 
+// PgxRole is a wrapper around role.Role that implements pgtype.TextScanner and pgtype.TextValuer
+// so that we can scan into them and use them as query parameters
 type PgxRole role.Role
 
 func (r *PgxRole) ScanText(v pgtype.Text) error {
@@ -48,4 +50,12 @@ func (r PgxRole) TextValue() (pgtype.Text, error) {
 
 func (r *PgxRole) AsRole() role.Role {
 	return role.Role(*r)
+}
+
+type CollectionDOI struct {
+	ID           int64     `db:"id"`
+	CollectionID int64     `db:"collection_id"`
+	DOI          string    `db:"doi"`
+	UpdatedAt    time.Time `db:"updated_at"`
+	CreatedAt    time.Time `db:"created_at"`
 }

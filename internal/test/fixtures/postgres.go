@@ -55,3 +55,18 @@ func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn,
 	}
 	return
 }
+
+func GetDOIs(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (doiToDOI map[string]store.CollectionDOI) {
+	test.Helper(t)
+	rows, err := conn.Query(ctx,
+		"SELECT * FROM collections.dois WHERE collection_id = @collection_id",
+		pgx.NamedArgs{"collection_id": collectionID})
+	require.NoError(t, err)
+	dois, err := pgx.CollectRows(rows, pgx.RowToStructByName[store.CollectionDOI])
+	require.NoError(t, err)
+	doiToDOI = make(map[string]store.CollectionDOI, len(dois))
+	for _, doi := range dois {
+		doiToDOI[doi.DOI] = doi
+	}
+	return
+}

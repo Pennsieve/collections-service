@@ -80,9 +80,9 @@ func createCollectionEmptyDOIs(t *testing.T, store *store.RDSCollectionsStore, e
 func createCollectionOneDOI(t *testing.T, store *store.RDSCollectionsStore, expectationDB *ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner)
+	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewDOI())
 
-	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []string{test.NewDOI()})
+	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -94,9 +94,9 @@ func createCollectionOneDOI(t *testing.T, store *store.RDSCollectionsStore, expe
 func createCollectionManyDOIs(t *testing.T, store *store.RDSCollectionsStore, expectationDB *ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner)
+	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewDOI(), test.NewDOI(), test.NewDOI())
 
-	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []string{test.NewDOI(), test.NewDOI(), test.NewDOI()})
+	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -108,10 +108,10 @@ func createCollectionManyDOIs(t *testing.T, store *store.RDSCollectionsStore, ex
 func createCollectionEmptyDescription(t *testing.T, store *store.RDSCollectionsStore, expectationDB *ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner)
+	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewDOI(), test.NewDOI(), test.NewDOI())
 	expectedCollection.Description = ""
 
-	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []string{test.NewDOI(), test.NewDOI(), test.NewDOI()})
+	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -125,6 +125,7 @@ type ExpectedCollection struct {
 	Description string
 	NodeID      string
 	Users       []ExpectedUser
+	DOIs        ExpectedDOIs
 }
 
 func NewExpectedCollection() *ExpectedCollection {
@@ -143,6 +144,30 @@ type ExpectedUser struct {
 func (c *ExpectedCollection) WithUser(userID int64, permission pgdb.DbPermission) *ExpectedCollection {
 	c.Users = append(c.Users, ExpectedUser{userID, permission})
 	return c
+}
+
+type ExpectedDOI struct {
+	DOI string
+}
+
+func (c *ExpectedCollection) WithDOIs(dois ...string) *ExpectedCollection {
+	for _, doi := range dois {
+		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: doi})
+	}
+	return c
+}
+
+type ExpectedDOIs []ExpectedDOI
+
+func (d ExpectedDOIs) Strings() []string {
+	if len(d) == 0 {
+		return nil
+	}
+	strs := make([]string, len(d))
+	for i, doi := range d {
+		strs[i] = doi.DOI
+	}
+	return strs
 }
 
 type ExpectationDB struct {
@@ -185,5 +210,15 @@ func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.Testing
 		require.Equal(t, expectedUser.PermissionBit.ToRole(), actualUser.Role.AsRole())
 		require.NotZero(t, actualUser.CreatedAt)
 		require.NotZero(t, actualUser.UpdatedAt)
+	}
+
+	actualDOIs := fixtures.GetDOIs(ctx, t, conn, expectedCollectionID)
+	require.Len(t, actualDOIs, len(expected.DOIs))
+	for _, expectedDOI := range expected.DOIs {
+		require.Contains(t, actualDOIs, expectedDOI.DOI)
+		actualDOI := actualDOIs[expectedDOI.DOI]
+		require.Equal(t, expectedDOI.DOI, actualDOI.DOI)
+		require.NotZero(t, actualDOI.CreatedAt)
+		require.NotZero(t, actualDOI.UpdatedAt)
 	}
 }
