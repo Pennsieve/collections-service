@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS dois
     id            SERIAL PRIMARY KEY,
     collection_id INTEGER      NOT NULL REFERENCES collections (id) ON DELETE CASCADE,
     doi           VARCHAR(255) NOT NULL,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (collection_id, doi)
 );
 
