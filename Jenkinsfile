@@ -28,7 +28,7 @@ ansiColor('xterm') {
         stage('Run Migrations') {
           build job: "Migrations/dev-migrations/dev-collections-service-postgres-migrations",
                   parameters: [
-                          string(name: 'IMAGE_TAG', value: imageTag)
+                          string(name: 'IMAGE_TAG', value: 'describe3')
                   ]
         }
 
