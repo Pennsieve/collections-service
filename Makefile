@@ -41,7 +41,7 @@ package:
 	@echo ""
 	docker buildx build --platform linux/amd64 -t $(DBMIGRATE_IMAGE_NAME) -f Dockerfile.cloudwrap-dbmigrate .
 
-publish:
+publish: package
 	@echo "*****************************"
 	@echo "*   Publishing API lambda   *"
 	@echo "*****************************"
