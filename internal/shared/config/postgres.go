@@ -38,10 +38,10 @@ func (b *PostgresDBConfigBuilder) Build() PostgresDBConfig {
 		b.c.Port = Atoi(GetEnvOrDefault("POSTGRES_PORT", "5432"))
 	}
 	if len(b.c.User) == 0 {
-		b.c.User = getEnv("POSTGRES_USER")
+		b.c.User = GetEnv("POSTGRES_USER")
 	}
 	if b.c.Password == nil {
-		b.c.Password = getEnvOrNil("POSTGRES_PASSWORD")
+		b.c.Password = GetEnvOrNil("POSTGRES_PASSWORD")
 	}
 	if len(b.c.CollectionsDatabase) == 0 {
 		b.c.CollectionsDatabase = GetEnvOrDefault("POSTGRES_COLLECTIONS_DATABASE", "postgres")

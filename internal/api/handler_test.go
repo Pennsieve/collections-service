@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/user"
 	"net/http"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/pennsieve/collections-service/internal/test/containertest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,7 +28,7 @@ func TestAPILambdaHandler(t *testing.T) {
 }
 
 func testDefaultNotFound(t *testing.T) {
-	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer(), containertest.Config())
+	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(t), apitest.Config())
 
 	req := events.APIGatewayV2HTTPRequest{
 		RouteKey: "GET /unknown",
@@ -50,7 +50,7 @@ func testDefaultNotFound(t *testing.T) {
 }
 
 func testNoClaims(t *testing.T) {
-	handler := CollectionsServiceAPIHandler(containertest.NewMockTestContainer(), containertest.Config())
+	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(t), apitest.Config())
 
 	req := events.APIGatewayV2HTTPRequest{
 		RouteKey: "GET /unknown",

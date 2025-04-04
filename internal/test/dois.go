@@ -10,3 +10,7 @@ const DOIPrefix = "10.9999.9"
 func NewDOI() string {
 	return fmt.Sprintf("%s/%s", DOIPrefix, uuid.NewString())
 }
+
+func NewDOIWithPrefix(prefix string) string {
+	return fmt.Sprintf("%s/%s", prefix, uuid.NewString())
+}

@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/container"
 	"github.com/pennsieve/collections-service/internal/api/routes"
-	"github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"log"
 	"log/slog"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/pennsieve/collections-service/internal/shared/container"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 )
 

@@ -2,21 +2,24 @@ package container
 
 import (
 	"context"
+	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/service"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
-	"github.com/pennsieve/collections-service/internal/shared/config"
 )
 
 type DependencyContainer interface {
 	PostgresDB() postgres.DB
+	Discover() service.Discover
 }
 
 type Container struct {
 	AwsConfig  aws.Config
 	Config     config.Config
 	postgresdb *postgres.RDSProxy
+	discover   *service.HTTPDiscover
 }
 
 func NewContainer() (*Container, error) {
@@ -49,4 +52,11 @@ func (c *Container) PostgresDB() postgres.DB {
 	}
 
 	return c.postgresdb
+}
+
+func (c *Container) Discover() service.Discover {
+	if c.discover == nil {
+		c.discover = service.NewHTTPDiscover(c.Config.PennsieveConfig.DiscoverServiceHost)
+	}
+	return c.discover
 }

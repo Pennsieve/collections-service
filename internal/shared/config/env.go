@@ -6,19 +6,7 @@ import (
 	"strconv"
 )
 
-type Config struct {
-	PostgresDB      PostgresDBConfig
-	PennsieveConfig PennsieveConfig
-}
-
-func LoadConfig() Config {
-	return Config{
-		PostgresDB:      LoadPostgresDBConfig(),
-		PennsieveConfig: LoadPennsieveConfig(),
-	}
-}
-
-func getEnv(key string) string {
+func GetEnv(key string) string {
 	value, exists := os.LookupEnv(key)
 
 	if !exists {
@@ -36,7 +24,7 @@ func GetEnvOrDefault(key string, defaultValue string) string {
 	}
 }
 
-func getEnvOrNil(key string) *string {
+func GetEnvOrNil(key string) *string {
 	if value, exists := os.LookupEnv(key); exists {
 		return &value
 	} else {

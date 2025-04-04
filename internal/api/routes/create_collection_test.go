@@ -1,43 +1,50 @@
 package routes
 
 import (
-	"github.com/google/uuid"
-	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestDeduplicateDOIs(t *testing.T) {
-	doi1 := test.NewDOI()
-	doi2 := test.NewDOI()
-	doi3 := test.NewDOI()
+func TestCategorizeDOIs(t *testing.T) {
+	pennsievePrefix := "10.26275"
+	pennsieveDOI1 := test.NewDOIWithPrefix(pennsievePrefix)
+	pennsieveDOI2 := test.NewDOIWithPrefix(pennsievePrefix)
+	pennsieveDOI3 := test.NewDOIWithPrefix(pennsievePrefix)
+
+	externalDOI1 := test.NewDOI()
+	externalDOI2 := test.NewDOI()
+
 	type args struct {
-		createRequest *dto.CreateCollectionRequest
-		expectedDOIs  []string
+		inputDOIs             []string
+		expectedPennsieveDOIs []string
+		expectedExternalDOIs  []string
 	}
 	tests := []struct {
 		name string
 		args args
 	}{
 		{"no dois",
-			args{&dto.CreateCollectionRequest{Name: uuid.NewString()}, nil},
+			args{nil, nil, nil},
 		},
 		{"no dups",
-			args{createRequest: &dto.CreateCollectionRequest{Name: uuid.NewString(),
-				DOIs: []string{doi1, doi2, doi3}},
-				expectedDOIs: []string{doi1, doi2, doi3}},
+			args{
+				inputDOIs:             []string{pennsieveDOI1, pennsieveDOI2, externalDOI1, pennsieveDOI3, externalDOI2},
+				expectedPennsieveDOIs: []string{pennsieveDOI1, pennsieveDOI2, pennsieveDOI3},
+				expectedExternalDOIs:  []string{externalDOI1, externalDOI2}},
 		},
 		{"some dups",
-			args{createRequest: &dto.CreateCollectionRequest{Name: uuid.NewString(),
-				DOIs: []string{doi3, doi1, doi2, doi3, doi2}},
-				expectedDOIs: []string{doi3, doi1, doi2}},
+			args{inputDOIs: []string{pennsieveDOI3, pennsieveDOI1, pennsieveDOI2, pennsieveDOI3, pennsieveDOI2},
+				expectedPennsieveDOIs: []string{pennsieveDOI3, pennsieveDOI1, pennsieveDOI2},
+				expectedExternalDOIs:  nil},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			DeduplicateDOIs(tt.args.createRequest)
-			assert.Equal(t, tt.args.expectedDOIs, tt.args.createRequest.DOIs)
+			actualPennsieve, actualExternal := CategorizeDOIs(pennsievePrefix, tt.args.inputDOIs)
+			assert.Equal(t, tt.args.expectedPennsieveDOIs, actualPennsieve)
+			assert.Equal(t, tt.args.expectedExternalDOIs, actualExternal)
 		})
 	}
+
 }

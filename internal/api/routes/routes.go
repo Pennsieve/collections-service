@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
-	"github.com/pennsieve/collections-service/internal/shared/config"
-	"github.com/pennsieve/collections-service/internal/shared/container"
+	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/container"
+	"github.com/pennsieve/collections-service/internal/shared/util"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"log/slog"
 )
 
 func DefaultResponseHeaders() map[string]string {
-	return map[string]string{"content-type": "application/json"}
+	return map[string]string{"content-type": util.ApplicationJSON}
 }
 
 type Params struct {
@@ -27,13 +28,13 @@ type Params struct {
 type Func[T any] func(ctx context.Context, params Params) (T, *apierrors.Error)
 
 type Handler[T any] struct {
-	Handle            Func[T]
+	HandleFunc        Func[T]
 	SuccessStatusCode int
 	Headers           map[string]string
 }
 
 func Handle[T any](ctx context.Context, params Params, handler Handler[T]) (events.APIGatewayV2HTTPResponse, error) {
-	response, err := handler.Handle(ctx, params)
+	response, err := handler.HandleFunc(ctx, params)
 	if err != nil {
 		err.LogError(params.Logger)
 		return ErrorGatewayResponse(err), nil

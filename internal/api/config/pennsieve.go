@@ -1,5 +1,7 @@
 package config
 
+import sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
+
 type PennsieveConfig struct {
 	DiscoverServiceHost string
 	DOIPrefix           string
@@ -29,10 +31,10 @@ func (b *PennsieveConfigBuilder) WithDOIPrefix(doiPrefix string) *PennsieveConfi
 
 func (b *PennsieveConfigBuilder) Build() PennsieveConfig {
 	if len(b.c.DiscoverServiceHost) == 0 {
-		b.c.DiscoverServiceHost = getEnv("DISCOVER_SERVICE_HOST")
+		b.c.DiscoverServiceHost = sharedconfig.GetEnv("DISCOVER_SERVICE_HOST")
 	}
 	if len(b.c.DOIPrefix) == 0 {
-		b.c.DOIPrefix = getEnv("PENNSIEVE_DOI_PREFIX")
+		b.c.DOIPrefix = sharedconfig.GetEnv("PENNSIEVE_DOI_PREFIX")
 	}
 	return *b.c
 }
