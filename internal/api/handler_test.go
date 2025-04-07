@@ -2,11 +2,14 @@ package api
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/user"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 
@@ -20,6 +23,7 @@ func TestAPILambdaHandler(t *testing.T) {
 	){
 		"default not found response": testDefaultNotFound,
 		"no claims":                  testNoClaims,
+		"create collection":          testCreateCollection,
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			fn(t)
@@ -39,7 +43,7 @@ func testDefaultNotFound(t *testing.T) {
 		},
 	}
 
-	WithClaims(&req, ClaimsToMap(DefaultClaims()))
+	WithClaims(&req, ClaimsToMap(DefaultClaims(test.User2)))
 
 	response, err := handler(context.Background(), req)
 
@@ -53,7 +57,7 @@ func testNoClaims(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(t), apitest.Config())
 
 	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "GET /unknown",
+		RouteKey: "POST /collections",
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
 				Lambda: make(map[string]interface{}),
@@ -67,6 +71,36 @@ func testNoClaims(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 }
 
+func testCreateCollection(t *testing.T) {
+	t.Skip("working on this")
+	createCollectionRequest := dto.CreateCollectionRequest{
+		Name:        uuid.NewString(),
+		Description: uuid.NewString(),
+		DOIs:        []string{test.NewDOI(), test.NewDOI()},
+	}
+	bodyBytes, err := json.Marshal(createCollectionRequest)
+	require.NoError(t, err)
+
+	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(t), apitest.Config())
+
+	req := events.APIGatewayV2HTTPRequest{
+		RouteKey: "POST /collections",
+		RequestContext: events.APIGatewayV2HTTPRequestContext{
+			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
+				Lambda: make(map[string]interface{}),
+			},
+		},
+		Body: string(bodyBytes),
+	}
+
+	WithClaims(&req, ClaimsToMap(DefaultClaims(test.User)))
+
+	response, err := handler(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, response.StatusCode)
+}
+
 func WithClaims(request *events.APIGatewayV2HTTPRequest, claims map[string]interface{}) {
 	requestAuthorizer := request.RequestContext.Authorizer
 	if requestAuthorizer == nil {
@@ -78,11 +112,11 @@ func WithClaims(request *events.APIGatewayV2HTTPRequest, claims map[string]inter
 	request.RequestContext.Authorizer = requestAuthorizer
 }
 
-func DefaultClaims() authorizer.Claims {
+func DefaultClaims(seedUser test.SeedUser) authorizer.Claims {
 	return authorizer.Claims{
 		UserClaim: &user.Claim{
-			Id:           101,
-			NodeId:       fmt.Sprintf("N:user:%s", uuid.NewString()),
+			Id:           seedUser.ID,
+			NodeId:       seedUser.NodeID,
 			IsSuperAdmin: false,
 		},
 	}

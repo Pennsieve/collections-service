@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+type CollectionsStore interface {
+	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (*CreateCollectionResponse, error)
+}
+
 type RDSCollectionsStore struct {
 	db           postgres.DB
 	databaseName string

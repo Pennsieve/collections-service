@@ -4,6 +4,9 @@ import (
 	"context"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/shared/logging"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
@@ -13,13 +16,18 @@ import (
 type DependencyContainer interface {
 	PostgresDB() postgres.DB
 	Discover() service.Discover
+	CollectionsStore() store.CollectionsStore
+	Logger() *slog.Logger
+	SetLogger(logger *slog.Logger)
 }
 
 type Container struct {
-	AwsConfig  aws.Config
-	Config     config.Config
-	postgresdb *postgres.RDSProxy
-	discover   *service.HTTPDiscover
+	AwsConfig        aws.Config
+	Config           config.Config
+	postgresdb       *postgres.RDSProxy
+	discover         *service.HTTPDiscover
+	collectionsStore *store.RDSCollectionsStore
+	logger           *slog.Logger
 }
 
 func NewContainer() (*Container, error) {
@@ -38,6 +46,17 @@ func NewContainerFromConfig(config config.Config, awsConfig aws.Config) *Contain
 		Config:    config,
 		AwsConfig: awsConfig,
 	}
+}
+
+func (c *Container) SetLogger(logger *slog.Logger) {
+	c.logger = logger
+}
+
+func (c *Container) Logger() *slog.Logger {
+	if c.logger == nil {
+		c.logger = logging.Default
+	}
+	return c.logger
 }
 
 func (c *Container) PostgresDB() postgres.DB {
@@ -59,4 +78,13 @@ func (c *Container) Discover() service.Discover {
 		c.discover = service.NewHTTPDiscover(c.Config.PennsieveConfig.DiscoverServiceHost)
 	}
 	return c.discover
+}
+
+func (c *Container) CollectionsStore() store.CollectionsStore {
+	if c.collectionsStore == nil {
+		c.collectionsStore = store.NewRDSCollectionsStore(c.PostgresDB(),
+			c.Config.PostgresDB.CollectionsDatabase,
+			c.logger)
+	}
+	return c.collectionsStore
 }

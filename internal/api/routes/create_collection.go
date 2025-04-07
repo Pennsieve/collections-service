@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/api/validate"
 	"net/http"
 	"strings"
@@ -55,9 +54,8 @@ func CreateCollection(ctx context.Context, params Params) (dto.CollectionRespons
 		response.Banners = collectBanners(createRequest.DOIs, datasetResults.Published)
 
 	}
-	collectionsStore := store.NewRDSCollectionsStore(params.Container.PostgresDB(),
-		params.Config.PostgresDB.CollectionsDatabase,
-		params.Logger)
+	collectionsStore := ccParams.Container.CollectionsStore()
+
 	storeResp, err := collectionsStore.CreateCollection(ctx, params.Claims.UserClaim.Id, nodeID, createRequest.Name, createRequest.Description, pennsieveDOIs)
 	if err != nil {
 		return dto.CollectionResponse{},

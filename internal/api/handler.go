@@ -33,7 +33,9 @@ func CollectionsServiceAPIHandler(
 	config config.Config,
 ) LambdaHandler {
 	return func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-		logger := logging.Default.With(slog.String("routeKey", request.RouteKey))
+		routeKey := request.RouteKey
+		logger := logging.Default.With(slog.String("routeKey", routeKey))
+		container.SetLogger(logger)
 
 		claims := authorizer.ParseClaims(request.RequestContext.Authorizer.Lambda)
 
@@ -48,14 +50,13 @@ func CollectionsServiceAPIHandler(
 			Container: container,
 			Config:    config,
 			Claims:    claims,
-			Logger:    logger,
 		}
-		switch request.RouteKey {
+		switch routeKey {
 		case "POST /collections":
 			routeHandler := routes.NewCreateCollectionRouteHandler()
 			return routes.Handle(ctx, routeParams, routeHandler)
 		default:
-			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", request.RouteKey), nil, http.StatusNotFound)
+			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", routeKey), nil, http.StatusNotFound)
 			routeNotFound.LogError(logger)
 			return routes.ErrorGatewayResponse(routeNotFound), nil
 		}

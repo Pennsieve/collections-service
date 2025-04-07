@@ -10,9 +10,10 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/container"
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
-	"log/slog"
 )
 
+// DefaultResponseHeaders is a function instead of variable so that callers can
+// modify the returned map without changing a package-wide variable.
 func DefaultResponseHeaders() map[string]string {
 	return map[string]string{"content-type": util.ApplicationJSON}
 }
@@ -22,7 +23,6 @@ type Params struct {
 	Container container.DependencyContainer
 	Config    config.Config
 	Claims    *authorizer.Claims
-	Logger    *slog.Logger
 }
 
 type Func[T any] func(ctx context.Context, params Params) (T, *apierrors.Error)
@@ -36,13 +36,13 @@ type Handler[T any] struct {
 func Handle[T any](ctx context.Context, params Params, handler Handler[T]) (events.APIGatewayV2HTTPResponse, error) {
 	response, err := handler.HandleFunc(ctx, params)
 	if err != nil {
-		err.LogError(params.Logger)
+		err.LogError(params.Container.Logger())
 		return ErrorGatewayResponse(err), nil
 	}
 	body, marshalErr := json.Marshal(response)
 	if marshalErr != nil {
 		err = apierrors.NewInternalServerError(fmt.Sprintf("error marshalling response body to %T", response), marshalErr)
-		err.LogError(params.Logger)
+		err.LogError(params.Container.Logger())
 		return ErrorGatewayResponse(err), nil
 	}
 	return events.APIGatewayV2HTTPResponse{
