@@ -9,11 +9,12 @@ type CreateCollectionRequest struct {
 }
 
 type CollectionResponse struct {
-	NodeID      string `json:"node_id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Size        int    `json:"size"`
-	UserRole    string `json:"user_role"`
+	NodeID      string   `json:"node_id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Banners     []string `json:"banners"`
+	Size        int      `json:"size"`
+	UserRole    string   `json:"user_role"`
 }
 type PublicDataset struct {
 	ID                     int64                       `json:"id"`

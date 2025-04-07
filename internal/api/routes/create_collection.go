@@ -31,38 +31,41 @@ func CreateCollection(ctx context.Context, params Params) (dto.CollectionRespons
 			fmt.Sprintf("request contains non-Pennsieve DOIs: %s", strings.Join(externalDOIs, ", ")))
 	}
 
-	datasetResults, err := ccParams.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
-	if err != nil {
-		return dto.CollectionResponse{}, apierrors.NewInternalServerError("error looking up DOIs in Discover", err)
+	nodeID := uuid.NewString()
+	response := dto.CollectionResponse{
+		NodeID:      nodeID,
+		Name:        createRequest.Name,
+		Description: createRequest.Description,
+		Size:        len(pennsieveDOIs),
 	}
-
-	if len(datasetResults.Unpublished) > 0 {
-		var details []string
-		for _, unpublished := range datasetResults.Unpublished {
-			details = append(details, fmt.Sprintf("%s status is %s", unpublished.DOI, unpublished.Status))
+	if len(pennsieveDOIs) > 0 {
+		datasetResults, err := ccParams.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
+		if err != nil {
+			return dto.CollectionResponse{}, apierrors.NewInternalServerError("error looking up DOIs in Discover", err)
 		}
-		return dto.CollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf("request contains unpublished DOIs: %s", strings.Join(details, "; ")))
+
+		if len(datasetResults.Unpublished) > 0 {
+			var details []string
+			for _, unpublished := range datasetResults.Unpublished {
+				details = append(details, fmt.Sprintf("%s status is %s", unpublished.DOI, unpublished.Status))
+			}
+			return dto.CollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf("request contains unpublished DOIs: %s", strings.Join(details, "; ")))
+		}
+
+		response.Banners = collectBanners(createRequest.DOIs, datasetResults.Published)
+
 	}
-
-	//TODO get banners from datasetResults
-
 	collectionsStore := store.NewRDSCollectionsStore(params.Container.PostgresDB(),
 		params.Config.PostgresDB.CollectionsDatabase,
 		params.Logger)
-	nodeID := uuid.NewString()
-
 	storeResp, err := collectionsStore.CreateCollection(ctx, params.Claims.UserClaim.Id, nodeID, createRequest.Name, createRequest.Description, pennsieveDOIs)
 	if err != nil {
 		return dto.CollectionResponse{},
 			apierrors.NewInternalServerError(fmt.Sprintf("error creating collection %s", createRequest.Name), err)
 	}
-	response := dto.CollectionResponse{
-		NodeID:      nodeID,
-		Name:        createRequest.Name,
-		Description: createRequest.Description,
-		Size:        len(createRequest.DOIs),
-		UserRole:    storeResp.CreatorRole.String(),
-	}
+
+	response.UserRole = storeResp.CreatorRole.String()
+
 	return response, nil
 }
 
