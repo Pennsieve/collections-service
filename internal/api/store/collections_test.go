@@ -80,7 +80,7 @@ func createCollectionEmptyDOIs(t *testing.T, store *store.RDSCollectionsStore, e
 func createCollectionOneDOI(t *testing.T, store *store.RDSCollectionsStore, expectationDB *ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewDOI())
+	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI())
 
 	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func createCollectionOneDOI(t *testing.T, store *store.RDSCollectionsStore, expe
 func createCollectionManyDOIs(t *testing.T, store *store.RDSCollectionsStore, expectationDB *ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewDOI(), test.NewDOI(), test.NewDOI())
+	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
 
 	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
@@ -108,7 +108,7 @@ func createCollectionManyDOIs(t *testing.T, store *store.RDSCollectionsStore, ex
 func createCollectionEmptyDescription(t *testing.T, store *store.RDSCollectionsStore, expectationDB *ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewDOI(), test.NewDOI(), test.NewDOI())
+	expectedCollection := NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
 	expectedCollection.Description = ""
 
 	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())

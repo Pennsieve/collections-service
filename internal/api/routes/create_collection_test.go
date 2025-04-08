@@ -7,13 +7,12 @@ import (
 )
 
 func TestCategorizeDOIs(t *testing.T) {
-	pennsievePrefix := "10.26275"
-	pennsieveDOI1 := test.NewDOIWithPrefix(pennsievePrefix)
-	pennsieveDOI2 := test.NewDOIWithPrefix(pennsievePrefix)
-	pennsieveDOI3 := test.NewDOIWithPrefix(pennsievePrefix)
+	pennsieveDOI1 := test.NewPennsieveDOI()
+	pennsieveDOI2 := test.NewPennsieveDOI()
+	pennsieveDOI3 := test.NewPennsieveDOI()
 
-	externalDOI1 := test.NewDOI()
-	externalDOI2 := test.NewDOI()
+	externalDOI1 := test.NewExternalDOI()
+	externalDOI2 := test.NewExternalDOI()
 
 	type args struct {
 		inputDOIs             []string
@@ -41,7 +40,7 @@ func TestCategorizeDOIs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualPennsieve, actualExternal := CategorizeDOIs(pennsievePrefix, tt.args.inputDOIs)
+			actualPennsieve, actualExternal := CategorizeDOIs(test.PennsieveDOIPrefix, tt.args.inputDOIs)
 			assert.Equal(t, tt.args.expectedPennsieveDOIs, actualPennsieve)
 			assert.Equal(t, tt.args.expectedExternalDOIs, actualExternal)
 		})

@@ -13,12 +13,12 @@ func Test_collectBanners(t *testing.T) {
 		datasetsByDOI map[string]dto.PublicDataset
 	}
 
-	dataset1 := dto.PublicDataset{DOI: test.NewDOI(), Banner: test.NewBanner()}
-	dataset2 := dto.PublicDataset{DOI: test.NewDOI(), Banner: test.NewBanner()}
-	dataset3 := dto.PublicDataset{DOI: test.NewDOI(), Banner: test.NewBanner()}
-	dataset4 := dto.PublicDataset{DOI: test.NewDOI(), Banner: test.NewBanner()}
-	dataset5 := dto.PublicDataset{DOI: test.NewDOI(), Banner: test.NewBanner()}
-	datasetWithoutBanner := dto.PublicDataset{DOI: test.NewDOI()}
+	dataset1 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
+	dataset2 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
+	dataset3 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
+	dataset4 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
+	dataset5 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
+	datasetWithoutBanner := dto.PublicDataset{DOI: test.NewPennsieveDOI()}
 
 	tests := []struct {
 		name     string
@@ -32,12 +32,12 @@ func Test_collectBanners(t *testing.T) {
 		},
 		{
 			"map empty",
-			args{[]string{test.NewDOI(), test.NewDOI(), test.NewDOI()}, nil},
+			args{[]string{test.NewExternalDOI(), test.NewExternalDOI(), test.NewExternalDOI()}, nil},
 			nil,
 		},
 		{
 			"less than 4",
-			args{[]string{test.NewDOI(), dataset1.DOI, test.NewDOI()},
+			args{[]string{test.NewExternalDOI(), dataset1.DOI, test.NewExternalDOI()},
 				test.GroupByDOI(dataset1)},
 			[]string{*dataset1.Banner},
 		},
@@ -55,7 +55,7 @@ func Test_collectBanners(t *testing.T) {
 		},
 		{
 			"a lot of external DOIs",
-			args{[]string{test.NewDOI(), test.NewDOI(), test.NewDOI(), test.NewDOI(), test.NewDOI(), dataset1.DOI},
+			args{[]string{test.NewExternalDOI(), test.NewExternalDOI(), test.NewExternalDOI(), test.NewExternalDOI(), test.NewExternalDOI(), dataset1.DOI},
 				test.GroupByDOI(dataset1)},
 			[]string{*dataset1.Banner},
 		},

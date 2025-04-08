@@ -5,10 +5,16 @@ import (
 	"github.com/google/uuid"
 )
 
-const DOIPrefix = "10.9999.9"
+const ExternalDOIPrefix = "10.9999.9"
 
-func NewDOI() string {
-	return fmt.Sprintf("%s/%s", DOIPrefix, uuid.NewString())
+func NewExternalDOI() string {
+	return fmt.Sprintf("%s/%s", ExternalDOIPrefix, uuid.NewString())
+}
+
+const PennsieveDOIPrefix = "10.1111"
+
+func NewPennsieveDOI() string {
+	return NewDOIWithPrefix(PennsieveDOIPrefix)
 }
 
 func NewDOIWithPrefix(prefix string) string {
