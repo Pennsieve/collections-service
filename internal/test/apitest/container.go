@@ -61,7 +61,20 @@ func (c *TestContainer) WithDiscover(discover service.Discover) *TestContainer {
 	return c
 }
 
+func (c *TestContainer) WithHTTPTestDiscover(mockServerURL string) *TestContainer {
+	c.TestDiscover = service.NewHTTPDiscover(mockServerURL, c.Logger())
+	return c
+}
+
 func (c *TestContainer) WithCollectionsStore(collectionsStore store.CollectionsStore) *TestContainer {
 	c.TestCollectionsStore = collectionsStore
+	return c
+}
+
+func (c *TestContainer) WithContainerStoreFromPostgresDB(collectionsDBName string) *TestContainer {
+	if c.TestPostgresDB == nil {
+		panic("cannot create ContainerStore from nil PostgresDB; call WithPostgresDB first")
+	}
+	c.TestCollectionsStore = store.NewRDSCollectionsStore(c.TestPostgresDB, collectionsDBName, c.Logger())
 	return c
 }

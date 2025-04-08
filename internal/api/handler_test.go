@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -172,21 +173,12 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 	}
 
 	mockDiscoverService := mocks.NewMockDiscover().
-		WithGetDatasetsByDOIFunc(func(dois []string) (dto.DatasetsByDOIResponse, error) {
+		WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
 			test.Helper(t)
 			require.Equal(t, []string{publishedDOI, unpublishedDOI}, dois)
-			return dto.DatasetsByDOIResponse{
-				Published: map[string]dto.PublicDataset{publishedDOI: {
-					ID:      1,
-					Version: 3,
-					DOI:     publishedDOI,
-				}},
-				Unpublished: map[string]dto.Tombstone{unpublishedDOI: {
-					ID:      2,
-					Version: 1,
-					Status:  expectedStatus,
-					DOI:     unpublishedDOI,
-				}},
+			return service.DatasetsByDOIResponse{
+				Published:   map[string]dto.PublicDataset{publishedDOI: test.NewPublicDataset(publishedDOI, nil)},
+				Unpublished: map[string]dto.Tombstone{unpublishedDOI: test.NewTombstone(unpublishedDOI, expectedStatus)},
 			}, nil
 		})
 
@@ -226,23 +218,13 @@ func testCreateCollection(t *testing.T) {
 	}
 
 	mockDiscoverService := mocks.NewMockDiscover().
-		WithGetDatasetsByDOIFunc(func(dois []string) (dto.DatasetsByDOIResponse, error) {
+		WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
 			t.Helper()
 			require.Equal(t, []string{publishedDOI1, publishedDOI2}, dois)
-			return dto.DatasetsByDOIResponse{
+			return service.DatasetsByDOIResponse{
 				Published: map[string]dto.PublicDataset{
-					publishedDOI1: {
-						ID:      1,
-						Version: 3,
-						DOI:     publishedDOI1,
-						Banner:  banner1,
-					},
-					publishedDOI2: {
-						ID:      5,
-						Version: 1,
-						DOI:     publishedDOI2,
-						Banner:  banner2,
-					}},
+					publishedDOI1: test.NewPublicDataset(publishedDOI1, banner1),
+					publishedDOI2: test.NewPublicDataset(publishedDOI2, banner2)},
 			}, nil
 		})
 

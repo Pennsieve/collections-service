@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func CreateCollection(ctx context.Context, params Params) (dto.CollectionResponse, *apierrors.Error) {
+func CreateCollection(ctx context.Context, params Params) (dto.CollectionResponse, error) {
 	var createRequest dto.CreateCollectionRequest
 	if err := json.Unmarshal([]byte(params.Request.Body), &createRequest); err != nil {
 		return dto.CollectionResponse{}, apierrors.NewRequestUnmarshallError(createRequest, err)

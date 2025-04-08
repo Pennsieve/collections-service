@@ -52,9 +52,9 @@ func TestStore(t *testing.T) {
 func createCollectionNilDOIs(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner)
+	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
 
-	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, nil)
+	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, nil)
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -65,9 +65,9 @@ func createCollectionNilDOIs(t *testing.T, store *store.RDSCollectionsStore, exp
 func createCollectionEmptyDOIs(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner)
+	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
 
-	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []string{})
+	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []string{})
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -78,9 +78,9 @@ func createCollectionEmptyDOIs(t *testing.T, store *store.RDSCollectionsStore, e
 func createCollectionOneDOI(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI())
+	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI())
 
-	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
+	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -92,9 +92,9 @@ func createCollectionOneDOI(t *testing.T, store *store.RDSCollectionsStore, expe
 func createCollectionManyDOIs(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
+	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
 
-	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
+	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -106,10 +106,10 @@ func createCollectionManyDOIs(t *testing.T, store *store.RDSCollectionsStore, ex
 func createCollectionEmptyDescription(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
+	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
 	expectedCollection.Description = ""
 
-	resp, err := store.CreateCollection(ctx, expectedOwnerID, expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
+	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)

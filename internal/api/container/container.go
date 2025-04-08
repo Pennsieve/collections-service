@@ -54,7 +54,7 @@ func (c *Container) SetLogger(logger *slog.Logger) {
 
 func (c *Container) Logger() *slog.Logger {
 	if c.logger == nil {
-		c.logger = logging.Default
+		c.logger = logging.Default.With(slog.String("warning", "should set logger with context"))
 	}
 	return c.logger
 }
@@ -75,7 +75,7 @@ func (c *Container) PostgresDB() postgres.DB {
 
 func (c *Container) Discover() service.Discover {
 	if c.discover == nil {
-		c.discover = service.NewHTTPDiscover(c.Config.PennsieveConfig.DiscoverServiceHost)
+		c.discover = service.NewHTTPDiscover(c.Config.PennsieveConfig.DiscoverServiceHost, c.Logger())
 	}
 	return c.discover
 }
@@ -84,7 +84,7 @@ func (c *Container) CollectionsStore() store.CollectionsStore {
 	if c.collectionsStore == nil {
 		c.collectionsStore = store.NewRDSCollectionsStore(c.PostgresDB(),
 			c.Config.PostgresDB.CollectionsDatabase,
-			c.logger)
+			c.Logger())
 	}
 	return c.collectionsStore
 }

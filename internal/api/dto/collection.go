@@ -109,8 +109,3 @@ type Tombstone struct {
 	DOI       string    `json:"doi"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
-
-type DatasetsByDOIResponse struct {
-	Published   map[string]PublicDataset `json:"published"`
-	Unpublished map[string]Tombstone     `json:"unpublished"`
-}

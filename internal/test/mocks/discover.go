@@ -1,10 +1,10 @@
 package mocks
 
 import (
-	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/service"
 )
 
-type GetDatasetsByDOIFunc func(dois []string) (dto.DatasetsByDOIResponse, error)
+type GetDatasetsByDOIFunc func(dois []string) (service.DatasetsByDOIResponse, error)
 
 type Discover struct {
 	GetDatasetsByDOIFunc
@@ -19,7 +19,7 @@ func (d *Discover) WithGetDatasetsByDOIFunc(f GetDatasetsByDOIFunc) *Discover {
 	return d
 }
 
-func (d *Discover) GetDatasetsByDOI(dois []string) (dto.DatasetsByDOIResponse, error) {
+func (d *Discover) GetDatasetsByDOI(dois []string) (service.DatasetsByDOIResponse, error) {
 	if d.GetDatasetsByDOIFunc == nil {
 		panic("mock GetDatasetsByDOI function not set")
 	}

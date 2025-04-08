@@ -2,7 +2,6 @@ package util
 
 import (
 	"fmt"
-	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,9 +9,7 @@ import (
 
 const ApplicationJSON = "application/json"
 
-var logger = logging.Default.With(slog.String("goPackage", "util"))
-
-func CloseAndWarn(response *http.Response) {
+func CloseAndWarn(response *http.Response, logger *slog.Logger) {
 	if err := response.Body.Close(); err != nil {
 		logger.Warn("error closing response body",
 			slog.String("method", response.Request.Method),
@@ -21,7 +18,7 @@ func CloseAndWarn(response *http.Response) {
 	}
 }
 
-func Invoke(request *http.Request) (*http.Response, error) {
+func Invoke(request *http.Request, logger *slog.Logger) (*http.Response, error) {
 
 	res, err := http.DefaultClient.Do(request)
 	if err != nil {

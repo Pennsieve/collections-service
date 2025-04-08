@@ -42,7 +42,7 @@ func CollectionsServiceAPIHandler(
 		if claims == nil || claims.UserClaim == nil {
 			err := apierrors.NewUnauthorizedError("no user claim in request")
 			err.LogError(logger)
-			return routes.ErrorGatewayResponse(err), nil
+			return routes.APIErrorGatewayResponse(err), nil
 		}
 
 		routeParams := routes.Params{
@@ -58,7 +58,7 @@ func CollectionsServiceAPIHandler(
 		default:
 			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", routeKey), nil, http.StatusNotFound)
 			routeNotFound.LogError(logger)
-			return routes.ErrorGatewayResponse(routeNotFound), nil
+			return routes.APIErrorGatewayResponse(routeNotFound), nil
 		}
 	}
 }

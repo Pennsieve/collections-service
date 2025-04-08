@@ -3,6 +3,7 @@ package routes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
@@ -10,6 +11,8 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/container"
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
+	"log/slog"
+	"net/http"
 )
 
 // DefaultResponseHeaders is a function instead of variable so that callers can
@@ -25,7 +28,12 @@ type Params struct {
 	Claims    *authorizer.Claims
 }
 
-type Func[T any] func(ctx context.Context, params Params) (T, *apierrors.Error)
+// Func is the function type that all route-handling functions should conform to.
+// In addition, the error should always be an instance of *apierrors.Error.
+// We do not have this in the return type below because of https://go.dev/doc/faq#nil_error
+// The one problem I've seen is with testify's assert.NoError() function which fails to
+// identify nil *apierrors.Error as a non-error.
+type Func[T any] func(ctx context.Context, params Params) (T, error)
 
 type Handler[T any] struct {
 	HandleFunc        Func[T]
@@ -36,14 +44,20 @@ type Handler[T any] struct {
 func Handle[T any](ctx context.Context, params Params, handler Handler[T]) (events.APIGatewayV2HTTPResponse, error) {
 	response, err := handler.HandleFunc(ctx, params)
 	if err != nil {
-		err.LogError(params.Container.Logger())
-		return ErrorGatewayResponse(err), nil
+		var apiError *apierrors.Error
+		if errors.As(err, &apiError) {
+			apiError.LogError(params.Container.Logger())
+			return APIErrorGatewayResponse(apiError), nil
+		} else {
+			params.Container.Logger().Error(err.Error(), slog.String("warning", "consider modifying route handler to always return an *apierrors.Error"))
+			return StdErrorGatewayResponse(err), nil
+		}
 	}
 	body, marshalErr := json.Marshal(response)
 	if marshalErr != nil {
-		err = apierrors.NewInternalServerError(fmt.Sprintf("error marshalling response body to %T", response), marshalErr)
-		err.LogError(params.Container.Logger())
-		return ErrorGatewayResponse(err), nil
+		responseErr := apierrors.NewInternalServerError(fmt.Sprintf("error marshalling response body to %T", response), marshalErr)
+		responseErr.LogError(params.Container.Logger())
+		return APIErrorGatewayResponse(responseErr), nil
 	}
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: handler.SuccessStatusCode,
@@ -52,10 +66,18 @@ func Handle[T any](ctx context.Context, params Params, handler Handler[T]) (even
 	}, nil
 }
 
-func ErrorGatewayResponse(err *apierrors.Error) events.APIGatewayV2HTTPResponse {
+func APIErrorGatewayResponse(err *apierrors.Error) events.APIGatewayV2HTTPResponse {
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: err.StatusCode,
 		Headers:    DefaultResponseHeaders(),
 		Body:       fmt.Sprintf(`{"message": %q, "error_id": %q}`, err.UserMessage, err.ID),
+	}
+}
+
+func StdErrorGatewayResponse(err error) events.APIGatewayV2HTTPResponse {
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: http.StatusInternalServerError,
+		Headers:    DefaultResponseHeaders(),
+		Body:       fmt.Sprintf(`{"message": %q}`, err.Error()),
 	}
 }

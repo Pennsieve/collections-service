@@ -40,6 +40,23 @@ func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, coll
 	}
 	return collection
 }
+func GetCollectionByNodeID(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionNodeID string) store.Collection {
+	test.Helper(t)
+	rows, err := conn.Query(ctx, "SELECT * from collections.collections where node_id = @nodeId", pgx.NamedArgs{"nodeId": collectionNodeID})
+	require.NoError(t, err)
+	collection, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[store.Collection])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			require.FailNow(t, "no collection found with node id", "node id = %d", collectionNodeID)
+		} else if errors.Is(err, pgx.ErrTooManyRows) {
+			require.FailNow(t, "more than one collection found with node id", "node id = %d", collectionNodeID)
+		} else {
+			require.NoError(t, err)
+		}
+	}
+	return collection
+
+}
 
 func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (userIDToCollectionUser map[int64]store.CollectionUser) {
 	test.Helper(t)
