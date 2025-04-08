@@ -39,7 +39,7 @@ func TestStore(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, config)
 
 			t.Cleanup(func() {
-				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, db, config.CollectionsDatabase))
+				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, config.CollectionsDatabase))
 			})
 
 			collectionsStore := store.NewRDSCollectionsStore(db, config.CollectionsDatabase, logging.Default)

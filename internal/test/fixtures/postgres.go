@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TruncateCollectionsSchema(ctx context.Context, db postgres.DB, dbName string) error {
+func TruncateCollectionsSchema(ctx context.Context, t require.TestingT, db postgres.DB, dbName string) error {
 	conn, err := db.Connect(ctx, dbName)
 	if err != nil {
 		return fmt.Errorf("error connecting to trucate collections schema: %w", err)
 	}
-	defer conn.Close(ctx)
+	defer test.CloseConnection(ctx, t, conn)
 	_, err = conn.Exec(ctx, "TRUNCATE collections.collections CASCADE")
 	if err != nil {
 		return fmt.Errorf("error running collections schema truncate: %w", err)

@@ -40,7 +40,7 @@ func TestCreateCollection(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, config)
 
 			t.Cleanup(func() {
-				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, db, config.CollectionsDatabase))
+				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, config.CollectionsDatabase))
 			})
 
 			tstFunc(t, fixtures.NewExpectationDB(db, config.CollectionsDatabase))
