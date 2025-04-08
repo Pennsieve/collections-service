@@ -3,16 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
-	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
-	"github.com/pennsieve/pennsieve-go-core/pkg/models/user"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -42,16 +39,9 @@ func TestAPILambdaHandler(t *testing.T) {
 func testDefaultNotFound(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(), apitest.NewConfigBuilder().Build())
 
-	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "GET /unknown",
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
-			},
-		},
-	}
-
-	WithClaims(&req, ClaimsToMap(DefaultClaims(test.User2)))
+	req := test.NewAPIGatewayRequestBuilder("GET /unknown").
+		WithDefaultClaims(test.User2).
+		Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -64,14 +54,7 @@ func testDefaultNotFound(t *testing.T) {
 func testNoClaims(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(), apitest.NewConfigBuilder().Build())
 
-	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "POST /collections",
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
-			},
-		},
-	}
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -85,8 +68,6 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 		Description: uuid.NewString(),
 		DOIs:        []string{test.NewExternalDOI(), test.NewPennsieveDOI(), test.NewExternalDOI()},
 	}
-	bodyBytes, err := json.Marshal(createCollectionRequest)
-	require.NoError(t, err)
 
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer(),
@@ -94,17 +75,10 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
 			Build())
 
-	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "POST /collections",
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
-			},
-		},
-		Body: string(bodyBytes),
-	}
-
-	WithClaims(&req, ClaimsToMap(DefaultClaims(test.User)))
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(test.User).
+		WithBody(t, createCollectionRequest).
+		Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -120,8 +94,6 @@ func testCreateCollectionEmptyName(t *testing.T) {
 		Name:        "",
 		Description: uuid.NewString(),
 	}
-	bodyBytes, err := json.Marshal(createCollectionRequest)
-	require.NoError(t, err)
 
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer(),
@@ -129,17 +101,10 @@ func testCreateCollectionEmptyName(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
 			Build())
 
-	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "POST /collections",
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
-			},
-		},
-		Body: string(bodyBytes),
-	}
-
-	WithClaims(&req, ClaimsToMap(DefaultClaims(test.User)))
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(test.User).
+		WithBody(t, createCollectionRequest).
+		Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -153,8 +118,6 @@ func testCreateCollectionNameTooLong(t *testing.T) {
 		Name:        strings.Repeat("a", 256),
 		Description: uuid.NewString(),
 	}
-	bodyBytes, err := json.Marshal(createCollectionRequest)
-	require.NoError(t, err)
 
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer(),
@@ -162,17 +125,10 @@ func testCreateCollectionNameTooLong(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
 			Build())
 
-	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "POST /collections",
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
-			},
-		},
-		Body: string(bodyBytes),
-	}
-
-	WithClaims(&req, ClaimsToMap(DefaultClaims(test.User)))
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(test.User).
+		WithBody(t, createCollectionRequest).
+		Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -186,8 +142,6 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 		Name:        uuid.NewString(),
 		Description: strings.Repeat("a", 256),
 	}
-	bodyBytes, err := json.Marshal(createCollectionRequest)
-	require.NoError(t, err)
 
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer(),
@@ -195,17 +149,10 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
 			Build())
 
-	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "POST /collections",
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
-			},
-		},
-		Body: string(bodyBytes),
-	}
-
-	WithClaims(&req, ClaimsToMap(DefaultClaims(test.User)))
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(test.User).
+		WithBody(t, createCollectionRequest).
+		Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -223,8 +170,6 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 		Description: uuid.NewString(),
 		DOIs:        []string{publishedDOI, unpublishedDOI},
 	}
-	bodyBytes, err := json.Marshal(createCollectionRequest)
-	require.NoError(t, err)
 
 	mockDiscoverService := mocks.NewMockDiscover().
 		WithGetDatasetsByDOIFunc(func(dois []string) (dto.DatasetsByDOIResponse, error) {
@@ -251,17 +196,10 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
 			Build())
 
-	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "POST /collections",
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
-			},
-		},
-		Body: string(bodyBytes),
-	}
-
-	WithClaims(&req, ClaimsToMap(DefaultClaims(test.User)))
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(test.User).
+		WithBody(t, createCollectionRequest).
+		Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -286,8 +224,6 @@ func testCreateCollection(t *testing.T) {
 		Description: uuid.NewString(),
 		DOIs:        []string{publishedDOI1, publishedDOI2},
 	}
-	bodyBytes, err := json.Marshal(createCollectionRequest)
-	require.NoError(t, err)
 
 	mockDiscoverService := mocks.NewMockDiscover().
 		WithGetDatasetsByDOIFunc(func(dois []string) (dto.DatasetsByDOIResponse, error) {
@@ -332,17 +268,10 @@ func testCreateCollection(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
 			Build())
 
-	req := events.APIGatewayV2HTTPRequest{
-		RouteKey: "POST /collections",
-		RequestContext: events.APIGatewayV2HTTPRequestContext{
-			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
-			},
-		},
-		Body: string(bodyBytes),
-	}
-
-	WithClaims(&req, ClaimsToMap(DefaultClaims(callingUser)))
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(callingUser).
+		WithBody(t, createCollectionRequest).
+		Build()
 
 	response, err := handler(context.Background(), req)
 	assert.NoError(t, err)
@@ -358,51 +287,4 @@ func testCreateCollection(t *testing.T) {
 	assert.Equal(t, len(createCollectionRequest.DOIs), responseDTO.Size)
 	assert.Equal(t, role.Owner.String(), responseDTO.UserRole)
 	assert.Equal(t, []string{*banner1, *banner2}, responseDTO.Banners)
-}
-
-func WithClaims(request *events.APIGatewayV2HTTPRequest, claims map[string]interface{}) {
-	requestAuthorizer := request.RequestContext.Authorizer
-	if requestAuthorizer == nil {
-		requestAuthorizer = &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{}
-	}
-
-	requestAuthorizer.Lambda = claims
-
-	request.RequestContext.Authorizer = requestAuthorizer
-}
-
-func DefaultClaims(seedUser test.SeedUser) authorizer.Claims {
-	return authorizer.Claims{
-		UserClaim: &user.Claim{
-			Id:           seedUser.ID,
-			NodeId:       seedUser.NodeID,
-			IsSuperAdmin: false,
-		},
-	}
-}
-
-func ClaimsToMap(claims authorizer.Claims) map[string]interface{} {
-	asMap := map[string]any{}
-	if claims.UserClaim != nil {
-		asMap[authorizer.LabelUserClaim] = map[string]any{
-			"Id":           float64(claims.UserClaim.Id),
-			"NodeId":       claims.UserClaim.NodeId,
-			"IsSuperAdmin": claims.UserClaim.IsSuperAdmin,
-		}
-	}
-	if claims.OrgClaim != nil {
-		asMap[authorizer.LabelOrganizationClaim] = map[string]any{
-			"Role":   float64(claims.OrgClaim.Role),
-			"IntId":  float64(claims.OrgClaim.IntId),
-			"NodeId": claims.OrgClaim.NodeId,
-		}
-	}
-	if claims.DatasetClaim != nil {
-		asMap[authorizer.LabelDatasetClaim] = map[string]any{
-			"Role":   float64(claims.DatasetClaim.Role),
-			"IntId":  float64(claims.DatasetClaim.IntId),
-			"NodeId": claims.DatasetClaim.NodeId,
-		}
-	}
-	return asMap
 }
