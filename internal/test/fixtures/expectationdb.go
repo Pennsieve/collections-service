@@ -5,9 +5,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
+	"log/slog"
 )
 
 // ExpectedCollection is what we expect the collection to look like
@@ -73,8 +75,9 @@ func (d ExpectedDOIs) Strings() []string {
 }
 
 type ExpectationDB struct {
-	db     *test.PostgresDB
-	dbName string
+	db            *test.PostgresDB
+	dbName        string
+	internalStore *store.PostgresCollectionsStore
 }
 
 func NewExpectationDB(db *test.PostgresDB, dbName string) *ExpectationDB {
@@ -82,6 +85,13 @@ func NewExpectationDB(db *test.PostgresDB, dbName string) *ExpectationDB {
 		db:     db,
 		dbName: dbName,
 	}
+}
+
+func (e *ExpectationDB) collectionsStore() store.CollectionsStore {
+	if e.internalStore == nil {
+		e.internalStore = store.NewPostgresCollectionsStore(e.db, e.dbName, logging.Default.With(slog.String("source", "ExpectationDB")))
+	}
+	return e.internalStore
 }
 
 func (e *ExpectationDB) connect(ctx context.Context, t require.TestingT) *pgx.Conn {
@@ -107,6 +117,18 @@ func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require
 
 	actual := GetCollectionByNodeID(ctx, t, conn, expectedNodeID)
 	requireCollection(ctx, t, conn, expected, actual)
+}
+
+func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *ExpectedCollection) store.CreateCollectionResponse {
+	test.Helper(t)
+	require.Len(t, expected.Users, 1, "ExpectationDB.CreateCollection can only be called with one expected user: an owner")
+	user := expected.Users[0]
+	require.Equal(t, pgdb.Owner, user.PermissionBit, "ExpectationDB.CreateCollection can only be called with one expected user: an owner")
+	require.NotNil(t, expected.NodeID, "ExpectationDB.CreateCollection can only be called with a non-nil node id; call WithNodeID() on ExpectedCollection")
+
+	response, err := e.collectionsStore().CreateCollection(ctx, user.UserID, *expected.NodeID, expected.Name, expected.Description, expected.DOIs.Strings())
+	require.NoError(t, err)
+	return response
 }
 
 func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, expected *ExpectedCollection, actual store.Collection) {

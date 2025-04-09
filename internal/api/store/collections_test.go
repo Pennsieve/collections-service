@@ -28,11 +28,13 @@ func TestStore(t *testing.T) {
 	dbmigratetest.Close(t, migrator)
 
 	for scenario, tstFunc := range map[string]func(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB){
-		"create collection, nil DOIs":          createCollectionNilDOIs,
-		"create collection, empty DOIs":        createCollectionEmptyDOIs,
-		"create collection, one DOI":           createCollectionOneDOI,
-		"create collection, many DOIs":         createCollectionManyDOIs,
-		"create collection, empty description": createCollectionEmptyDescription,
+		"create collection, nil DOIs":          testCreateCollectionNilDOIs,
+		"create collection, empty DOIs":        testCreateCollectionEmptyDOIs,
+		"create collection, one DOI":           testCreateCollectionOneDOI,
+		"create collection, many DOIs":         testCreateCollectionManyDOIs,
+		"create collection, empty description": testCreateCollectionEmptyDescription,
+		"get collections, none":                testGetCollectionsNone,
+		"get collections":                      testGetCollections,
 	} {
 
 		t.Run(scenario, func(t *testing.T) {
@@ -49,7 +51,7 @@ func TestStore(t *testing.T) {
 	}
 }
 
-func createCollectionNilDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func testCreateCollectionNilDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
@@ -62,7 +64,7 @@ func createCollectionNilDOIs(t *testing.T, store *store.PostgresCollectionsStore
 	expectationDB.RequireCollection(ctx, t, expectedCollection, resp.ID)
 }
 
-func createCollectionEmptyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func testCreateCollectionEmptyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
@@ -75,7 +77,7 @@ func createCollectionEmptyDOIs(t *testing.T, store *store.PostgresCollectionsSto
 	expectationDB.RequireCollection(ctx, t, expectedCollection, resp.ID)
 }
 
-func createCollectionOneDOI(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func testCreateCollectionOneDOI(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI())
@@ -89,7 +91,7 @@ func createCollectionOneDOI(t *testing.T, store *store.PostgresCollectionsStore,
 
 }
 
-func createCollectionManyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func testCreateCollectionManyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
@@ -103,7 +105,7 @@ func createCollectionManyDOIs(t *testing.T, store *store.PostgresCollectionsStor
 
 }
 
-func createCollectionEmptyDescription(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func testCreateCollectionEmptyDescription(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
@@ -115,5 +117,79 @@ func createCollectionEmptyDescription(t *testing.T, store *store.PostgresCollect
 	assert.Equal(t, role.Owner, resp.CreatorRole)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, resp.ID)
+
+}
+
+func testGetCollectionsNone(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	// Set up using the ExpectationDB
+
+	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(test.User2.ID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
+
+	// Test with store
+	limit, offset := 10, 0
+	// use a different user with no collections
+	response, err := store.GetCollections(ctx, test.User.ID, limit, offset)
+	require.NoError(t, err)
+
+	assert.Equal(t, limit, response.Limit)
+	assert.Equal(t, offset, response.Offset)
+	assert.Equal(t, int64(0), response.TotalCount)
+
+	assert.Len(t, response.Collections, 0)
+}
+
+func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("need a second query to get dois for each collection")
+	ctx := context.Background()
+
+	// Set up using the ExpectationDB
+	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(test.User.ID, pgdb.Owner)
+	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
+	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(test.User.ID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
+	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(test.User.ID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
+
+	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(test.User2.ID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user2Collection)
+
+	// Test with store
+	limit, offset := 10, 0
+	response, err := store.GetCollections(ctx, test.User.ID, limit, offset)
+	require.NoError(t, err)
+
+	assert.Equal(t, limit, response.Limit)
+	assert.Equal(t, offset, response.Offset)
+	assert.Equal(t, int64(3), response.TotalCount)
+
+	assert.Len(t, response.Collections, 3)
+
+	// They should be returned in oldest first order
+	actualCollection1 := response.Collections[0]
+	assert.Equal(t, *user1CollectionNoDOI.NodeID, actualCollection1.NodeID)
+	assert.Equal(t, user1CollectionNoDOI.Name, actualCollection1.Name)
+	assert.Equal(t, user1CollectionNoDOI.Description, actualCollection1.Description)
+	assert.Equal(t, user1CollectionNoDOI.Users[0].PermissionBit.ToRole().String(), actualCollection1.UserRole)
+	assert.Equal(t, len(user1CollectionNoDOI.DOIs), actualCollection1.Size)
+	assert.Equal(t, user1CollectionNoDOI.DOIs.Strings(), actualCollection1.BannerDOIs)
+
+	actualCollection2 := response.Collections[1]
+	assert.Equal(t, *user1CollectionOneDOI.NodeID, actualCollection2.NodeID)
+	assert.Equal(t, user1CollectionOneDOI.Name, actualCollection2.Name)
+	assert.Equal(t, user1CollectionOneDOI.Description, actualCollection2.Description)
+	assert.Equal(t, user1CollectionOneDOI.Users[0].PermissionBit.ToRole().String(), actualCollection2.UserRole)
+	assert.Equal(t, len(user1CollectionOneDOI.DOIs), actualCollection2.Size)
+	assert.Equal(t, user1CollectionOneDOI.DOIs.Strings(), actualCollection2.BannerDOIs)
+
+	actualCollection3 := response.Collections[2]
+	assert.Equal(t, *user1CollectionFiveDOI.NodeID, actualCollection3.NodeID)
+	assert.Equal(t, user1CollectionFiveDOI.Name, actualCollection3.Name)
+	assert.Equal(t, user1CollectionFiveDOI.Description, actualCollection3.Description)
+	assert.Equal(t, user1CollectionFiveDOI.Users[0].PermissionBit.ToRole().String(), actualCollection3.UserRole)
+	assert.Equal(t, len(user1CollectionFiveDOI.DOIs), actualCollection3.Size)
+	assert.Equal(t, user1CollectionFiveDOI.DOIs.Strings()[:4], actualCollection3.BannerDOIs)
 
 }

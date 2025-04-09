@@ -6,7 +6,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
-	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"log/slog"
 	"strings"
 )
@@ -30,15 +29,10 @@ func NewPostgresCollectionsStore(db postgres.DB, collectionsDatabaseName string,
 	}
 }
 
-type CreateCollectionResponse struct {
-	ID          int64
-	CreatorRole role.Role
-}
-
 func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
-		return CreateCollectionResponse{}, fmt.Errorf("error connecting to database %s: %w", s.databaseName, err)
+		return CreateCollectionResponse{}, fmt.Errorf("CreateCollection error connecting to database %s: %w", s.databaseName, err)
 	}
 	defer s.closeConn(ctx, conn)
 	creatorPermission := pgdb.Owner
@@ -89,12 +83,82 @@ func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID 
 	}, nil
 }
 
-type GetCollectionsResponse struct {
-	TotalCount int64
-}
-
 func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error) {
-	return GetCollectionsResponse{}, nil
+	if limit < 0 {
+		return GetCollectionsResponse{}, fmt.Errorf("limit cannot be negative: %d", limit)
+	}
+	if offset < 0 {
+		return GetCollectionsResponse{}, fmt.Errorf("offset cannot be negative: %d", offset)
+
+	}
+	args := pgx.NamedArgs{
+		"user_id": userID,
+		"limit":   limit,
+		"offset":  offset,
+	}
+	// using ORDER BY c.id asc as a proxy for getting in order of creation, oldest first
+	sql := `SELECT c.*, u.role, count(*) OVER () AS total_count
+			FROM collections.collections c
+         			JOIN collections.collection_user u ON c.id = u.collection_id
+			WHERE u.user_id = @user_id
+  				and u.permission_bit > 0
+			ORDER BY c.id asc
+			LIMIT @limit OFFSET @offset`
+
+	type CollectionUserJoin struct {
+		Collection
+		Role       PgxRole `db:"role"`
+		TotalCount int64   `db:"total_count"`
+	}
+
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return GetCollectionsResponse{}, fmt.Errorf("GetCollections error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+
+	// any error here will be returned from pgx.CollectRows which also closes rows for us
+	rows, _ := conn.Query(ctx, sql, args)
+
+	response := GetCollectionsResponse{Limit: limit, Offset: offset}
+
+	var collectionIDs []int64
+
+	collections, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (CollectionResponse, error) {
+		join, err := pgx.RowToStructByName[CollectionUserJoin](row)
+		if err != nil {
+			return CollectionResponse{}, err
+		}
+		//redundant
+		response.TotalCount = join.TotalCount
+
+		collectionIDs = append(collectionIDs, join.ID)
+
+		return CollectionResponse{
+			NodeID:      join.NodeID,
+			Name:        join.Name,
+			Description: join.Description,
+			UserRole:    join.Role.AsRole().String(),
+		}, nil
+
+	})
+	if err != nil {
+		return GetCollectionsResponse{}, fmt.Errorf("GetCollections: error querying for collections: %w", err)
+	}
+
+	//	select c.id, c.node_id, d.doi
+	//from collections.collections c
+	//join lateral (
+	//select *
+	//		from collections.dois
+	//			where collection_id = c.id
+	//order by id asc
+	//limit 4
+	//) d on true
+	//where c.id in (105, 106, 107);
+
+	response.Collections = collections
+	return response, nil
 }
 
 func (s *PostgresCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {
