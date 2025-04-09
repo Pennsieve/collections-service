@@ -16,6 +16,14 @@ type CollectionResponse struct {
 	Size        int      `json:"size"`
 	UserRole    string   `json:"user_role"`
 }
+
+type CollectionsResponse struct {
+	Limit       int                   `json:"limit"`
+	Offset      int                   `json:"offset"`
+	TotalCount  int64                 `json:"totalCount"`
+	Collections []CollectionsResponse `json:"collections"`
+}
+
 type PublicDataset struct {
 	ID                     int64                       `json:"id"`
 	SourceDatasetID        *int64                      `json:"sourceDatasetId,omitempty"`

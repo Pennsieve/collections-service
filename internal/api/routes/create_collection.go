@@ -13,6 +13,9 @@ import (
 )
 
 func CreateCollection(ctx context.Context, params Params) (dto.CollectionResponse, error) {
+	if len(params.Request.Body) == 0 {
+		return dto.CollectionResponse{}, apierrors.NewBadRequestError("no request body")
+	}
 	var createRequest dto.CreateCollectionRequest
 	if err := json.Unmarshal([]byte(params.Request.Body), &createRequest); err != nil {
 		return dto.CollectionResponse{}, apierrors.NewRequestUnmarshallError(createRequest, err)

@@ -12,20 +12,21 @@ import (
 )
 
 type CollectionsStore interface {
-	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (*CreateCollectionResponse, error)
+	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error)
+	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
 }
 
-type RDSCollectionsStore struct {
+type PostgresCollectionsStore struct {
 	db           postgres.DB
 	databaseName string
 	logger       *slog.Logger
 }
 
-func NewRDSCollectionsStore(db postgres.DB, collectionsDatabaseName string, logger *slog.Logger) *RDSCollectionsStore {
-	return &RDSCollectionsStore{
+func NewPostgresCollectionsStore(db postgres.DB, collectionsDatabaseName string, logger *slog.Logger) *PostgresCollectionsStore {
+	return &PostgresCollectionsStore{
 		db:           db,
 		databaseName: collectionsDatabaseName,
-		logger:       logger.With(slog.String("type", "RDSCollectionsStore")),
+		logger:       logger.With(slog.String("type", "PostgresCollectionsStore")),
 	}
 }
 
@@ -34,10 +35,10 @@ type CreateCollectionResponse struct {
 	CreatorRole role.Role
 }
 
-func (s *RDSCollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (*CreateCollectionResponse, error) {
+func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to database %s: %w", s.databaseName, err)
+		return CreateCollectionResponse{}, fmt.Errorf("error connecting to database %s: %w", s.databaseName, err)
 	}
 	defer s.closeConn(ctx, conn)
 	creatorPermission := pgdb.Owner
@@ -77,18 +78,26 @@ func (s *RDSCollectionsStore) CreateCollection(ctx context.Context, userID int64
 	insertCollectionSQL := fmt.Sprintf(insertCollectionSQLFormat, insertDOISQL)
 	var collectionID int64
 	if err := conn.QueryRow(ctx, insertCollectionSQL, insertCollectionArgs).Scan(&collectionID); err != nil {
-		return nil, fmt.Errorf("error inserting new collection %s: %w", name, err)
+		return CreateCollectionResponse{}, fmt.Errorf("error inserting new collection %s: %w", name, err)
 	}
 	s.logger.Debug("inserted new collection",
 		slog.Int64("id", collectionID),
 		slog.String("name", name))
-	return &CreateCollectionResponse{
+	return CreateCollectionResponse{
 		ID:          collectionID,
 		CreatorRole: creatorPermission.ToRole(),
 	}, nil
 }
 
-func (s *RDSCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {
+type GetCollectionsResponse struct {
+	TotalCount int64
+}
+
+func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error) {
+	return GetCollectionsResponse{}, nil
+}
+
+func (s *PostgresCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {
 	if err := conn.Close(ctx); err != nil {
 		s.logger.Warn("error closing DB connection", slog.Any("error", err))
 	}

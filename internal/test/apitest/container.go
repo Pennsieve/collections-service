@@ -75,6 +75,6 @@ func (c *TestContainer) WithContainerStoreFromPostgresDB(collectionsDBName strin
 	if c.TestPostgresDB == nil {
 		panic("cannot create ContainerStore from nil PostgresDB; call WithPostgresDB first")
 	}
-	c.TestCollectionsStore = store.NewRDSCollectionsStore(c.TestPostgresDB, collectionsDBName, c.Logger())
+	c.TestCollectionsStore = store.NewPostgresCollectionsStore(c.TestPostgresDB, collectionsDBName, c.Logger())
 	return c
 }

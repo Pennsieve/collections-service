@@ -53,8 +53,9 @@ func CollectionsServiceAPIHandler(
 		}
 		switch routeKey {
 		case "POST /collections":
-			routeHandler := routes.NewCreateCollectionRouteHandler()
-			return routes.Handle(ctx, routeParams, routeHandler)
+			return routes.Handle(ctx, routeParams, routes.NewCreateCollectionRouteHandler())
+		case "GET /collections":
+			return routes.Handle(ctx, routeParams, routes.NewGetCollectionsRouteHandler())
 		default:
 			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", routeKey), nil, http.StatusNotFound)
 			routeNotFound.LogError(logger)

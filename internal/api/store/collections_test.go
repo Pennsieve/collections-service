@@ -27,7 +27,7 @@ func TestStore(t *testing.T) {
 	require.NoError(t, migrator.Up())
 	dbmigratetest.Close(t, migrator)
 
-	for scenario, tstFunc := range map[string]func(t *testing.T, collectionsStore *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB){
+	for scenario, tstFunc := range map[string]func(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB){
 		"create collection, nil DOIs":          createCollectionNilDOIs,
 		"create collection, empty DOIs":        createCollectionEmptyDOIs,
 		"create collection, one DOI":           createCollectionOneDOI,
@@ -42,14 +42,14 @@ func TestStore(t *testing.T) {
 				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, config.CollectionsDatabase))
 			})
 
-			collectionsStore := store.NewRDSCollectionsStore(db, config.CollectionsDatabase, logging.Default)
+			collectionsStore := store.NewPostgresCollectionsStore(db, config.CollectionsDatabase, logging.Default)
 
 			tstFunc(t, collectionsStore, fixtures.NewExpectationDB(db, config.CollectionsDatabase))
 		})
 	}
 }
 
-func createCollectionNilDOIs(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func createCollectionNilDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
@@ -62,7 +62,7 @@ func createCollectionNilDOIs(t *testing.T, store *store.RDSCollectionsStore, exp
 	expectationDB.RequireCollection(ctx, t, expectedCollection, resp.ID)
 }
 
-func createCollectionEmptyDOIs(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func createCollectionEmptyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
@@ -75,7 +75,7 @@ func createCollectionEmptyDOIs(t *testing.T, store *store.RDSCollectionsStore, e
 	expectationDB.RequireCollection(ctx, t, expectedCollection, resp.ID)
 }
 
-func createCollectionOneDOI(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func createCollectionOneDOI(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI())
@@ -89,7 +89,7 @@ func createCollectionOneDOI(t *testing.T, store *store.RDSCollectionsStore, expe
 
 }
 
-func createCollectionManyDOIs(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func createCollectionManyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
@@ -103,7 +103,7 @@ func createCollectionManyDOIs(t *testing.T, store *store.RDSCollectionsStore, ex
 
 }
 
-func createCollectionEmptyDescription(t *testing.T, store *store.RDSCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func createCollectionEmptyDescription(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := test.User.ID
 	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())

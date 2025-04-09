@@ -29,6 +29,8 @@ func TestAPILambdaHandler(t *testing.T) {
 		"create collection bad request: name too long":        testCreateCollectionNameTooLong,
 		"create collection bad request: description too long": testCreateCollectionDescriptionTooLong,
 		"create collection bad request: unpublished DOIs":     testCreateCollectionUnpublishedDOIs,
+		"create collection bad request: no body":              testCreateCollectionNoBody,
+		"create collection bad request: malformed body":       testCreateCollectionMalformedBody,
 		"create collection":                                   testCreateCollection,
 	} {
 		t.Run(scenario, func(t *testing.T) {
@@ -202,6 +204,41 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 
 }
+
+func testCreateCollectionNoBody(t *testing.T) {
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer(),
+		apitest.NewConfigBuilder().Build())
+
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").WithDefaultClaims(test.User).Build()
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Contains(t, response.Body, "no request body")
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+
+}
+
+func testCreateCollectionMalformedBody(t *testing.T) {
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer(),
+		apitest.NewConfigBuilder().Build())
+
+	req := test.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(test.User).
+		Build()
+
+	req.Body = "{]"
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Contains(t, response.Body, "error unmarshalling request body")
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+
+}
+
 func testCreateCollection(t *testing.T) {
 	publishedDOI1 := test.NewPennsieveDOI()
 	banner1 := test.NewBanner()
@@ -230,7 +267,7 @@ func testCreateCollection(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewMockCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []string) (*store.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewMockCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []string) (store.CreateCollectionResponse, error) {
 		t.Helper()
 		require.Equal(t, callingUser.ID, userID)
 		require.NotEmpty(t, nodeID)
@@ -238,7 +275,7 @@ func testCreateCollection(t *testing.T) {
 		require.Equal(t, createCollectionRequest.Name, name)
 		require.Equal(t, createCollectionRequest.Description, description)
 		require.Equal(t, createCollectionRequest.DOIs, dois)
-		return &store.CreateCollectionResponse{
+		return store.CreateCollectionResponse{
 			ID:          1,
 			CreatorRole: role.Owner,
 		}, nil

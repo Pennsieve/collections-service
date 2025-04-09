@@ -340,7 +340,7 @@ func TestCategorizeDOIs(t *testing.T) {
 		name string
 		args args
 	}{
-		{"no dois",
+		{"no DOIs",
 			args{nil, nil, nil},
 		},
 		{"no dups",

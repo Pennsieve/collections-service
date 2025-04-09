@@ -26,7 +26,7 @@ type Container struct {
 	Config           config.Config
 	postgresdb       *postgres.RDSProxy
 	discover         *service.HTTPDiscover
-	collectionsStore *store.RDSCollectionsStore
+	collectionsStore *store.PostgresCollectionsStore
 	logger           *slog.Logger
 }
 
@@ -82,7 +82,7 @@ func (c *Container) Discover() service.Discover {
 
 func (c *Container) CollectionsStore() store.CollectionsStore {
 	if c.collectionsStore == nil {
-		c.collectionsStore = store.NewRDSCollectionsStore(c.PostgresDB(),
+		c.collectionsStore = store.NewPostgresCollectionsStore(c.PostgresDB(),
 			c.Config.PostgresDB.CollectionsDatabase,
 			c.Logger())
 	}

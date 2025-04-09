@@ -31,11 +31,15 @@ func NewInternalServerError(userMessage string, cause error) *Error {
 }
 
 func NewRequestUnmarshallError(bodyType any, cause error) *Error {
-	return NewInternalServerError(fmt.Sprintf("error unmarshalling request body to %T", bodyType), cause)
+	return NewBadRequestErrorWithCause(fmt.Sprintf("error unmarshalling request body to %T", bodyType), cause)
 }
 
 func NewBadRequestError(userMessage string) *Error {
 	return NewError(userMessage, nil, http.StatusBadRequest)
+}
+
+func NewBadRequestErrorWithCause(userMessage string, cause error) *Error {
+	return NewError(userMessage, cause, http.StatusBadRequest)
 }
 
 func NewUnauthorizedError(userMessage string) *Error {
