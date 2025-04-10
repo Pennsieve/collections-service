@@ -1,0 +1,17 @@
+name: ReadMe GitHub Action 🦉
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  rdme-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo 📚
+        uses: actions/checkout@v4
+      - name: Run `openapi` command 🚀
+        uses: readmeio/rdme@v9
+        with:
+          rdme: openapi terraform/collections-service.yml --key=${{ secrets.README_API_KEY }} --id=${{ vars.README_API_DEFINITION_ID }}
