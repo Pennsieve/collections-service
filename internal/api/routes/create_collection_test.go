@@ -100,10 +100,10 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	callingUser := test.User
 
 	publishedDOI1 := test.NewPennsieveDOI()
-	banner1 := test.NewBanner()
+	banner1 := apitest.NewBanner()
 
 	publishedDOI2 := test.NewPennsieveDOI()
-	banner2 := test.NewBanner()
+	banner2 := apitest.NewBanner()
 
 	expectedCollection := fixtures.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
@@ -167,19 +167,19 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	callingUser := test.User
 
 	publishedDOI1 := test.NewPennsieveDOI()
-	banner1 := test.NewBanner()
+	banner1 := apitest.NewBanner()
 
 	publishedDOI2 := test.NewPennsieveDOI()
-	banner2 := test.NewBanner()
+	banner2 := apitest.NewBanner()
 
 	publishedDOI3 := test.NewPennsieveDOI()
-	banner3 := test.NewBanner()
+	banner3 := apitest.NewBanner()
 
 	publishedDTO4 := test.NewPennsieveDOI()
-	banner4 := test.NewBanner()
+	banner4 := apitest.NewBanner()
 
 	publishedDTO5 := test.NewPennsieveDOI()
-	banner5 := test.NewBanner()
+	banner5 := apitest.NewBanner()
 
 	expectedCollection := fixtures.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
@@ -251,13 +251,13 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	var banner1 *string = nil
 
 	publishedDOI2 := test.NewPennsieveDOI()
-	banner2 := test.NewBanner()
+	banner2 := apitest.NewBanner()
 
 	publishedDOI3 := test.NewPennsieveDOI()
 	var banner3 *string = nil
 
 	publishedDTO4 := test.NewPennsieveDOI()
-	banner4 := test.NewBanner()
+	banner4 := apitest.NewBanner()
 
 	publishedDTO5 := test.NewPennsieveDOI()
 	var banner5 *string = nil
@@ -320,47 +320,5 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	assert.Equal(t, role.Owner.String(), response.UserRole)
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
-
-}
-
-func TestCategorizeDOIs(t *testing.T) {
-	pennsieveDOI1 := test.NewPennsieveDOI()
-	pennsieveDOI2 := test.NewPennsieveDOI()
-	pennsieveDOI3 := test.NewPennsieveDOI()
-
-	externalDOI1 := test.NewExternalDOI()
-	externalDOI2 := test.NewExternalDOI()
-
-	type args struct {
-		inputDOIs             []string
-		expectedPennsieveDOIs []string
-		expectedExternalDOIs  []string
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
-		{"no DOIs",
-			args{nil, nil, nil},
-		},
-		{"no dups",
-			args{
-				inputDOIs:             []string{pennsieveDOI1, pennsieveDOI2, externalDOI1, pennsieveDOI3, externalDOI2},
-				expectedPennsieveDOIs: []string{pennsieveDOI1, pennsieveDOI2, pennsieveDOI3},
-				expectedExternalDOIs:  []string{externalDOI1, externalDOI2}},
-		},
-		{"some dups",
-			args{inputDOIs: []string{pennsieveDOI3, pennsieveDOI1, pennsieveDOI2, pennsieveDOI3, pennsieveDOI2},
-				expectedPennsieveDOIs: []string{pennsieveDOI3, pennsieveDOI1, pennsieveDOI2},
-				expectedExternalDOIs:  nil},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			actualPennsieve, actualExternal := CategorizeDOIs(test.PennsieveDOIPrefix, tt.args.inputDOIs)
-			assert.Equal(t, tt.args.expectedPennsieveDOIs, actualPennsieve)
-			assert.Equal(t, tt.args.expectedExternalDOIs, actualExternal)
-		})
-	}
 
 }

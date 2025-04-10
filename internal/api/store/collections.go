@@ -111,7 +111,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 	type CollectionUserJoin struct {
 		Collection
 		Role       PgxRole `db:"role"`
-		TotalCount int64   `db:"total_count"`
+		TotalCount int     `db:"total_count"`
 	}
 
 	conn, err := s.db.Connect(ctx, s.databaseName)
@@ -150,7 +150,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 	}
 
 	if len(collections) == 0 {
-		var totalCount int64
+		var totalCount int
 		if err := conn.QueryRow(ctx, `SELECT count(*)
                                 FROM collections.collections c
          			            	JOIN collections.collection_user u ON c.id = u.collection_id
@@ -185,7 +185,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 	doiRows, _ := conn.Query(ctx, getDOIsSQL, getDOIsArgs)
 
 	var nodeID, doi string
-	var totalCount int64
+	var totalCount int
 	if _, err = pgx.ForEachRow(doiRows, []any{&nodeID, &doi, &totalCount}, func() error {
 		collection := nodeIDToCollection[nodeID]
 		collection.BannerDOIs = append(collection.BannerDOIs, doi)

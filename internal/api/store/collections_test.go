@@ -137,7 +137,7 @@ func testGetCollectionsNone(t *testing.T, store *store.PostgresCollectionsStore,
 
 	assert.Equal(t, limit, response.Limit)
 	assert.Equal(t, offset, response.Offset)
-	assert.Equal(t, int64(0), response.TotalCount)
+	assert.Equal(t, 0, response.TotalCount)
 
 	assert.Len(t, response.Collections, 0)
 }
@@ -163,7 +163,7 @@ func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, exp
 
 	assert.Equal(t, limit, response.Limit)
 	assert.Equal(t, offset, response.Offset)
-	assert.Equal(t, int64(3), response.TotalCount)
+	assert.Equal(t, 3, response.TotalCount)
 
 	assert.Len(t, response.Collections, 3)
 
@@ -183,7 +183,7 @@ func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, exp
 
 	assert.Equal(t, limit, user2CollectionResp.Limit)
 	assert.Equal(t, offset, user2CollectionResp.Offset)
-	assert.Equal(t, int64(1), user2CollectionResp.TotalCount)
+	assert.Equal(t, 1, user2CollectionResp.TotalCount)
 	assert.Len(t, user2CollectionResp.Collections, 1)
 
 	actualUser2Collection := user2CollectionResp.Collections[0]
@@ -212,7 +212,7 @@ func testGetCollectionsLimitOffset(t *testing.T, store *store.PostgresCollection
 
 		assert.Equal(t, limit, resp.Limit)
 		assert.Equal(t, offset, resp.Offset)
-		assert.Equal(t, int64(totalCollections), resp.TotalCount)
+		assert.Equal(t, totalCollections, resp.TotalCount)
 
 		expectedCollectionLen := min(limit, totalCollections-offset)
 		if assert.Len(t, resp.Collections, expectedCollectionLen) {
@@ -230,7 +230,7 @@ func testGetCollectionsLimitOffset(t *testing.T, store *store.PostgresCollection
 
 	assert.Equal(t, limit, emptyResp.Limit)
 	assert.Equal(t, offset, emptyResp.Offset)
-	assert.Equal(t, int64(totalCollections), emptyResp.TotalCount)
+	assert.Equal(t, totalCollections, emptyResp.TotalCount)
 	assert.Empty(t, emptyResp.Collections)
 
 }
@@ -240,7 +240,7 @@ func assertExpectedEqualCollectionResponse(t *testing.T, expected *fixtures.Expe
 	assert.Equal(t, expected.Name, actual.Name)
 	assert.Equal(t, expected.Description, actual.Description)
 	assert.Equal(t, expected.Users[0].PermissionBit.ToRole().String(), actual.UserRole)
-	assert.Equal(t, expected.DOIs.Len64(), actual.Size)
+	assert.Len(t, expected.DOIs, actual.Size)
 	bannerLen := min(store.MaxDOIsPerCollection, len(expected.DOIs))
 	assert.Equal(t, expected.DOIs.Strings()[:bannerLen], actual.BannerDOIs)
 }

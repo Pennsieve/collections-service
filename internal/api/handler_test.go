@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/routes"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -19,9 +20,7 @@ import (
 )
 
 func TestAPILambdaHandler(t *testing.T) {
-	for scenario, fn := range map[string]func(
-		tt *testing.T,
-	){
+	tests := map[string]func(t *testing.T){
 		"default not found response": testDefaultNotFound,
 		"no claims":                  testNoClaims,
 		"create collection bad request: external DOIs":        testCreateCollectionExternalDOIs,
@@ -32,7 +31,9 @@ func TestAPILambdaHandler(t *testing.T) {
 		"create collection bad request: no body":              testCreateCollectionNoBody,
 		"create collection bad request: malformed body":       testCreateCollectionMalformedBody,
 		"create collection":                                   testCreateCollection,
-	} {
+		"get collections":                                     testGetCollections,
+	}
+	for scenario, fn := range tests {
 		t.Run(scenario, func(t *testing.T) {
 			fn(t)
 		})
@@ -75,7 +76,7 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().
-			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
 	req := test.NewAPIGatewayRequestBuilder("POST /collections").
@@ -101,7 +102,7 @@ func testCreateCollectionEmptyName(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().
-			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
 	req := test.NewAPIGatewayRequestBuilder("POST /collections").
@@ -125,7 +126,7 @@ func testCreateCollectionNameTooLong(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().
-			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
 	req := test.NewAPIGatewayRequestBuilder("POST /collections").
@@ -149,7 +150,7 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().
-			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
 	req := test.NewAPIGatewayRequestBuilder("POST /collections").
@@ -187,7 +188,7 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().WithDiscover(mockDiscoverService),
 		apitest.NewConfigBuilder().
-			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
 	req := test.NewAPIGatewayRequestBuilder("POST /collections").
@@ -241,10 +242,10 @@ func testCreateCollectionMalformedBody(t *testing.T) {
 
 func testCreateCollection(t *testing.T) {
 	publishedDOI1 := test.NewPennsieveDOI()
-	banner1 := test.NewBanner()
+	banner1 := apitest.NewBanner()
 
 	publishedDOI2 := test.NewPennsieveDOI()
-	banner2 := test.NewBanner()
+	banner2 := apitest.NewBanner()
 
 	callingUser := test.User
 
@@ -284,7 +285,7 @@ func testCreateCollection(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().WithDiscover(mockDiscoverService).WithCollectionsStore(mockCollectionsStore),
 		apitest.NewConfigBuilder().
-			WithPennsieveConfig(apitest.PennsieveConfigWithFakeHost()).
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
 	req := test.NewAPIGatewayRequestBuilder("POST /collections").
@@ -306,4 +307,78 @@ func testCreateCollection(t *testing.T) {
 	assert.Equal(t, len(createCollectionRequest.DOIs), responseDTO.Size)
 	assert.Equal(t, role.Owner.String(), responseDTO.UserRole)
 	assert.Equal(t, []string{*banner1, *banner2}, responseDTO.Banners)
+}
+
+func testGetCollections(t *testing.T) {
+	callingUser := test.User
+
+	expectedOffset := 100
+
+	expectedDOI := test.NewPennsieveDOI()
+	expectedBanner := apitest.NewBanner()
+
+	expectedNodeID := uuid.NewString()
+	expectedName := uuid.NewString()
+	expectedDescription := uuid.NewString()
+	expectedSize := 1
+	expectedUserRole := role.Owner.String()
+
+	testBanners := apitest.TestBanners{expectedDOI: *expectedBanner}
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
+			require.Equal(t, callingUser.ID, userID)
+			require.Equal(t, routes.DefaultGetCollectionsLimit, limit)
+			require.Equal(t, expectedOffset, offset)
+			return store.GetCollectionsResponse{
+				Limit:      routes.DefaultGetCollectionsLimit,
+				Offset:     expectedOffset,
+				TotalCount: 101,
+				Collections: []store.CollectionResponse{store.CollectionResponse{
+					NodeID:      expectedNodeID,
+					Name:        expectedName,
+					Description: expectedDescription,
+					Size:        expectedSize,
+					BannerDOIs:  []string{expectedDOI},
+					UserRole:    expectedUserRole,
+				}},
+			}, nil
+		})
+
+	mockDiscoverService := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(testBanners.ToDiscoverGetDatasetsByDOIFunc())
+
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer().
+			WithCollectionsStore(mockCollectionStore).
+			WithDiscover(mockDiscoverService),
+		apitest.NewConfigBuilder().
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+			Build(),
+	)
+	req := test.NewAPIGatewayRequestBuilder("GET /collections").
+		WithDefaultClaims(callingUser).
+		WithIntQueryParam("offset", expectedOffset).
+		Build()
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	var responseDTO dto.CollectionsResponse
+	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
+
+	assert.Equal(t, routes.DefaultGetCollectionsLimit, responseDTO.Limit)
+	assert.Equal(t, expectedOffset, responseDTO.Offset)
+	assert.Equal(t, 101, responseDTO.TotalCount)
+
+	assert.Len(t, responseDTO.Collections, 1)
+	actualCollection := responseDTO.Collections[0]
+	assert.Equal(t, expectedName, actualCollection.Name)
+	assert.Equal(t, expectedNodeID, actualCollection.NodeID)
+	assert.Equal(t, expectedDescription, actualCollection.Description)
+	assert.Equal(t, expectedSize, actualCollection.Size)
+	assert.Equal(t, expectedUserRole, actualCollection.UserRole)
+	assert.Equal(t, []string{*expectedBanner}, actualCollection.Banners)
+
 }

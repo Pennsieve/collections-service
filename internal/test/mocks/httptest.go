@@ -8,6 +8,7 @@ import (
 )
 
 func ToDiscoverHandlerFunc(t require.TestingT, f GetDatasetsByDOIFunc) http.HandlerFunc {
+	test.Helper(t)
 	return func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
 		require.Equal(t, http.MethodGet, request.Method)

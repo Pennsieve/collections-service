@@ -38,16 +38,16 @@ func (b *ConfigBuilder) Build() config.Config {
 	return *b.c
 }
 
-func PennsieveConfig(discoverServiceHost string) config.PennsieveConfig {
+func PennsieveConfig(discoverServiceURL string) config.PennsieveConfig {
 	return config.NewPennsieveConfigBuilder().
-		WithDiscoverServiceHost(discoverServiceHost).
+		WithDiscoverServiceURL(discoverServiceURL).
 		WithDOIPrefix(test.PennsieveDOIPrefix).
 		Build()
 }
 
-func PennsieveConfigWithFakeHost() config.PennsieveConfig {
+func PennsieveConfigWithFakeURL() config.PennsieveConfig {
 	return config.NewPennsieveConfigBuilder().
-		WithDiscoverServiceHost("http://example.com/discover").
+		WithDiscoverServiceURL("http://example.com/discover").
 		WithDOIPrefix(test.PennsieveDOIPrefix).
 		Build()
 }

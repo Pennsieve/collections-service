@@ -1,10 +1,14 @@
 package config
 
-import sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
+import (
+	"fmt"
+	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
+	"strings"
+)
 
 type PennsieveConfig struct {
-	DiscoverServiceHost string
-	DOIPrefix           string
+	DiscoverServiceURL string
+	DOIPrefix          string
 }
 
 func LoadPennsieveConfig() PennsieveConfig {
@@ -19,8 +23,8 @@ func NewPennsieveConfigBuilder() *PennsieveConfigBuilder {
 	return &PennsieveConfigBuilder{c: &PennsieveConfig{}}
 }
 
-func (b *PennsieveConfigBuilder) WithDiscoverServiceHost(host string) *PennsieveConfigBuilder {
-	b.c.DiscoverServiceHost = host
+func (b *PennsieveConfigBuilder) WithDiscoverServiceURL(url string) *PennsieveConfigBuilder {
+	b.c.DiscoverServiceURL = url
 	return b
 }
 
@@ -30,8 +34,12 @@ func (b *PennsieveConfigBuilder) WithDOIPrefix(doiPrefix string) *PennsieveConfi
 }
 
 func (b *PennsieveConfigBuilder) Build() PennsieveConfig {
-	if len(b.c.DiscoverServiceHost) == 0 {
-		b.c.DiscoverServiceHost = sharedconfig.GetEnv("DISCOVER_SERVICE_HOST")
+	if len(b.c.DiscoverServiceURL) == 0 {
+		url := sharedconfig.GetEnv("DISCOVER_SERVICE_HOST")
+		if !strings.HasPrefix(url, "http") {
+			url = fmt.Sprintf("https://%s", url)
+		}
+		b.c.DiscoverServiceURL = url
 	}
 	if len(b.c.DOIPrefix) == 0 {
 		b.c.DOIPrefix = sharedconfig.GetEnv("PENNSIEVE_DOI_PREFIX")

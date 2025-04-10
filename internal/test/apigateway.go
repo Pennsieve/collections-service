@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/user"
@@ -37,6 +38,18 @@ func (b *APIGatewayRequestBuilder) WithBody(t require.TestingT, bodyStruct any) 
 	require.NoError(t, err)
 	b.r.Body = string(bodyBytes)
 	return b
+}
+
+func (b *APIGatewayRequestBuilder) WithQueryParam(key string, value string) *APIGatewayRequestBuilder {
+	if b.r.QueryStringParameters == nil {
+		b.r.QueryStringParameters = make(map[string]string)
+	}
+	b.r.QueryStringParameters[key] = value
+	return b
+}
+
+func (b *APIGatewayRequestBuilder) WithIntQueryParam(key string, value int) *APIGatewayRequestBuilder {
+	return b.WithQueryParam(key, fmt.Sprintf("%d", value))
 }
 
 func (b *APIGatewayRequestBuilder) Build() events.APIGatewayV2HTTPRequest {

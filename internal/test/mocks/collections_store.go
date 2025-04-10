@@ -39,5 +39,5 @@ func (c *CollectionsStore) GetCollections(ctx context.Context, userID int64, lim
 	if c.GetCollectionsFunc == nil {
 		panic("mock GetCollections function not set")
 	}
-	return c.GetCollections(ctx, userID, limit, offset)
+	return c.GetCollectionsFunc(ctx, userID, limit, offset)
 }

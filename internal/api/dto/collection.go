@@ -18,10 +18,10 @@ type CollectionResponse struct {
 }
 
 type CollectionsResponse struct {
-	Limit       int                   `json:"limit"`
-	Offset      int                   `json:"offset"`
-	TotalCount  int64                 `json:"totalCount"`
-	Collections []CollectionsResponse `json:"collections"`
+	Limit       int                  `json:"limit"`
+	Offset      int                  `json:"offset"`
+	TotalCount  int                  `json:"totalCount"`
+	Collections []CollectionResponse `json:"collections"`
 }
 
 type PublicDataset struct {

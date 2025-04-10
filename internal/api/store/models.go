@@ -11,7 +11,7 @@ type CollectionResponse struct {
 	NodeID      string
 	Name        string
 	Description string
-	Size        int64
+	Size        int
 	BannerDOIs  []string
 	UserRole    string
 }
@@ -20,5 +20,5 @@ type GetCollectionsResponse struct {
 	Limit       int
 	Offset      int
 	Collections []CollectionResponse
-	TotalCount  int64
+	TotalCount  int
 }

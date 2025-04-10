@@ -67,9 +67,10 @@ func (e *Error) LogError(logger *slog.Logger) {
 	} else {
 		cause = e.Cause.Error()
 	}
-	logger.Error(e.UserMessage,
+	logger.Error("returning API error to caller",
 		slog.Group("error",
 			slog.String("id", e.ID),
+			slog.String("userMessage", e.UserMessage),
 			slog.Any("cause", cause),
 		),
 	)

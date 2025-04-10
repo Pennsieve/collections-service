@@ -82,10 +82,6 @@ func (d ExpectedDOIs) Strings() []string {
 	return strs
 }
 
-func (d ExpectedDOIs) Len64() int64 {
-	return int64(len(d))
-}
-
 type ExpectationDB struct {
 	db            *test.PostgresDB
 	dbName        string

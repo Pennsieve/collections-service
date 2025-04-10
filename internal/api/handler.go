@@ -36,6 +36,16 @@ func CollectionsServiceAPIHandler(
 		routeKey := request.RouteKey
 		logger := logging.Default.With(slog.String("routeKey", routeKey))
 		container.SetLogger(logger)
+		logger.Info("configuration",
+			slog.Group("postgres",
+				slog.String("user", config.PostgresDB.User),
+				slog.String("collectionsDatabase", config.PostgresDB.CollectionsDatabase),
+			),
+			slog.Group("pennsieve",
+				slog.String("doiPrefix", config.PennsieveConfig.DOIPrefix),
+				slog.String("discoverURL", config.PennsieveConfig.DiscoverServiceURL),
+			),
+		)
 
 		claims := authorizer.ParseClaims(request.RequestContext.Authorizer.Lambda)
 

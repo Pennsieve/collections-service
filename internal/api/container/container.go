@@ -75,7 +75,7 @@ func (c *Container) PostgresDB() postgres.DB {
 
 func (c *Container) Discover() service.Discover {
 	if c.discover == nil {
-		c.discover = service.NewHTTPDiscover(c.Config.PennsieveConfig.DiscoverServiceHost, c.Logger())
+		c.discover = service.NewHTTPDiscover(c.Config.PennsieveConfig.DiscoverServiceURL, c.Logger())
 	}
 	return c.discover
 }

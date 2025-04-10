@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/test"
+	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -13,11 +14,11 @@ func Test_collectBanners(t *testing.T) {
 		datasetsByDOI map[string]dto.PublicDataset
 	}
 
-	dataset1 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
-	dataset2 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
-	dataset3 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
-	dataset4 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
-	dataset5 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: test.NewBanner()}
+	dataset1 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: apitest.NewBanner()}
+	dataset2 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: apitest.NewBanner()}
+	dataset3 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: apitest.NewBanner()}
+	dataset4 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: apitest.NewBanner()}
+	dataset5 := dto.PublicDataset{DOI: test.NewPennsieveDOI(), Banner: apitest.NewBanner()}
 	datasetWithoutBanner := dto.PublicDataset{DOI: test.NewPennsieveDOI()}
 
 	tests := []struct {

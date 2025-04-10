@@ -1,14 +1,15 @@
 package routes
 
-import "github.com/pennsieve/collections-service/internal/api/dto"
+import (
+	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/dto"
+)
 
-const maxBanners = 4
-
-// collectBanners returns a []string of length at most maxBanners containing banner URLs.
+// collectBanners returns a []string of length at most config.MaxBannersPerCollection containing banner URLs.
 // The banner URLS will in the same order as requestedDOIs with any DOIs not found in datasetsByDOI skipped.
 func collectBanners(requestedDOIs []string, datasetsByDOI map[string]dto.PublicDataset) []string {
 	var banners []string
-	for i, foundDOIs := 0, 0; i < len(requestedDOIs) && foundDOIs < maxBanners; i++ {
+	for i, foundDOIs := 0, 0; i < len(requestedDOIs) && foundDOIs < config.MaxBannersPerCollection; i++ {
 		requestedDOI := requestedDOIs[i]
 		if dataset, found := datasetsByDOI[requestedDOI]; found {
 			foundDOIs++
