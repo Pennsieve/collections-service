@@ -12,9 +12,9 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 servers:
-  - url: https://api2.pennsieve.io/collections
+  - url: https://api2.pennsieve.io
     description: Production server
-  - url: https://api2.pennsieve.net/collections
+  - url: https://api2.pennsieve.net
     description: Development server
 externalDocs:
   description: Find more info here
