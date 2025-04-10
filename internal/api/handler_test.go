@@ -334,7 +334,7 @@ func testGetCollections(t *testing.T) {
 				Limit:      routes.DefaultGetCollectionsLimit,
 				Offset:     expectedOffset,
 				TotalCount: 101,
-				Collections: []store.CollectionResponse{store.CollectionResponse{
+				Collections: []store.CollectionResponse{{
 					NodeID:      expectedNodeID,
 					Name:        expectedName,
 					Description: expectedDescription,
