@@ -52,7 +52,7 @@ func TestCreateCollection(t *testing.T) {
 func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := test.User
+	callingUser := apitest.User
 
 	expectedCollection := fixtures.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner)
@@ -62,7 +62,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 		Description: expectedCollection.Description,
 	}
 
-	claims := test.DefaultClaims(callingUser)
+	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
 		WithDockerPostgresDBConfig().
@@ -73,7 +73,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
-		Request: test.NewAPIGatewayRequestBuilder("POST /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder("POST /collections").
 			WithClaims(claims).
 			WithBody(t, createCollectionRequest).
 			Build(),
@@ -97,12 +97,12 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := test.User
+	callingUser := apitest.User
 
-	publishedDOI1 := test.NewPennsieveDOI()
+	publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
 
-	publishedDOI2 := test.NewPennsieveDOI()
+	publishedDOI2 := apitest.NewPennsieveDOI()
 	banner2 := apitest.NewBanner()
 
 	expectedCollection := fixtures.NewExpectedCollection().
@@ -120,13 +120,13 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 		require.Equal(t, []string{publishedDOI1, publishedDOI2}, dois)
 		return service.DatasetsByDOIResponse{
 			Published: map[string]dto.PublicDataset{
-				publishedDOI1: test.NewPublicDataset(publishedDOI1, banner1),
-				publishedDOI2: test.NewPublicDataset(publishedDOI2, banner2)},
+				publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
+				publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2)},
 		}, nil
 	}))
 	defer mockDiscoverServer.Close()
 
-	claims := test.DefaultClaims(callingUser)
+	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
 		WithDockerPostgresDBConfig().
@@ -139,7 +139,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
-		Request: test.NewAPIGatewayRequestBuilder("POST /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder("POST /collections").
 			WithClaims(claims).
 			WithBody(t, createCollectionRequest).
 			Build(),
@@ -164,21 +164,21 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := test.User
+	callingUser := apitest.User
 
-	publishedDOI1 := test.NewPennsieveDOI()
+	publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
 
-	publishedDOI2 := test.NewPennsieveDOI()
+	publishedDOI2 := apitest.NewPennsieveDOI()
 	banner2 := apitest.NewBanner()
 
-	publishedDOI3 := test.NewPennsieveDOI()
+	publishedDOI3 := apitest.NewPennsieveDOI()
 	banner3 := apitest.NewBanner()
 
-	publishedDTO4 := test.NewPennsieveDOI()
+	publishedDTO4 := apitest.NewPennsieveDOI()
 	banner4 := apitest.NewBanner()
 
-	publishedDTO5 := test.NewPennsieveDOI()
+	publishedDTO5 := apitest.NewPennsieveDOI()
 	banner5 := apitest.NewBanner()
 
 	expectedCollection := fixtures.NewExpectedCollection().
@@ -196,17 +196,17 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 		require.Equal(t, []string{publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5}, dois)
 		return service.DatasetsByDOIResponse{
 			Published: map[string]dto.PublicDataset{
-				publishedDOI1: test.NewPublicDataset(publishedDOI1, banner1),
-				publishedDOI2: test.NewPublicDataset(publishedDOI2, banner2),
-				publishedDOI3: test.NewPublicDataset(publishedDOI3, banner3),
-				publishedDTO4: test.NewPublicDataset(publishedDTO4, banner4),
-				publishedDTO5: test.NewPublicDataset(publishedDTO5, banner5),
+				publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
+				publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2),
+				publishedDOI3: apitest.NewPublicDataset(publishedDOI3, banner3),
+				publishedDTO4: apitest.NewPublicDataset(publishedDTO4, banner4),
+				publishedDTO5: apitest.NewPublicDataset(publishedDTO5, banner5),
 			},
 		}, nil
 	}))
 	defer mockDiscoverServer.Close()
 
-	claims := test.DefaultClaims(callingUser)
+	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
 		WithDockerPostgresDBConfig().
@@ -219,7 +219,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
-		Request: test.NewAPIGatewayRequestBuilder("POST /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder("POST /collections").
 			WithClaims(claims).
 			WithBody(t, createCollectionRequest).
 			Build(),
@@ -245,21 +245,21 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := test.User
+	callingUser := apitest.User
 
-	publishedDOI1 := test.NewPennsieveDOI()
+	publishedDOI1 := apitest.NewPennsieveDOI()
 	var banner1 *string = nil
 
-	publishedDOI2 := test.NewPennsieveDOI()
+	publishedDOI2 := apitest.NewPennsieveDOI()
 	banner2 := apitest.NewBanner()
 
-	publishedDOI3 := test.NewPennsieveDOI()
+	publishedDOI3 := apitest.NewPennsieveDOI()
 	var banner3 *string = nil
 
-	publishedDTO4 := test.NewPennsieveDOI()
+	publishedDTO4 := apitest.NewPennsieveDOI()
 	banner4 := apitest.NewBanner()
 
-	publishedDTO5 := test.NewPennsieveDOI()
+	publishedDTO5 := apitest.NewPennsieveDOI()
 	var banner5 *string = nil
 
 	expectedCollection := fixtures.NewExpectedCollection().
@@ -277,17 +277,17 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 		require.Equal(t, []string{publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5}, dois)
 		return service.DatasetsByDOIResponse{
 			Published: map[string]dto.PublicDataset{
-				publishedDOI1: test.NewPublicDataset(publishedDOI1, banner1),
-				publishedDOI2: test.NewPublicDataset(publishedDOI2, banner2),
-				publishedDOI3: test.NewPublicDataset(publishedDOI3, banner3),
-				publishedDTO4: test.NewPublicDataset(publishedDTO4, banner4),
-				publishedDTO5: test.NewPublicDataset(publishedDTO5, banner5),
+				publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
+				publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2),
+				publishedDOI3: apitest.NewPublicDataset(publishedDOI3, banner3),
+				publishedDTO4: apitest.NewPublicDataset(publishedDTO4, banner4),
+				publishedDTO5: apitest.NewPublicDataset(publishedDTO5, banner5),
 			},
 		}, nil
 	}))
 	defer mockDiscoverServer.Close()
 
-	claims := test.DefaultClaims(callingUser)
+	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
 		WithDockerPostgresDBConfig().
@@ -300,7 +300,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
-		Request: test.NewAPIGatewayRequestBuilder("POST /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder("POST /collections").
 			WithClaims(claims).
 			WithBody(t, createCollectionRequest).
 			Build(),

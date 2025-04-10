@@ -1,4 +1,4 @@
-package test
+package apitest
 
 import (
 	"github.com/pennsieve/collections-service/internal/api/dto"

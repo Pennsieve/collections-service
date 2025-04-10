@@ -43,8 +43,8 @@ func TestAPILambdaHandler(t *testing.T) {
 func testDefaultNotFound(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(), apitest.NewConfigBuilder().Build())
 
-	req := test.NewAPIGatewayRequestBuilder("GET /unknown").
-		WithDefaultClaims(test.User2).
+	req := apitest.NewAPIGatewayRequestBuilder("GET /unknown").
+		WithDefaultClaims(apitest.User2).
 		Build()
 
 	response, err := handler(context.Background(), req)
@@ -58,7 +58,7 @@ func testDefaultNotFound(t *testing.T) {
 func testNoClaims(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(), apitest.NewConfigBuilder().Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").Build()
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -70,7 +70,7 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        uuid.NewString(),
 		Description: uuid.NewString(),
-		DOIs:        []string{test.NewExternalDOI(), test.NewPennsieveDOI(), test.NewExternalDOI()},
+		DOIs:        []string{apitest.NewExternalDOI(), apitest.NewPennsieveDOI(), apitest.NewExternalDOI()},
 	}
 
 	handler := CollectionsServiceAPIHandler(
@@ -79,8 +79,8 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").
-		WithDefaultClaims(test.User).
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -105,8 +105,8 @@ func testCreateCollectionEmptyName(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").
-		WithDefaultClaims(test.User).
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -129,8 +129,8 @@ func testCreateCollectionNameTooLong(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").
-		WithDefaultClaims(test.User).
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -153,8 +153,8 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").
-		WithDefaultClaims(test.User).
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -166,8 +166,8 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 }
 
 func testCreateCollectionUnpublishedDOIs(t *testing.T) {
-	publishedDOI := test.NewPennsieveDOI()
-	unpublishedDOI := test.NewPennsieveDOI()
+	publishedDOI := apitest.NewPennsieveDOI()
+	unpublishedDOI := apitest.NewPennsieveDOI()
 	expectedStatus := "PublishFailed"
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        uuid.NewString(),
@@ -180,8 +180,8 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 			test.Helper(t)
 			require.Equal(t, []string{publishedDOI, unpublishedDOI}, dois)
 			return service.DatasetsByDOIResponse{
-				Published:   map[string]dto.PublicDataset{publishedDOI: test.NewPublicDataset(publishedDOI, nil)},
-				Unpublished: map[string]dto.Tombstone{unpublishedDOI: test.NewTombstone(unpublishedDOI, expectedStatus)},
+				Published:   map[string]dto.PublicDataset{publishedDOI: apitest.NewPublicDataset(publishedDOI, nil)},
+				Unpublished: map[string]dto.Tombstone{unpublishedDOI: apitest.NewTombstone(unpublishedDOI, expectedStatus)},
 			}, nil
 		})
 
@@ -191,8 +191,8 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").
-		WithDefaultClaims(test.User).
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -211,7 +211,7 @@ func testCreateCollectionNoBody(t *testing.T) {
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").WithDefaultClaims(test.User).Build()
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").WithDefaultClaims(apitest.User).Build()
 
 	response, err := handler(context.Background(), req)
 	require.NoError(t, err)
@@ -226,8 +226,8 @@ func testCreateCollectionMalformedBody(t *testing.T) {
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").
-		WithDefaultClaims(test.User).
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		WithDefaultClaims(apitest.User).
 		Build()
 
 	req.Body = "{]"
@@ -241,13 +241,13 @@ func testCreateCollectionMalformedBody(t *testing.T) {
 }
 
 func testCreateCollection(t *testing.T) {
-	publishedDOI1 := test.NewPennsieveDOI()
+	publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
 
-	publishedDOI2 := test.NewPennsieveDOI()
+	publishedDOI2 := apitest.NewPennsieveDOI()
 	banner2 := apitest.NewBanner()
 
-	callingUser := test.User
+	callingUser := apitest.User
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        uuid.NewString(),
@@ -261,8 +261,8 @@ func testCreateCollection(t *testing.T) {
 			require.Equal(t, []string{publishedDOI1, publishedDOI2}, dois)
 			return service.DatasetsByDOIResponse{
 				Published: map[string]dto.PublicDataset{
-					publishedDOI1: test.NewPublicDataset(publishedDOI1, banner1),
-					publishedDOI2: test.NewPublicDataset(publishedDOI2, banner2)},
+					publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
+					publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2)},
 			}, nil
 		})
 
@@ -288,7 +288,7 @@ func testCreateCollection(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := test.NewAPIGatewayRequestBuilder("POST /collections").
+	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
 		WithDefaultClaims(callingUser).
 		WithBody(t, createCollectionRequest).
 		Build()
@@ -310,11 +310,11 @@ func testCreateCollection(t *testing.T) {
 }
 
 func testGetCollections(t *testing.T) {
-	callingUser := test.User
+	callingUser := apitest.User
 
 	expectedOffset := 100
 
-	expectedDOI := test.NewPennsieveDOI()
+	expectedDOI := apitest.NewPennsieveDOI()
 	expectedBanner := apitest.NewBanner()
 
 	expectedNodeID := uuid.NewString()
@@ -355,7 +355,7 @@ func testGetCollections(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build(),
 	)
-	req := test.NewAPIGatewayRequestBuilder("GET /collections").
+	req := apitest.NewAPIGatewayRequestBuilder("GET /collections").
 		WithDefaultClaims(callingUser).
 		WithIntQueryParam("offset", expectedOffset).
 		Build()

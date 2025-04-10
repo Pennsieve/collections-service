@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 )
 
@@ -18,7 +17,7 @@ type TestBanners map[string]string
 
 func (t TestBanners) WithExpectedPennsieveBanners(expectedDOIs []string) {
 	for _, expectedDOI := range expectedDOIs {
-		t[expectedDOI] = test.NewPennsieveDOI()
+		t[expectedDOI] = NewPennsieveDOI()
 	}
 }
 
@@ -36,10 +35,10 @@ func (t TestBanners) ToDiscoverGetDatasetsByDOIFunc() mocks.GetDatasetsByDOIFunc
 		}
 		for _, doi := range dois {
 			if banner, found := t[doi]; found {
-				response.Published[doi] = test.NewPublicDataset(doi, &banner)
+				response.Published[doi] = NewPublicDataset(doi, &banner)
 			} else {
 				//not sure what will be best here. Ignore these, send back as unpublished tombstones, or as published with missing banners
-				response.Published[doi] = test.NewPublicDataset(doi, nil)
+				response.Published[doi] = NewPublicDataset(doi, nil)
 			}
 		}
 		return response, nil

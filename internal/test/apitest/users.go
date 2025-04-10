@@ -1,4 +1,4 @@
-package test
+package apitest
 
 type SeedUser struct {
 	ID           int64

@@ -58,14 +58,14 @@ func testGetCollectionsNone(t *testing.T, expectationDB *fixtures.ExpectationDB)
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(test.User2.ID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI())
+	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
 	// Test route
 	// use a different user with no collections
-	callingUser := test.User
+	callingUser := apitest.User
 
-	claims := test.DefaultClaims(callingUser)
+	claims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithDockerPostgresDBConfig().
@@ -78,7 +78,7 @@ func testGetCollectionsNone(t *testing.T, expectationDB *fixtures.ExpectationDB)
 	limit, offset := 100, 10
 
 	params := Params{
-		Request: test.NewAPIGatewayRequestBuilder("GET /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder("GET /collections").
 			WithClaims(claims).
 			WithIntQueryParam("limit", limit).
 			WithIntQueryParam("offset", offset).
@@ -101,7 +101,7 @@ func testGetCollectionsNone(t *testing.T, expectationDB *fixtures.ExpectationDB)
 func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user1 := test.User
+	user1 := apitest.User
 
 	testBanners := apitest.TestBanners{}
 
@@ -109,21 +109,21 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
-	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI())
+	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
 	testBanners.WithExpectedPennsieveBanners(user1CollectionOneDOI.DOIs.Strings())
 
-	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI(), test.NewPennsieveDOI())
+	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 	testBanners.WithExpectedPennsieveBanners(user1CollectionFiveDOI.DOIs.Strings())
 
-	user2 := test.User2
-	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).WithDOIs(test.NewPennsieveDOI(), test.NewPennsieveDOI())
+	user2 := apitest.User2
+	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 	testBanners.WithExpectedPennsieveBanners(user2Collection.DOIs.Strings())
 
 	// Test route
-	user1Claims := test.DefaultClaims(user1)
+	user1Claims := apitest.DefaultClaims(user1)
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, testBanners.ToDiscoverGetDatasetsByDOIFunc()))
 	defer mockDiscoverServer.Close()
@@ -139,7 +139,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	user1Params := Params{
-		Request: test.NewAPIGatewayRequestBuilder("GET /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder("GET /collections").
 			WithClaims(user1Claims).
 			Build(),
 		Container: container,
@@ -167,9 +167,9 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, actualCollection3, testBanners)
 
 	// try user2's collections
-	user2Claims := test.DefaultClaims(user2)
+	user2Claims := apitest.DefaultClaims(user2)
 	user2Params := Params{
-		Request: test.NewAPIGatewayRequestBuilder("GET /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder("GET /collections").
 			WithClaims(user2Claims).
 			Build(),
 		Container: container,
@@ -193,7 +193,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	testBanners := apitest.TestBanners{}
 	var expectedCollections []*fixtures.ExpectedCollection
 	for i := 0; i < totalCollections; i++ {
-		expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(test.User.ID, pgdb.Owner).WithNPennsieveDOIs(i)
+		expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithNPennsieveDOIs(i)
 		expectationDB.CreateCollection(ctx, t, expectedCollection)
 		expectedCollections = append(expectedCollections, expectedCollection)
 		testBanners.WithExpectedPennsieveBanners(expectedCollection.DOIs.Strings())
@@ -204,7 +204,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	// response sizes: 6 6  0
 	offset := 0
 
-	userClaims := test.DefaultClaims(test.User)
+	userClaims := apitest.DefaultClaims(apitest.User)
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, testBanners.ToDiscoverGetDatasetsByDOIFunc()))
 	defer mockDiscoverServer.Close()
 
@@ -220,7 +220,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 
 	for ; offset < totalCollections; offset += limit {
 		params := Params{
-			Request: test.NewAPIGatewayRequestBuilder("GET /collections").
+			Request: apitest.NewAPIGatewayRequestBuilder("GET /collections").
 				WithClaims(userClaims).
 				WithIntQueryParam("limit", limit).
 				WithIntQueryParam("offset", offset).
@@ -247,7 +247,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	// now offset >= totalCollections, so the response should have no collections
 	// but still have the correct TotalCount.
 	params := Params{
-		Request: test.NewAPIGatewayRequestBuilder("GET /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder("GET /collections").
 			WithClaims(userClaims).
 			WithIntQueryParam("limit", limit).
 			WithIntQueryParam("offset", offset).

@@ -7,6 +7,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
+	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
 	"log/slog"
@@ -64,7 +65,7 @@ func (c *ExpectedCollection) WithDOIs(dois ...string) *ExpectedCollection {
 func (c *ExpectedCollection) WithNPennsieveDOIs(n int) *ExpectedCollection {
 	var dois []string
 	for i := 0; i < n; i++ {
-		dois = append(dois, test.NewPennsieveDOI())
+		dois = append(dois, apitest.NewPennsieveDOI())
 	}
 	return c.WithDOIs(dois...)
 }

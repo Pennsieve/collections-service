@@ -3,7 +3,6 @@ package apitest
 import (
 	"github.com/pennsieve/collections-service/internal/api/config"
 	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
-	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/configtest"
 )
 
@@ -41,13 +40,13 @@ func (b *ConfigBuilder) Build() config.Config {
 func PennsieveConfig(discoverServiceURL string) config.PennsieveConfig {
 	return config.NewPennsieveConfigBuilder().
 		WithDiscoverServiceURL(discoverServiceURL).
-		WithDOIPrefix(test.PennsieveDOIPrefix).
+		WithDOIPrefix(PennsieveDOIPrefix).
 		Build()
 }
 
 func PennsieveConfigWithFakeURL() config.PennsieveConfig {
 	return config.NewPennsieveConfigBuilder().
 		WithDiscoverServiceURL("http://example.com/discover").
-		WithDOIPrefix(test.PennsieveDOIPrefix).
+		WithDOIPrefix(PennsieveDOIPrefix).
 		Build()
 }

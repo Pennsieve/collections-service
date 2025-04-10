@@ -4,7 +4,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
-	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/stretchr/testify/assert"
@@ -14,8 +13,8 @@ import (
 )
 
 func TestHTTPDiscover_GetDatasetsByDOI(t *testing.T) {
-	publishedDOI := test.NewPennsieveDOI()
-	publishedDTO := test.NewPublicDataset(publishedDOI, apitest.NewBanner())
+	publishedDOI := apitest.NewPennsieveDOI()
+	publishedDTO := apitest.NewPublicDataset(publishedDOI, apitest.NewBanner())
 	expectedResponse := service.DatasetsByDOIResponse{
 		Published:   map[string]dto.PublicDataset{publishedDOI: publishedDTO},
 		Unpublished: nil,

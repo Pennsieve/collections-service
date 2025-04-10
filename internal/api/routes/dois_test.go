@@ -1,18 +1,18 @@
 package routes
 
 import (
-	"github.com/pennsieve/collections-service/internal/test"
+	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestCategorizeDOIs(t *testing.T) {
-	pennsieveDOI1 := test.NewPennsieveDOI()
-	pennsieveDOI2 := test.NewPennsieveDOI()
-	pennsieveDOI3 := test.NewPennsieveDOI()
+	pennsieveDOI1 := apitest.NewPennsieveDOI()
+	pennsieveDOI2 := apitest.NewPennsieveDOI()
+	pennsieveDOI3 := apitest.NewPennsieveDOI()
 
-	externalDOI1 := test.NewExternalDOI()
-	externalDOI2 := test.NewExternalDOI()
+	externalDOI1 := apitest.NewExternalDOI()
+	externalDOI2 := apitest.NewExternalDOI()
 
 	type args struct {
 		inputDOIs             []string
@@ -40,7 +40,7 @@ func TestCategorizeDOIs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualPennsieve, actualExternal := CategorizeDOIs(test.PennsieveDOIPrefix, tt.args.inputDOIs)
+			actualPennsieve, actualExternal := CategorizeDOIs(apitest.PennsieveDOIPrefix, tt.args.inputDOIs)
 			assert.Equal(t, tt.args.expectedPennsieveDOIs, actualPennsieve)
 			assert.Equal(t, tt.args.expectedExternalDOIs, actualExternal)
 		})
