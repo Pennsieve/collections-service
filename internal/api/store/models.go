@@ -11,7 +11,7 @@ type CollectionResponse struct {
 	NodeID      string
 	Name        string
 	Description string
-	Size        int
+	Size        int64
 	BannerDOIs  []string
 	UserRole    string
 }

@@ -35,6 +35,7 @@ func TestStore(t *testing.T) {
 		"create collection, empty description": testCreateCollectionEmptyDescription,
 		"get collections, none":                testGetCollectionsNone,
 		"get collections":                      testGetCollections,
+		"get collections, limit and offset":    testGetCollectionsLimitOffset,
 	} {
 
 		t.Run(scenario, func(t *testing.T) {
@@ -142,7 +143,6 @@ func testGetCollectionsNone(t *testing.T, store *store.PostgresCollectionsStore,
 }
 
 func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
-	t.Skip("need a second query to get dois for each collection")
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
@@ -169,27 +169,78 @@ func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, exp
 
 	// They should be returned in oldest first order
 	actualCollection1 := response.Collections[0]
-	assert.Equal(t, *user1CollectionNoDOI.NodeID, actualCollection1.NodeID)
-	assert.Equal(t, user1CollectionNoDOI.Name, actualCollection1.Name)
-	assert.Equal(t, user1CollectionNoDOI.Description, actualCollection1.Description)
-	assert.Equal(t, user1CollectionNoDOI.Users[0].PermissionBit.ToRole().String(), actualCollection1.UserRole)
-	assert.Equal(t, len(user1CollectionNoDOI.DOIs), actualCollection1.Size)
-	assert.Equal(t, user1CollectionNoDOI.DOIs.Strings(), actualCollection1.BannerDOIs)
+	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, actualCollection1)
 
 	actualCollection2 := response.Collections[1]
-	assert.Equal(t, *user1CollectionOneDOI.NodeID, actualCollection2.NodeID)
-	assert.Equal(t, user1CollectionOneDOI.Name, actualCollection2.Name)
-	assert.Equal(t, user1CollectionOneDOI.Description, actualCollection2.Description)
-	assert.Equal(t, user1CollectionOneDOI.Users[0].PermissionBit.ToRole().String(), actualCollection2.UserRole)
-	assert.Equal(t, len(user1CollectionOneDOI.DOIs), actualCollection2.Size)
-	assert.Equal(t, user1CollectionOneDOI.DOIs.Strings(), actualCollection2.BannerDOIs)
+	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, actualCollection2)
 
 	actualCollection3 := response.Collections[2]
-	assert.Equal(t, *user1CollectionFiveDOI.NodeID, actualCollection3.NodeID)
-	assert.Equal(t, user1CollectionFiveDOI.Name, actualCollection3.Name)
-	assert.Equal(t, user1CollectionFiveDOI.Description, actualCollection3.Description)
-	assert.Equal(t, user1CollectionFiveDOI.Users[0].PermissionBit.ToRole().String(), actualCollection3.UserRole)
-	assert.Equal(t, len(user1CollectionFiveDOI.DOIs), actualCollection3.Size)
-	assert.Equal(t, user1CollectionFiveDOI.DOIs.Strings()[:4], actualCollection3.BannerDOIs)
+	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, actualCollection3)
 
+	// try user2's collections
+	user2CollectionResp, err := store.GetCollections(ctx, test.User2.ID, limit, offset)
+	require.NoError(t, err)
+
+	assert.Equal(t, limit, user2CollectionResp.Limit)
+	assert.Equal(t, offset, user2CollectionResp.Offset)
+	assert.Equal(t, int64(1), user2CollectionResp.TotalCount)
+	assert.Len(t, user2CollectionResp.Collections, 1)
+
+	actualUser2Collection := user2CollectionResp.Collections[0]
+	assertExpectedEqualCollectionResponse(t, user2Collection, actualUser2Collection)
+
+}
+
+func testGetCollectionsLimitOffset(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+	totalCollections := 11
+	var expectedCollections []*fixtures.ExpectedCollection
+	for i := 0; i < totalCollections; i++ {
+		expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(test.User.ID, pgdb.Owner).WithNPennsieveDOIs(i)
+		expectationDB.CreateCollection(ctx, t, expectedCollection)
+		expectedCollections = append(expectedCollections, expectedCollection)
+	}
+
+	limit := 3
+	// offsets:        0 3 6 9 12
+	// response sizes: 3 3 3 2  0
+	offset := 0
+
+	for ; offset < totalCollections; offset += limit {
+		resp, err := store.GetCollections(ctx, test.User.ID, limit, offset)
+		require.NoError(t, err)
+
+		assert.Equal(t, limit, resp.Limit)
+		assert.Equal(t, offset, resp.Offset)
+		assert.Equal(t, int64(totalCollections), resp.TotalCount)
+
+		expectedCollectionLen := min(limit, totalCollections-offset)
+		if assert.Len(t, resp.Collections, expectedCollectionLen) {
+			for i := 0; i < expectedCollectionLen; i++ {
+				assertExpectedEqualCollectionResponse(t, expectedCollections[offset+i], resp.Collections[i])
+			}
+		}
+	}
+
+	// now offset >= totalCollections, so the response should have no collections
+	// but still have the correct TotalCount.
+
+	emptyResp, err := store.GetCollections(ctx, test.User.ID, limit, offset)
+	require.NoError(t, err)
+
+	assert.Equal(t, limit, emptyResp.Limit)
+	assert.Equal(t, offset, emptyResp.Offset)
+	assert.Equal(t, int64(totalCollections), emptyResp.TotalCount)
+	assert.Empty(t, emptyResp.Collections)
+
+}
+
+func assertExpectedEqualCollectionResponse(t *testing.T, expected *fixtures.ExpectedCollection, actual store.CollectionResponse) {
+	assert.Equal(t, *expected.NodeID, actual.NodeID)
+	assert.Equal(t, expected.Name, actual.Name)
+	assert.Equal(t, expected.Description, actual.Description)
+	assert.Equal(t, expected.Users[0].PermissionBit.ToRole().String(), actual.UserRole)
+	assert.Equal(t, expected.DOIs.Len64(), actual.Size)
+	bannerLen := min(store.MaxDOIsPerCollection, len(expected.DOIs))
+	assert.Equal(t, expected.DOIs.Strings()[:bannerLen], actual.BannerDOIs)
 }

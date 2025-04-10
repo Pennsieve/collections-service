@@ -61,6 +61,14 @@ func (c *ExpectedCollection) WithDOIs(dois ...string) *ExpectedCollection {
 	return c
 }
 
+func (c *ExpectedCollection) WithNPennsieveDOIs(n int) *ExpectedCollection {
+	var dois []string
+	for i := 0; i < n; i++ {
+		dois = append(dois, test.NewPennsieveDOI())
+	}
+	return c.WithDOIs(dois...)
+}
+
 type ExpectedDOIs []ExpectedDOI
 
 func (d ExpectedDOIs) Strings() []string {
@@ -72,6 +80,10 @@ func (d ExpectedDOIs) Strings() []string {
 		strs[i] = doi.DOI
 	}
 	return strs
+}
+
+func (d ExpectedDOIs) Len64() int64 {
+	return int64(len(d))
 }
 
 type ExpectationDB struct {

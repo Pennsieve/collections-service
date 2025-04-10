@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"log/slog"
 	"strings"
 )
+
+const MaxDOIsPerCollection = config.MaxBannersPerCollection
 
 type CollectionsStore interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error)
@@ -91,13 +94,13 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 		return GetCollectionsResponse{}, fmt.Errorf("offset cannot be negative: %d", offset)
 
 	}
-	args := pgx.NamedArgs{
+	getCollectionsArgs := pgx.NamedArgs{
 		"user_id": userID,
 		"limit":   limit,
 		"offset":  offset,
 	}
 	// using ORDER BY c.id asc as a proxy for getting in order of creation, oldest first
-	sql := `SELECT c.*, u.role, count(*) OVER () AS total_count
+	getCollectionsSQL := `SELECT c.*, u.role, count(*) OVER () AS total_count
 			FROM collections.collections c
          			JOIN collections.collection_user u ON c.id = u.collection_id
 			WHERE u.user_id = @user_id
@@ -117,14 +120,14 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 	}
 	defer s.closeConn(ctx, conn)
 
-	// any error here will be returned from pgx.CollectRows which also closes rows for us
-	rows, _ := conn.Query(ctx, sql, args)
+	// any error here will be returned from pgx.CollectRows which also closes collectionUserJoinRows for us
+	collectionUserJoinRows, _ := conn.Query(ctx, getCollectionsSQL, getCollectionsArgs)
 
 	response := GetCollectionsResponse{Limit: limit, Offset: offset}
 
 	var collectionIDs []int64
 
-	collections, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (CollectionResponse, error) {
+	collections, err := pgx.CollectRows(collectionUserJoinRows, func(row pgx.CollectableRow) (CollectionResponse, error) {
 		join, err := pgx.RowToStructByName[CollectionUserJoin](row)
 		if err != nil {
 			return CollectionResponse{}, err
@@ -146,16 +149,51 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 		return GetCollectionsResponse{}, fmt.Errorf("GetCollections: error querying for collections: %w", err)
 	}
 
-	//	select c.id, c.node_id, d.doi
-	//from collections.collections c
-	//join lateral (
-	//select *
-	//		from collections.dois
-	//			where collection_id = c.id
-	//order by id asc
-	//limit 4
-	//) d on true
-	//where c.id in (105, 106, 107);
+	if len(collections) == 0 {
+		var totalCount int64
+		if err := conn.QueryRow(ctx, `SELECT count(*)
+                                FROM collections.collections c
+         			            	JOIN collections.collection_user u ON c.id = u.collection_id
+			                    WHERE u.user_id = @user_id
+  				                	and u.permission_bit > 0`, getCollectionsArgs).Scan(&totalCount); err != nil {
+			return GetCollectionsResponse{}, fmt.Errorf("GetCollections: error counting total collections: %w", err)
+		}
+		response.TotalCount = totalCount
+		return response, nil
+	}
+
+	nodeIDToCollection := make(map[string]*CollectionResponse, len(collections))
+	for i := range collections {
+		collection := &collections[i]
+		nodeIDToCollection[collection.NodeID] = collection
+	}
+	getDOIsArgs := pgx.NamedArgs{"limit": MaxDOIsPerCollection, "collection_ids": collectionIDs}
+
+	getDOIsSQL := `SELECT c.node_id, d.doi, d.total_count
+				   FROM collections.collections c
+				   JOIN LATERAL (
+	               	SELECT doi, count(*) OVER () AS total_count
+			        FROM collections.dois
+				    WHERE collection_id = c.id
+	                ORDER BY id asc
+				    LIMIT @limit
+	               ) d ON true
+	               WHERE c.id = ANY(@collection_ids)
+	               ORDER BY c.id asc`
+
+	// if there is an error, it will be returned by pgx.ForEachRow which will also close doiRows
+	doiRows, _ := conn.Query(ctx, getDOIsSQL, getDOIsArgs)
+
+	var nodeID, doi string
+	var totalCount int64
+	if _, err = pgx.ForEachRow(doiRows, []any{&nodeID, &doi, &totalCount}, func() error {
+		collection := nodeIDToCollection[nodeID]
+		collection.BannerDOIs = append(collection.BannerDOIs, doi)
+		collection.Size = totalCount
+		return nil
+	}); err != nil {
+		return GetCollectionsResponse{}, fmt.Errorf("GetCollections: error querying for DOIs: %w", err)
+	}
 
 	response.Collections = collections
 	return response, nil

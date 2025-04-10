@@ -4,6 +4,8 @@ import (
 	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
 )
 
+const MaxBannersPerCollection = 4
+
 type Config struct {
 	PostgresDB      sharedconfig.PostgresDBConfig
 	PennsieveConfig PennsieveConfig
