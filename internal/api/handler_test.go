@@ -52,7 +52,7 @@ func testDefaultNotFound(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	assert.Contains(t, response.Body, "not found")
-	assert.Contains(t, response.Body, `"error_id"`)
+	assert.Contains(t, response.Body, `"errorId"`)
 }
 
 func testNoClaims(t *testing.T) {

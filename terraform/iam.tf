@@ -20,14 +20,6 @@ resource "aws_iam_role" "collections_service_api_lambda_role" {
 EOF
 }
 
-resource "aws_lambda_permission" "collections_service_api_api_gateway_lambda_permission" {
-  statement_id  = "AllowExecutionFromGateway"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.collections_service_api_lambda.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${data.terraform_remote_state.api_gateway.outputs.execution_arn}/*"
-}
-
 resource "aws_iam_role_policy_attachment" "collections_service_api_lambda_iam_policy_attachment" {
   role       = aws_iam_role.collections_service_api_lambda_role.name
   policy_arn = aws_iam_policy.collections_service_api_lambda_iam_policy.arn

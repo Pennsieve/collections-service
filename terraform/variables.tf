@@ -14,6 +14,8 @@ variable "lambda_bucket" {
   default = "pennsieve-cc-lambda-functions-use1"
 }
 
+variable "api_domain_name" {}
+
 variable "dbmigrate_service_name" {
   default = "collections-service-dbmigrate"
 }

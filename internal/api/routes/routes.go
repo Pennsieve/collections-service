@@ -73,7 +73,7 @@ func APIErrorGatewayResponse(err *apierrors.Error) events.APIGatewayV2HTTPRespon
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: err.StatusCode,
 		Headers:    DefaultResponseHeaders(),
-		Body:       fmt.Sprintf(`{"message": %q, "error_id": %q}`, err.UserMessage, err.ID),
+		Body:       fmt.Sprintf(`{"message": %q, "errorId": %q}`, err.UserMessage, err.ID),
 	}
 }
 

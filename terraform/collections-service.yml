@@ -1,0 +1,505 @@
+openapi: 3.0.1
+info:
+  version: "3.0"
+  title: Collections API
+  description: |
+    This is the serverless collections api
+  termsOfService: https://docs.pennsieve.io/page/pennsieve-terms-of-use
+  contact:
+    name: Pennsieve Support
+    email: support@pennsieve.net
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url: https://api2.pennsieve.io/collections
+    description: Production server
+  - url: https://api2.pennsieve.net/collections
+    description: Development server
+externalDocs:
+  description: Find more info here
+  url: https://docs.pennsieve.io
+tags:
+  - name: Collections Service
+    description: Management of dataset collections
+    externalDocs:
+      url: https://docs.pennsieve.io/reference
+
+paths:
+  /collections:
+    get:
+      x-amazon-apigateway-integration:
+        $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
+      operationId: getCollections
+      summary: Return list of collections
+      description: |
+        Returns a list of collections to which the user has access
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 0
+          description: The maximum number of collections to return
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+          description: The offset at which the returned list should start
+      security:
+        - token_auth: [ ]
+      tags:
+        - Collections Service
+      responses:
+        '200':
+          description: A list of collections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '4XX':
+          $ref: '#/components/responses/Unauthorized'
+        '5XX':
+          $ref: '#/components/responses/Error'
+    post:
+      x-amazon-apigateway-integration:
+        $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
+      operationId: createCollection
+      summary: creates a new collection
+      description: |
+        Creates a new collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollectionRequest'
+      security:
+        - token_auth: [ ]
+      tags:
+        - Collections Service
+      responses:
+        '201':
+          description: the created collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '4XX':
+          $ref: '#/components/responses/Unauthorized'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
+
+components:
+  x-amazon-apigateway-integrations:
+    collections-service:
+      type: aws_proxy
+      uri: ${collections_service_lambda_arn}
+      httpMethod: POST
+      passthroughBehavior: when_no_match
+      contentHandling: CONVERT_TO_TEXT
+      payloadFormatVersion: 2.0
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+    BasicAuth:
+      type: http
+      scheme: basic
+
+    token_auth:
+      type: "apiKey"
+      name: "Authorization"
+      in: "header"
+      x-amazon-apigateway-authorizer:
+        identitySource: "$request.header.Authorization"
+        authorizerUri: ${authorize_lambda_invoke_uri}
+        authorizerPayloadFormatVersion: "2.0"
+        authorizerResultTtlInSeconds: 300
+        type: "request"
+        enableSimpleResponses: true
+        authorizerCredentials: ${gateway_authorizer_role}
+
+  responses:
+    Unauthorized:
+      description: Incorrect authentication or user has incorrect permissions.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorId:
+                type: string
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorId:
+                type: string
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorId:
+                type: string
+    Error:
+      description: Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorId:
+                type: string
+  schemas:
+    CreateCollectionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        dois:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - description
+        - dois
+    CollectionResponse:
+      type: object
+      properties:
+        node_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        banners:
+          type: array
+          items:
+            type: string
+        size:
+          type: integer
+        user_role:
+          type: string
+      required:
+        - node_id
+        - name
+        - description
+        - banners
+        - size
+        - user_role
+    CollectionsResponse:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        totalCount:
+          type: integer
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionResponse'
+      required:
+        - limit
+        - offset
+        - totalCount
+        - collections
+    PublicDataset:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        sourceDatasetId:
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          type: string
+        description:
+          type: string
+        ownerId:
+          type: integer
+          format: int64
+          nullable: true
+        ownerFirstName:
+          type: string
+        ownerLastName:
+          type: string
+        ownerOrcid:
+          type: string
+        organizationName:
+          type: string
+        organizationId:
+          type: integer
+          format: int64
+          nullable: true
+        license:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        version:
+          type: integer
+        revision:
+          type: integer
+          nullable: true
+        size:
+          type: integer
+          format: int64
+        modelCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelCount'
+        fileCount:
+          type: integer
+          format: int64
+        recordCount:
+          type: integer
+          format: int64
+        uri:
+          type: string
+        arn:
+          type: string
+        status:
+          type: string
+        doi:
+          type: string
+        banner:
+          type: string
+          nullable: true
+        readme:
+          type: string
+          nullable: true
+        changelog:
+          type: string
+          nullable: true
+        contributors:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicContributor'
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicCollection'
+          nullable: true
+        externalPublications:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicExternalPublication'
+          nullable: true
+        sponsorship:
+          $ref: '#/components/schemas/Sponsorship'
+        pennsieveSchemaVersion:
+          type: string
+          nullable: true
+        embargo:
+          type: boolean
+          nullable: true
+        embargoReleaseDate:
+          type: string
+          format: date-time
+          nullable: true
+        embargoAccess:
+          type: string
+          nullable: true
+        datasetType:
+          type: string
+          nullable: true
+        release:
+          $ref: '#/components/schemas/ReleaseInfo'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        firstPublishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        versionPublishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        revisedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - name
+        - description
+        - ownerFirstName
+        - ownerLastName
+        - ownerOrcid
+        - organizationName
+        - license
+        - tags
+        - version
+        - size
+        - modelCount
+        - fileCount
+        - recordCount
+        - uri
+        - arn
+        - status
+        - doi
+        - contributors
+        - createdAt
+        - updatedAt
+
+    ModelCount:
+      type: object
+      properties:
+        modelName:
+          type: string
+        count:
+          type: integer
+          format: int64
+      required:
+        - modelName
+        - count
+
+    PublicContributor:
+      type: object
+      properties:
+        firstName:
+          type: string
+        middleInitial:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+        degree:
+          type: string
+          nullable: true
+        orcid:
+          type: string
+          nullable: true
+      required:
+        - firstName
+        - lastName
+
+    PublicCollection:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+      required:
+        - id
+        - name
+
+    PublicExternalPublication:
+      type: object
+      properties:
+        doi:
+          type: string
+        relationshipType:
+          type: string
+      required:
+        - doi
+        - relationshipType
+
+    Sponsorship:
+      type: object
+      properties:
+        title:
+          type: string
+        imageUrl:
+          type: string
+        markup:
+          type: string
+      required:
+        - title
+        - imageUrl
+        - markup
+
+    ReleaseInfo:
+      type: object
+      properties:
+        origin:
+          type: string
+        label:
+          type: string
+        marker:
+          type: string
+        repoUrl:
+          type: string
+        labelUrl:
+          type: string
+          nullable: true
+        markerUrl:
+          type: string
+          nullable: true
+        releaseStatus:
+          type: string
+          nullable: true
+      required:
+        - origin
+        - label
+        - marker
+        - repoUrl
+
+    Tombstone:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        version:
+          type: integer
+        name:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        doi:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - version
+        - name
+        - tags
+        - status
+        - doi
+        - updatedAt
+
+
