@@ -78,7 +78,7 @@ func testGetCollectionsNone(t *testing.T, expectationDB *fixtures.ExpectationDB)
 	limit, offset := 100, 10
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder("GET /").
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
 			WithClaims(claims).
 			WithIntQueryParam("limit", limit).
 			WithIntQueryParam("offset", offset).
@@ -139,7 +139,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	user1Params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder("GET /").
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
 			WithClaims(user1Claims).
 			Build(),
 		Container: container,
@@ -169,7 +169,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	// try user2's collections
 	user2Claims := apitest.DefaultClaims(user2)
 	user2Params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder("GET /").
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
 			WithClaims(user2Claims).
 			Build(),
 		Container: container,
@@ -220,7 +220,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 
 	for ; offset < totalCollections; offset += limit {
 		params := Params{
-			Request: apitest.NewAPIGatewayRequestBuilder("GET /").
+			Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
 				WithClaims(userClaims).
 				WithIntQueryParam("limit", limit).
 				WithIntQueryParam("offset", offset).
@@ -247,7 +247,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	// now offset >= totalCollections, so the response should have no collections
 	// but still have the correct TotalCount.
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder("GET /").
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
 			WithClaims(userClaims).
 			WithIntQueryParam("limit", limit).
 			WithIntQueryParam("offset", offset).
