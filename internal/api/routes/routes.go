@@ -37,7 +37,7 @@ type Handler[T any] struct {
 	Headers           map[string]string
 }
 
-func Handle[T any](ctx context.Context, params Params, handler Handler[T]) (events.APIGatewayV2HTTPResponse, error) {
+func Handle[T any](ctx context.Context, handler Handler[T], params Params) (events.APIGatewayV2HTTPResponse, error) {
 	response, err := handler.HandleFunc(ctx, params)
 	if err != nil {
 		var apiError *apierrors.Error

@@ -192,7 +192,7 @@ components:
     CollectionResponse:
       type: object
       properties:
-        node_id:
+        nodeId:
           type: string
         name:
           type: string
@@ -204,15 +204,15 @@ components:
             type: string
         size:
           type: integer
-        user_role:
+        userRole:
           type: string
       required:
-        - node_id
+        - nodeId
         - name
         - description
         - banners
         - size
-        - user_role
+        - userRole
     CollectionsResponse:
       type: object
       properties:

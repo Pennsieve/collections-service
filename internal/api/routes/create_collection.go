@@ -51,7 +51,7 @@ func CreateCollection(ctx context.Context, params Params) (dto.CollectionRespons
 			for _, unpublished := range datasetResults.Unpublished {
 				details = append(details, fmt.Sprintf("%s status is %s", unpublished.DOI, unpublished.Status))
 			}
-			return dto.CollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf("request contains unpublished DOIs: %s", strings.Join(details, "; ")))
+			return dto.CollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf("request contains unpublished DOIs: %s", strings.Join(details, ", ")))
 		}
 
 		response.Banners = collectBanners(createRequest.DOIs, datasetResults.Published)

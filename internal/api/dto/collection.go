@@ -9,12 +9,12 @@ type CreateCollectionRequest struct {
 }
 
 type CollectionResponse struct {
-	NodeID      string   `json:"node_id"`
+	NodeID      string   `json:"nodeId"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Banners     []string `json:"banners"`
 	Size        int      `json:"size"`
-	UserRole    string   `json:"user_role"`
+	UserRole    string   `json:"userRole"`
 }
 
 type CollectionsResponse struct {
