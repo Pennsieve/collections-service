@@ -8,6 +8,8 @@ import (
 	"net/http"
 )
 
+const GetCollectionRouteKey = "GET /{nodeId}"
+
 func GetCollection(ctx context.Context, params Params) (dto.GetCollectionResponse, error) {
 	nodeID := params.Request.PathParameters["nodeId"]
 	if len(nodeID) == 0 {

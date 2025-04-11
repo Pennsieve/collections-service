@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+const CreateCollectionRouteKey = "POST /"
+
 func CreateCollection(ctx context.Context, params Params) (dto.CollectionResponse, error) {
 	if len(params.Request.Body) == 0 {
 		return dto.CollectionResponse{}, apierrors.NewBadRequestError("no request body")

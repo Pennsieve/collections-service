@@ -58,7 +58,7 @@ func testDefaultNotFound(t *testing.T) {
 func testNoClaims(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(), apitest.NewConfigBuilder().Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").Build()
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).Build()
 
 	response, err := handler(context.Background(), req)
 
@@ -79,7 +79,7 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
 		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
@@ -105,7 +105,7 @@ func testCreateCollectionEmptyName(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
 		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
@@ -129,7 +129,7 @@ func testCreateCollectionNameTooLong(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
 		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
@@ -153,7 +153,7 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
 		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
@@ -191,7 +191,7 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
 		WithDefaultClaims(apitest.User).
 		WithBody(t, createCollectionRequest).
 		Build()
@@ -211,7 +211,7 @@ func testCreateCollectionNoBody(t *testing.T) {
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").WithDefaultClaims(apitest.User).Build()
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).WithDefaultClaims(apitest.User).Build()
 
 	response, err := handler(context.Background(), req)
 	require.NoError(t, err)
@@ -226,7 +226,7 @@ func testCreateCollectionMalformedBody(t *testing.T) {
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
 		WithDefaultClaims(apitest.User).
 		Build()
 
@@ -288,7 +288,7 @@ func testCreateCollection(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder("POST /collections").
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
 		WithDefaultClaims(callingUser).
 		WithBody(t, createCollectionRequest).
 		Build()
@@ -355,7 +355,7 @@ func testGetCollections(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build(),
 	)
-	req := apitest.NewAPIGatewayRequestBuilder("GET /collections").
+	req := apitest.NewAPIGatewayRequestBuilder(routes.GetCollectionsRouteKey).
 		WithDefaultClaims(callingUser).
 		WithIntQueryParam("offset", expectedOffset).
 		Build()

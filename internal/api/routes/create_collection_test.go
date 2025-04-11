@@ -73,7 +73,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, createCollectionRequest).
 			Build(),
@@ -139,7 +139,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, createCollectionRequest).
 			Build(),
@@ -219,7 +219,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, createCollectionRequest).
 			Build(),
@@ -300,7 +300,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder("POST /collections").
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, createCollectionRequest).
 			Build(),
