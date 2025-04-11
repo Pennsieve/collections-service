@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -14,6 +15,7 @@ import (
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -274,4 +276,55 @@ func assertExpectedEqualCollectionResponse(t *testing.T, expected *fixtures.Expe
 	bannerLen := min(config.MaxBannersPerCollection, len(expected.DOIs))
 	expectedBanners := banners.GetExpectedBannersForDOIs(expected.DOIs.Strings()[:bannerLen])
 	assert.Equal(t, expectedBanners, actual.Banners)
+}
+
+// TestHandleCreateCollection tests that run the Handle wrapper around CreateCollection
+func TestHandleGetCollections(t *testing.T) {
+	tests := []struct {
+		name    string
+		tstFunc func(t *testing.T)
+	}{
+		{
+			"return empty arrays instead of null",
+			testHandleGetCollectionsEmptyBannerArray,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.tstFunc(t)
+		})
+	}
+}
+
+func testHandleGetCollectionsEmptyBannerArray(t *testing.T) {
+	ctx := context.Background()
+	callingUser := apitest.User
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
+			return store.GetCollectionsResponse{
+				Limit:  DefaultGetCollectionsLimit,
+				Offset: DefaultGetCollectionsOffset,
+			}, nil
+		})
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
+			WithClaims(claims).
+			Build(),
+		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
+		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
+		Claims:    &claims,
+	}
+	response, err := Handle(ctx, NewGetCollectionsRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	assert.NotContains(t, response.Body, `"collections":null`)
+	assert.Contains(t, response.Body, `"collections":[]`)
+
 }
