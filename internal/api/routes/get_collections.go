@@ -10,6 +10,8 @@ import (
 	"slices"
 )
 
+const GetCollectionsRouteKey = "GET /"
+
 const DefaultGetCollectionsLimit = 10
 const DefaultGetCollectionsOffset = 0
 

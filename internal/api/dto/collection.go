@@ -2,14 +2,14 @@ package dto
 
 import "time"
 
-// CreateCollectionRequest represents the request body of POST /collections
+// CreateCollectionRequest represents the request body of POST /
 type CreateCollectionRequest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	DOIs        []string `json:"dois"`
 }
 
-// GetCollectionsResponse represents the response body of GET /collections
+// GetCollectionsResponse represents the response body of GET /
 type GetCollectionsResponse struct {
 	Limit       int                  `json:"limit"`
 	Offset      int                  `json:"offset"`
@@ -17,14 +17,14 @@ type GetCollectionsResponse struct {
 	Collections []CollectionResponse `json:"collections"`
 }
 
-// GetCollectionResponse represents the response body of GET /collections/{id}
+// GetCollectionResponse represents the response body of GET //{id}
 type GetCollectionResponse struct {
 	CollectionResponse
 	Contributors []string        `json:"contributors"`
 	Datasets     []PublicDataset `json:"datasets"`
 }
 
-// CollectionResponse is a base struct shared by GET /collections and GET /collections/{id}
+// CollectionResponse is a base struct shared by GET / and GET //{id}
 type CollectionResponse struct {
 	NodeID      string   `json:"nodeId"`
 	Name        string   `json:"name"`
