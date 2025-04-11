@@ -365,7 +365,7 @@ func testGetCollections(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 
-	var responseDTO dto.CollectionsResponse
+	var responseDTO dto.GetCollectionsResponse
 	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
 
 	assert.Equal(t, routes.DefaultGetCollectionsLimit, responseDTO.Limit)

@@ -34,7 +34,8 @@ func CollectionsServiceAPIHandler(
 ) LambdaHandler {
 	return func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 		routeKey := request.RouteKey
-		logger := logging.Default.With(slog.String("routeKey", routeKey))
+		logger := logging.Default.With(slog.String("routeKey", routeKey),
+			slog.String("requestId", request.RequestContext.RequestID))
 		container.SetLogger(logger)
 		logger.Info("configuration",
 			slog.Group("postgres",

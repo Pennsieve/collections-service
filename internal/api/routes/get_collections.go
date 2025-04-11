@@ -13,17 +13,17 @@ import (
 const DefaultGetCollectionsLimit = 10
 const DefaultGetCollectionsOffset = 0
 
-func GetCollections(ctx context.Context, params Params) (dto.CollectionsResponse, error) {
+func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsResponse, error) {
 	// any errors returned should be *apierrors.Error for correct status codes and better logging
 	limit, apiErr := GetIntQueryParam(params.Request.QueryStringParameters, "limit", 0, DefaultGetCollectionsLimit)
 	if apiErr != nil {
-		return dto.CollectionsResponse{}, apiErr
+		return dto.GetCollectionsResponse{}, apiErr
 	}
 	offset, apiErr := GetIntQueryParam(params.Request.QueryStringParameters, "offset", 0, DefaultGetCollectionsOffset)
 	if apiErr != nil {
-		return dto.CollectionsResponse{}, apiErr
+		return dto.GetCollectionsResponse{}, apiErr
 	}
-	response := dto.CollectionsResponse{
+	response := dto.GetCollectionsResponse{
 		Limit:  limit,
 		Offset: offset,
 	}
@@ -32,7 +32,7 @@ func GetCollections(ctx context.Context, params Params) (dto.CollectionsResponse
 
 	storeResp, err := collectionsStore.GetCollections(ctx, userClaim.Id, limit, offset)
 	if err != nil {
-		return dto.CollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error getting collections for user %s", userClaim.NodeId), err)
+		return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error getting collections for user %s", userClaim.NodeId), err)
 	}
 
 	response.TotalCount = storeResp.TotalCount
@@ -52,7 +52,7 @@ func GetCollections(ctx context.Context, params Params) (dto.CollectionsResponse
 	if len(pennsieveDOIs) > 0 {
 		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
 		if err != nil {
-			return dto.CollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error looking up DOIs in Discover for user %s", userClaim.NodeId), err)
+			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error looking up DOIs in Discover for user %s", userClaim.NodeId), err)
 		}
 		for doi, dataset := range discoverResp.Published {
 			bannerOpt := dataset.Banner
@@ -81,8 +81,8 @@ func GetCollections(ctx context.Context, params Params) (dto.CollectionsResponse
 	return response, nil
 }
 
-func NewGetCollectionsRouteHandler() Handler[dto.CollectionsResponse] {
-	return Handler[dto.CollectionsResponse]{
+func NewGetCollectionsRouteHandler() Handler[dto.GetCollectionsResponse] {
+	return Handler[dto.GetCollectionsResponse]{
 		HandleFunc:        GetCollections,
 		SuccessStatusCode: http.StatusOK,
 		Headers:           DefaultResponseHeaders(),

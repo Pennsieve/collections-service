@@ -47,6 +47,10 @@ func (c *TestContainer) SetLogger(logger *slog.Logger) {
 	c.logger = logger
 }
 
+func (c *TestContainer) AddLoggingContext(args ...any) {
+	c.logger = c.Logger().With(args...)
+}
+
 func NewTestContainer() *TestContainer {
 	return &TestContainer{}
 }

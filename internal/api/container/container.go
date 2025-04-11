@@ -19,6 +19,7 @@ type DependencyContainer interface {
 	CollectionsStore() store.CollectionsStore
 	Logger() *slog.Logger
 	SetLogger(logger *slog.Logger)
+	AddLoggingContext(args ...any)
 }
 
 type Container struct {
@@ -57,6 +58,10 @@ func (c *Container) Logger() *slog.Logger {
 		c.logger = logging.Default.With(slog.String("warning", "should set logger with context"))
 	}
 	return c.logger
+}
+
+func (c *Container) AddLoggingContext(args ...any) {
+	c.logger = c.Logger().With(args...)
 }
 
 func (c *Container) PostgresDB() postgres.DB {
