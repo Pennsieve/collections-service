@@ -25,3 +25,5 @@ func LoadConfig() (Config, error) {
 		VerboseLogging: isVerbose,
 	}, nil
 }
+
+const CollectionsSchemaName = "collections"

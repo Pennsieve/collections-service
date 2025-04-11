@@ -18,3 +18,5 @@ services:
   pennsievedb:
     image: pennsieve/pennsievedb:V20241120161735-seed
     restart: always
+#    command: [ "postgres", "-c", "log_statement=all" ]
+

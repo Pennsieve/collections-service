@@ -22,6 +22,7 @@ func TestCollectionsMigrator_Up(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, migrator.Drop())
+		dbmigratetest.Close(t, migrator)
 	})
 
 	require.NoError(t, migrator.Up())
@@ -71,6 +72,7 @@ func TestCollectionsMigrator_Down(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, migrator.Drop())
+		dbmigratetest.Close(t, migrator)
 	})
 
 	require.NoError(t, migrator.Up())

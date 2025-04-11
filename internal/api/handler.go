@@ -2,12 +2,17 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/container"
+	"github.com/pennsieve/collections-service/internal/api/routes"
+	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/pennsieve/collections-service/internal/shared/config"
-	"github.com/pennsieve/collections-service/internal/shared/container"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 )
 
@@ -28,21 +33,44 @@ func CollectionsServiceAPIHandler(
 	config config.Config,
 ) LambdaHandler {
 	return func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+		routeKey := request.RouteKey
+		logger := logging.Default.With(slog.String("routeKey", routeKey),
+			slog.String("requestId", request.RequestContext.RequestID))
+		container.SetLogger(logger)
+		logger.Info("configuration",
+			slog.Group("postgres",
+				slog.String("user", config.PostgresDB.User),
+				slog.String("collectionsDatabase", config.PostgresDB.CollectionsDatabase),
+			),
+			slog.Group("pennsieve",
+				slog.String("doiPrefix", config.PennsieveConfig.DOIPrefix),
+				slog.String("discoverURL", config.PennsieveConfig.DiscoverServiceURL),
+			),
+		)
+
 		claims := authorizer.ParseClaims(request.RequestContext.Authorizer.Lambda)
 
 		if claims == nil || claims.UserClaim == nil {
-			return events.APIGatewayV2HTTPResponse{
-				StatusCode: http.StatusUnauthorized,
-				Body:       "Unauthorized",
-			}, nil
+			err := apierrors.NewUnauthorizedError("no user claim in request")
+			err.LogError(logger)
+			return routes.APIErrorGatewayResponse(err), nil
 		}
 
-		switch request.RouteKey {
+		routeParams := routes.Params{
+			Request:   request,
+			Container: container,
+			Config:    config,
+			Claims:    claims,
+		}
+		switch routeKey {
+		case "POST /collections":
+			return routes.Handle(ctx, routes.NewCreateCollectionRouteHandler(), routeParams)
+		case "GET /collections":
+			return routes.Handle(ctx, routes.NewGetCollectionsRouteHandler(), routeParams)
 		default:
-			return events.APIGatewayV2HTTPResponse{
-				StatusCode: http.StatusNotFound,
-				Body:       "Not found",
-			}, nil
+			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", routeKey), nil, http.StatusNotFound)
+			routeNotFound.LogError(logger)
+			return routes.APIErrorGatewayResponse(routeNotFound), nil
 		}
 	}
 }

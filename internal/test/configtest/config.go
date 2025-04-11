@@ -1,6 +1,8 @@
 package configtest
 
-import "github.com/pennsieve/collections-service/internal/shared/config"
+import (
+	"github.com/pennsieve/collections-service/internal/shared/config"
+)
 
 // PostgresDBConfig returns a config.PostgresDBConfig suitable for use against
 // the pennseivedb instance started for testing. It is preferred in tests over

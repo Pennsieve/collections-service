@@ -14,6 +14,8 @@ variable "lambda_bucket" {
   default = "pennsieve-cc-lambda-functions-use1"
 }
 
+variable "api_domain_name" {}
+
 variable "dbmigrate_service_name" {
   default = "collections-service-dbmigrate"
 }
@@ -32,4 +34,8 @@ locals {
     aws_region       = data.aws_region.current_region.name
     environment_name = var.environment_name
   }
+  rds_db_connect_arn    = "${replace(replace(data.terraform_remote_state.pennsieve_postgres.outputs.rds_proxy_endpoint_arn, ":rds:", ":rds-db:"), ":db-proxy:", ":dbuser:")}/${var.api_postgres_user}"
+  discover_service_host = data.terraform_remote_state.discover_service.outputs.internal_fqdn
+  pennsieve_doi_prefix  = var.environment_name == "prod" ? "10.26275" : "10.21397"
+  log_level             = var.environment_name == "prod" ? "INFO" : "DEBUG"
 }
