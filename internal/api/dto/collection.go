@@ -17,14 +17,14 @@ type GetCollectionsResponse struct {
 	Collections []CollectionResponse `json:"collections"`
 }
 
-// GetCollectionResponse represents the response body of GET //{id}
+// GetCollectionResponse represents the response body of GET /{nodeId}
 type GetCollectionResponse struct {
 	CollectionResponse
 	Contributors []string        `json:"contributors"`
 	Datasets     []PublicDataset `json:"datasets"`
 }
 
-// CollectionResponse is a base struct shared by GET / and GET //{id}
+// CollectionResponse is a base struct shared by GET / and GET /{nodeId}
 type CollectionResponse struct {
 	NodeID      string   `json:"nodeId"`
 	Name        string   `json:"name"`
