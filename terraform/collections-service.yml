@@ -12,9 +12,9 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 servers:
-  - url: https://api2.pennsieve.io
+  - url: https://api2.pennsieve.io/collections
     description: Production server
-  - url: https://api2.pennsieve.net
+  - url: https://api2.pennsieve.net/collections
     description: Development server
 externalDocs:
   description: Find more info here
@@ -26,7 +26,7 @@ tags:
       url: https://docs.pennsieve.io/reference
 
 paths:
-  /collections:
+  /:
     get:
       x-amazon-apigateway-integration:
         $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
@@ -83,7 +83,7 @@ paths:
         - Collections Service
       responses:
         '201':
-          description: the created collection
+          description: collection created
           content:
             application/json:
               schema:
