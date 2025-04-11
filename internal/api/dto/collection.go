@@ -1,12 +1,22 @@
 package dto
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // CreateCollectionRequest represents the request body of POST /
 type CreateCollectionRequest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	DOIs        []string `json:"dois"`
+}
+
+// CreateCollectionResponse represents the response body of POST /
+type CreateCollectionResponse CollectionResponse
+
+func (r CreateCollectionResponse) MarshalJSON() ([]byte, error) {
+	return CollectionResponse(r).MarshalJSON()
 }
 
 // GetCollectionsResponse represents the response body of GET /
@@ -17,6 +27,14 @@ type GetCollectionsResponse struct {
 	Collections []CollectionResponse `json:"collections"`
 }
 
+func (r GetCollectionsResponse) MarshalJSON() ([]byte, error) {
+	type alias GetCollectionsResponse
+	if r.Collections == nil {
+		r.Collections = []CollectionResponse{}
+	}
+	return json.Marshal(alias(r))
+}
+
 // GetCollectionResponse represents the response body of GET /{nodeId}
 type GetCollectionResponse struct {
 	CollectionResponse
@@ -24,7 +42,18 @@ type GetCollectionResponse struct {
 	Datasets     []PublicDataset `json:"datasets"`
 }
 
-// CollectionResponse is a base struct shared by GET / and GET /{nodeId}
+func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
+	type alias GetCollectionResponse
+	if r.Contributors == nil {
+		r.Contributors = []string{}
+	}
+	if r.Datasets == nil {
+		r.Datasets = []PublicDataset{}
+	}
+	return json.Marshal(alias(r))
+}
+
+// CollectionResponse is a base struct shared by POST /,  GET /, and GET /{nodeId}
 type CollectionResponse struct {
 	NodeID      string   `json:"nodeId"`
 	Name        string   `json:"name"`
@@ -32,6 +61,15 @@ type CollectionResponse struct {
 	Banners     []string `json:"banners"`
 	Size        int      `json:"size"`
 	UserRole    string   `json:"userRole"`
+}
+
+func (r CollectionResponse) MarshalJSON() ([]byte, error) {
+	// I think this is to avoid infinite recursion
+	type alias CollectionResponse
+	if r.Banners == nil {
+		r.Banners = []string{}
+	}
+	return json.Marshal(alias(r))
 }
 
 // PublicDataset and it's child DTOs are taken from the Discover service so that
@@ -128,4 +166,15 @@ type Tombstone struct {
 	Status    string    `json:"status"`
 	DOI       string    `json:"doi"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// JSONArray is meant to be used in place of []T if we want to ensure
+// that both nil and empty slice are marshalled into JSON as "[]"
+type JSONArray[T any] []T
+
+func (a JSONArray[T]) MarshalJSON() ([]byte, error) {
+	if a == nil {
+		return []byte("[]"), nil
+	}
+	return json.Marshal([]T(a))
 }

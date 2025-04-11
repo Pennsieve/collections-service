@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -15,6 +16,7 @@ import (
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -321,4 +323,78 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
 
+}
+
+// TestHandleCreateCollection tests that run the Handle wrapper around CreateCollection
+func TestHandleCreateCollection(t *testing.T) {
+	tests := []struct {
+		name    string
+		tstFunc func(t *testing.T)
+	}{
+		{
+			"return empty arrays instead of null",
+			testHandleCreateCollectionEmptyBannerArray,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.tstFunc(t)
+		})
+	}
+}
+
+func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
+	ctx := context.Background()
+
+	callingUser := apitest.User
+
+	expectedCollection := fixtures.NewExpectedCollection().
+		WithUser(callingUser.ID, pgdb.Owner)
+
+	createCollectionRequest := dto.CreateCollectionRequest{
+		Name:        expectedCollection.Name,
+		Description: expectedCollection.Description,
+	}
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	var collectionNodeID string
+
+	mockCollectionsStore := mocks.NewMockCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []string) (store.CreateCollectionResponse, error) {
+		t.Helper()
+		collectionNodeID = nodeID
+		return store.CreateCollectionResponse{
+			ID:          1,
+			CreatorRole: role.Owner,
+		}, nil
+	})
+
+	config := apitest.NewConfigBuilder().
+		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithCollectionsStore(mockCollectionsStore)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
+			WithClaims(claims).
+			WithBody(t, createCollectionRequest).
+			Build(),
+		Container: container,
+		Config:    config,
+		Claims:    &claims,
+	}
+
+	response, err := Handle(ctx, NewCreateCollectionRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusCreated, response.StatusCode)
+
+	assert.Contains(t, response.Body, collectionNodeID)
+
+	// Want the banner url array to be empty and not null
+	assert.NotContains(t, response.Body, "null")
+	assert.Contains(t, response.Body, "[]")
 }
