@@ -2,8 +2,6 @@ package routes
 
 import (
 	"context"
-	"github.com/pennsieve/collections-service/internal/api/config"
-	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -13,6 +11,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -267,26 +266,19 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	assert.Empty(t, emptyResp.Collections)
 }
 
-func assertExpectedEqualCollectionResponse(t *testing.T, expected *fixtures.ExpectedCollection, actual dto.CollectionResponse, banners apitest.TestBanners) {
-	assert.Equal(t, *expected.NodeID, actual.NodeID)
-	assert.Equal(t, expected.Name, actual.Name)
-	assert.Equal(t, expected.Description, actual.Description)
-	assert.Equal(t, expected.Users[0].PermissionBit.ToRole().String(), actual.UserRole)
-	assert.Len(t, expected.DOIs, actual.Size)
-	bannerLen := min(config.MaxBannersPerCollection, len(expected.DOIs))
-	expectedBanners := banners.GetExpectedBannersForDOIs(expected.DOIs.Strings()[:bannerLen])
-	assert.Equal(t, expectedBanners, actual.Banners)
-}
-
-// TestHandleCreateCollection tests that run the Handle wrapper around CreateCollection
+// TestHandleGetCollections tests that run the Handle wrapper around GetCollections
 func TestHandleGetCollections(t *testing.T) {
 	tests := []struct {
 		name    string
 		tstFunc func(t *testing.T)
 	}{
 		{
-			"return empty arrays instead of null",
-			testHandleGetCollectionsEmptyBannerArray,
+			"return empty collections array instead of null",
+			testHandleGetCollectionsEmptyCollectionsArray,
+		},
+		{
+			"return empty banners array instead of null",
+			testHandleGetCollectionsEmptyBannersArray,
 		},
 	}
 
@@ -297,7 +289,7 @@ func TestHandleGetCollections(t *testing.T) {
 	}
 }
 
-func testHandleGetCollectionsEmptyBannerArray(t *testing.T) {
+func testHandleGetCollectionsEmptyCollectionsArray(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.User
 
@@ -326,5 +318,47 @@ func testHandleGetCollectionsEmptyBannerArray(t *testing.T) {
 
 	assert.NotContains(t, response.Body, `"collections":null`)
 	assert.Contains(t, response.Body, `"collections":[]`)
+
+}
+
+func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
+	ctx := context.Background()
+	callingUser := apitest.User
+
+	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
+			return store.GetCollectionsResponse{
+				Limit:      DefaultGetCollectionsLimit,
+				Offset:     DefaultGetCollectionsOffset,
+				TotalCount: 1,
+				Collections: []store.CollectionResponse{{
+					NodeID:      *expectedCollection.NodeID,
+					Name:        expectedCollection.Name,
+					Description: expectedCollection.Description,
+					Size:        0,
+					UserRole:    role.Owner.String(),
+				}},
+			}, nil
+		})
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
+			WithClaims(claims).
+			Build(),
+		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
+		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
+		Claims:    &claims,
+	}
+	response, err := Handle(ctx, NewGetCollectionsRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	assert.NotContains(t, response.Body, `"banners":null`)
+	assert.Contains(t, response.Body, `"banners":[]`)
 
 }

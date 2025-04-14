@@ -52,6 +52,14 @@ func (b *APIGatewayRequestBuilder) WithIntQueryParam(key string, value int) *API
 	return b.WithQueryParam(key, fmt.Sprintf("%d", value))
 }
 
+func (b *APIGatewayRequestBuilder) WithPathParam(key string, value string) *APIGatewayRequestBuilder {
+	if b.r.PathParameters == nil {
+		b.r.PathParameters = make(map[string]string)
+	}
+	b.r.PathParameters[key] = value
+	return b
+}
+
 func (b *APIGatewayRequestBuilder) Build() events.APIGatewayV2HTTPRequest {
 	return *b.r
 }

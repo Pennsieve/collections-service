@@ -209,6 +209,7 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
 			WHERE u.user_id = @user_id
+			  AND u.permission_bit > 0
   			  AND c.node_id = @node_id
 			ORDER BY d.id asc`
 
