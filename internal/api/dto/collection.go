@@ -2,6 +2,7 @@ package dto
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -43,8 +44,8 @@ func (r GetCollectionsResponse) MarshalJSON() ([]byte, error) {
 // GetCollectionResponse represents the response body of GET /{nodeId}
 type GetCollectionResponse struct {
 	CollectionResponse
-	Contributors []string        `json:"contributors"`
-	Datasets     []PublicDataset `json:"datasets"`
+	Contributors []string  `json:"contributors"`
+	Datasets     []Dataset `json:"datasets"`
 }
 
 func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
@@ -53,7 +54,7 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 		r.Contributors = []string{}
 	}
 	if r.Datasets == nil {
-		r.Datasets = []PublicDataset{}
+		r.Datasets = []Dataset{}
 	}
 	return json.Marshal(alias(r))
 }
@@ -75,6 +76,29 @@ func (r CollectionResponse) MarshalJSON() ([]byte, error) {
 		r.Banners = []string{}
 	}
 	return json.Marshal(alias(r))
+}
+
+type DOIInformationSource string
+
+const PennsieveSource DOIInformationSource = "Pennsieve"
+const ExternalSource DOIInformationSource = "External"
+
+type Dataset struct {
+	Source DOIInformationSource `json:"source"`
+	// Data is the info we got from looking up the DOI. If Source == PennsieveSource, then
+	// Data should be a PublicDataset
+	Data json.RawMessage `json:"data"`
+}
+
+func NewPennsieveDataset(publicDataset PublicDataset) (Dataset, error) {
+	pennsieveBytes, err := json.Marshal(publicDataset)
+	if err != nil {
+		return Dataset{}, fmt.Errorf("error marshalling PublicDataset %d: %w", publicDataset.ID, err)
+	}
+	return Dataset{
+		Source: PennsieveSource,
+		Data:   pennsieveBytes,
+	}, nil
 }
 
 // PublicDataset and it's child DTOs are taken from the Discover service so that

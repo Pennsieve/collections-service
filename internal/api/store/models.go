@@ -22,3 +22,8 @@ type GetCollectionsResponse struct {
 	Collections []CollectionResponse
 	TotalCount  int
 }
+
+type GetCollectionResponse struct {
+	CollectionResponse
+	DOIs []string
+}

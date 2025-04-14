@@ -16,6 +16,7 @@ const MaxDOIsPerCollection = config.MaxBannersPerCollection
 type CollectionsStore interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error)
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
+	GetCollection(ctx context.Context, userID int64, nodeID string) (*GetCollectionResponse, error)
 }
 
 type PostgresCollectionsStore struct {
@@ -196,6 +197,57 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 	}
 
 	response.Collections = collections
+	return response, nil
+}
+
+// GetCollection returns nil and no error if no collection with the given node id exists for the given user id.
+// Otherwise, returns a non-nil response if a collection is found or nil and an error if an error occurs.
+func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (*GetCollectionResponse, error) {
+	args := pgx.NamedArgs{"user_id": userID, "node_id": nodeID}
+	sql := `SELECT c.name, c.description, u.role, d.doi
+			FROM collections.collections c
+         		JOIN collections.collection_user u ON c.id = u.collection_id
+         		LEFT JOIN collections.dois d ON c.id = d.collection_id
+			WHERE u.user_id = @user_id
+  			  AND c.node_id = @node_id
+			ORDER BY d.id asc`
+
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return nil, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+
+	rows, _ := conn.Query(ctx, sql, args)
+
+	var response *GetCollectionResponse
+	var name, description, role string
+	var doiOpt *string
+	_, err = pgx.ForEachRow(rows, []any{&name, &description, &role, &doiOpt}, func() error {
+		if response == nil {
+			response = &GetCollectionResponse{
+				CollectionResponse: CollectionResponse{
+					NodeID:      nodeID,
+					Name:        name,
+					Description: description,
+					UserRole:    role,
+				},
+			}
+		}
+		if doiOpt != nil {
+			response.DOIs = append(response.DOIs, *doiOpt)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("GetCollection error querying for collection %s: %w", nodeID, err)
+	}
+	if response != nil {
+		response.Size = len(response.DOIs)
+		for i := 0; i < min(len(response.DOIs), MaxDOIsPerCollection); i++ {
+			response.BannerDOIs = append(response.BannerDOIs, response.DOIs[i])
+		}
+	}
 	return response, nil
 }
 

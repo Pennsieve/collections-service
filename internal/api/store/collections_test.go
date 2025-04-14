@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
@@ -28,18 +29,23 @@ func TestStore(t *testing.T) {
 	require.NoError(t, migrator.Up())
 	dbmigratetest.Close(t, migrator)
 
-	for scenario, tstFunc := range map[string]func(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB){
-		"create collection, nil DOIs":          testCreateCollectionNilDOIs,
-		"create collection, empty DOIs":        testCreateCollectionEmptyDOIs,
-		"create collection, one DOI":           testCreateCollectionOneDOI,
-		"create collection, many DOIs":         testCreateCollectionManyDOIs,
-		"create collection, empty description": testCreateCollectionEmptyDescription,
-		"get collections, none":                testGetCollectionsNone,
-		"get collections":                      testGetCollections,
-		"get collections, limit and offset":    testGetCollectionsLimitOffset,
+	for _, tt := range []struct {
+		scenario string
+		tstFunc  func(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB)
+	}{
+		{"create collection, nil DOIs", testCreateCollectionNilDOIs},
+		{"create collection, empty DOIs", testCreateCollectionEmptyDOIs},
+		{"create collection, one DOI", testCreateCollectionOneDOI},
+		{"create collection, many DOIs", testCreateCollectionManyDOIs},
+		{"create collection, empty description", testCreateCollectionEmptyDescription},
+		{"get collections, none", testGetCollectionsNone},
+		{"get collections", testGetCollections},
+		{"get collections, limit and offset", testGetCollectionsLimitOffset},
+		{"get collection, none", testGetCollectionNone},
+		{"get collection", testGetCollection},
 	} {
 
-		t.Run(scenario, func(t *testing.T) {
+		t.Run(tt.scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, config)
 
 			t.Cleanup(func() {
@@ -48,7 +54,7 @@ func TestStore(t *testing.T) {
 
 			collectionsStore := store.NewPostgresCollectionsStore(db, config.CollectionsDatabase, logging.Default)
 
-			tstFunc(t, collectionsStore, fixtures.NewExpectationDB(db, config.CollectionsDatabase))
+			tt.tstFunc(t, collectionsStore, fixtures.NewExpectationDB(db, config.CollectionsDatabase))
 		})
 	}
 }
@@ -233,6 +239,67 @@ func testGetCollectionsLimitOffset(t *testing.T, store *store.PostgresCollection
 	assert.Equal(t, offset, emptyResp.Offset)
 	assert.Equal(t, totalCollections, emptyResp.TotalCount)
 	assert.Empty(t, emptyResp.Collections)
+
+}
+
+func testGetCollectionNone(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	// Set up using the ExpectationDB
+
+	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
+
+	// Test with store
+	// use a different user with no collections
+	response, err := store.GetCollection(ctx, apitest.User.ID, uuid.NewString())
+	require.NoError(t, err)
+
+	assert.Nil(t, response)
+}
+
+func testGetCollection(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	// Set up using the ExpectationDB
+	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
+	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
+	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
+	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
+
+	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user2Collection)
+
+	// Test with store
+	// user1NoDOIs
+	user1NoDOIResp, err := store.GetCollection(ctx, apitest.User.ID, *user1CollectionNoDOI.NodeID)
+	require.NoError(t, err)
+	assert.NotNil(t, user1NoDOIResp)
+	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, user1NoDOIResp.CollectionResponse)
+	assert.Empty(t, user1NoDOIResp.DOIs)
+
+	// user1OneDOI
+	user1OneDOIResp, err := store.GetCollection(ctx, apitest.User.ID, *user1CollectionOneDOI.NodeID)
+	assert.NoError(t, err)
+	assert.NotNil(t, user1CollectionOneDOI)
+	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp.CollectionResponse)
+	assert.Equal(t, user1CollectionOneDOI.DOIs.Strings(), user1OneDOIResp.DOIs)
+
+	// user1FiveDOI
+	user1FiveDOIResp, err := store.GetCollection(ctx, apitest.User.ID, *user1CollectionFiveDOI.NodeID)
+	assert.NoError(t, err)
+	assert.NotNil(t, user1CollectionFiveDOI)
+	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp.CollectionResponse)
+	assert.Equal(t, user1CollectionFiveDOI.DOIs.Strings(), user1FiveDOIResp.DOIs)
+
+	// try user2's collections
+	user2CollectionResp, err := store.GetCollection(ctx, apitest.User2.ID, *user2Collection.NodeID)
+	require.NoError(t, err)
+	assert.NotNil(t, user2CollectionResp)
+	assertExpectedEqualCollectionResponse(t, user2Collection, user2CollectionResp.CollectionResponse)
+	assert.Equal(t, user2Collection.DOIs.Strings(), user2CollectionResp.DOIs)
 
 }
 
