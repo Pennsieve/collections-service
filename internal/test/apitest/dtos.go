@@ -1,7 +1,9 @@
 package apitest
 
 import (
+	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 )
 
 func NewPublicDataset(doi string, banner *string) dto.PublicDataset {
@@ -27,5 +29,20 @@ func NewTombstone(doi string, status string) dto.Tombstone {
 		Status: status,
 		DOI:    doi,
 		Tags:   make([]string, 0),
+	}
+}
+
+func NewCreateCollectionResponse(size int, banners ...string) dto.CreateCollectionResponse {
+	return dto.CreateCollectionResponse(NewCollectionResponse(size, banners...))
+}
+
+func NewCollectionResponse(size int, banners ...string) dto.CollectionResponse {
+	return dto.CollectionResponse{
+		NodeID:      uuid.NewString(),
+		Name:        uuid.NewString(),
+		Description: uuid.NewString(),
+		Banners:     banners,
+		Size:        size,
+		UserRole:    role.Owner.String(),
 	}
 }

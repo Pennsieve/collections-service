@@ -51,14 +51,19 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 				"error querying Discover for datasets in collection",
 				err)
 		}
-		for _, published := range discoverResp.Published {
-			datasetDTO, err := dto.NewPennsieveDataset(published)
-			if err != nil {
-				return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
-					"error marshalling Discover PublicDataset",
-					err)
+
+		response.Banners = collectBanners(pennsieveDOIs, discoverResp.Published)
+
+		for _, doi := range pennsieveDOIs {
+			if published, found := discoverResp.Published[doi]; found {
+				datasetDTO, err := dto.NewPennsieveDataset(published)
+				if err != nil {
+					return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
+						"error marshalling Discover PublicDataset",
+						err)
+				}
+				response.Datasets = append(response.Datasets, datasetDTO)
 			}
-			response.Datasets = append(response.Datasets, datasetDTO)
 		}
 	}
 	return response, nil

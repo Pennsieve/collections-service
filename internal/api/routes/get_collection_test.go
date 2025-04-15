@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -100,7 +102,7 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 }
 
 func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
-	t.Skip("finish implementation and this test")
+	t.Skip("implement contributors and tests")
 	ctx := context.Background()
 
 	user1 := apitest.User
@@ -111,24 +113,34 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	// Set up using the ExpectationDB
 	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
+
 	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
+	testBanners.WithExpectedPennsieveBanners(user1CollectionNoDOI.DOIs.Strings())
+
 	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
+	testBanners.WithExpectedPennsieveBanners(user1CollectionFiveDOI.DOIs.Strings())
 
 	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2Collection)
+	testBanners.WithExpectedPennsieveBanners(user2Collection.DOIs.Strings())
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, testBanners.ToDiscoverGetDatasetsByDOIFunc()))
+	defer mockDiscoverServer.Close()
 
 	user1Claims := apitest.DefaultClaims(user1)
 	user2Claims := apitest.DefaultClaims(user2)
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithDockerPostgresDBConfig().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
+		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	// user1NoDOIs
 	paramsNoDOI := Params{
@@ -145,6 +157,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assert.NotNil(t, user1NoDOIResp)
 	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, user1NoDOIResp.CollectionResponse, testBanners)
 	assert.Empty(t, user1NoDOIResp.Datasets)
+	assert.Empty(t, user1NoDOIResp.Contributors)
 
 	// user1OneDOI
 	paramsOneDOI := Params{
@@ -161,6 +174,15 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assert.NotNil(t, user1CollectionOneDOI)
 	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp.CollectionResponse, testBanners)
 	assert.Len(t, user1OneDOIResp.Datasets, len(user1CollectionOneDOI.DOIs))
+	for i := 0; i < len(user1CollectionOneDOI.DOIs); i++ {
+		actualDataset := user1OneDOIResp.Datasets[i]
+		expectedDOI := user1CollectionOneDOI.DOIs[i].DOI
+		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
+		var actualData dto.PublicDataset
+		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
+		assert.Equal(t, expectedDOI, actualData.DOI)
+	}
+	assert.NotEmpty(t, user1OneDOIResp.Contributors)
 
 	// user1FiveDOI
 	paramsFiveDOI := Params{
@@ -177,6 +199,15 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assert.NotNil(t, user1CollectionFiveDOI)
 	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp.CollectionResponse, testBanners)
 	assert.Len(t, user1FiveDOIResp.Datasets, len(user1CollectionFiveDOI.DOIs))
+	for i := 0; i < len(user1CollectionFiveDOI.DOIs); i++ {
+		actualDataset := user1FiveDOIResp.Datasets[i]
+		expectedDOI := user1CollectionFiveDOI.DOIs[i].DOI
+		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
+		var actualData dto.PublicDataset
+		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
+		assert.Equal(t, expectedDOI, actualData.DOI)
+	}
+	assert.NotEmpty(t, user1FiveDOIResp.Contributors)
 
 	// try user2's collections
 	paramsUser2 := Params{
@@ -193,6 +224,15 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assert.NotNil(t, user2CollectionResp)
 	assertExpectedEqualCollectionResponse(t, user2Collection, user2CollectionResp.CollectionResponse, testBanners)
 	assert.Len(t, user2CollectionResp.Datasets, len(user2Collection.DOIs))
+	for i := 0; i < len(user2Collection.DOIs); i++ {
+		actualDataset := user2CollectionResp.Datasets[i]
+		expectedDOI := user2Collection.DOIs[i].DOI
+		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
+		var actualData dto.PublicDataset
+		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
+		assert.Equal(t, expectedDOI, actualData.DOI)
+	}
+	assert.NotEmpty(t, user2CollectionResp.Contributors)
 
 }
 
@@ -220,7 +260,6 @@ func TestHandleGetCollection(t *testing.T) {
 }
 
 func testHandleGetCollectionEmptyArrays(t *testing.T) {
-	t.Skip("why are contributors and datasets missing from response")
 	ctx := context.Background()
 	callingUser := apitest.User
 
@@ -266,7 +305,6 @@ func testHandleGetCollectionEmptyArrays(t *testing.T) {
 }
 
 func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
-	t.Skip("figure out why no datasets array in response")
 	ctx := context.Background()
 	callingUser := apitest.User
 
