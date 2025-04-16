@@ -44,7 +44,9 @@ func (e *ExpectedPennsieveDatasets) NewUnpublished() dto.Tombstone {
 func (e *ExpectedPennsieveDatasets) ExpectedBannersForDOIs(t require.TestingT, expectedDOIs []string) []string {
 	var expectedBanners []string
 	for _, doi := range expectedDOIs {
-		expectedBanners = append(expectedBanners, e.ExpectedBannerForDOI(t, doi))
+		if _, published := e.DOIToPublicDataset[doi]; published {
+			expectedBanners = append(expectedBanners, e.ExpectedBannerForDOI(t, doi))
+		}
 	}
 	return expectedBanners
 }
@@ -92,5 +94,12 @@ func (e *ExpectedPennsieveDatasets) GetDatasetsByDOIFunc(t require.TestingT) moc
 
 func RequireAsPennsieveDataset(t require.TestingT, actualDataset dto.Dataset, publicDataset *dto.PublicDataset) {
 	require.Equal(t, dto.PennsieveSource, actualDataset.Source)
+	require.False(t, actualDataset.Problem)
 	require.NoError(t, json.Unmarshal(actualDataset.Data, publicDataset))
+}
+
+func RequireAsPennsieveTombstone(t require.TestingT, actualDataset dto.Dataset, tombstone *dto.Tombstone) {
+	require.Equal(t, dto.PennsieveSource, actualDataset.Source)
+	require.True(t, actualDataset.Problem)
+	require.NoError(t, json.Unmarshal(actualDataset.Data, tombstone))
 }

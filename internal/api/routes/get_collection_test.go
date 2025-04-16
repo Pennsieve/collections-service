@@ -2,7 +2,6 @@ package routes
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
@@ -29,6 +28,7 @@ func TestGetCollection(t *testing.T) {
 	}{
 		{"get collection, none", testGetCollectionNone},
 		{"get collection", testGetCollection},
+		{"get collection with tombstone", testGetCollectionTombstone},
 	}
 
 	ctx := context.Background()
@@ -174,19 +174,14 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	}
 	user1OneDOIResp, err := GetCollection(ctx, paramsOneDOI)
 	assert.NoError(t, err)
-	assert.NotNil(t, user1CollectionOneDOI)
 	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp.CollectionResponse, expectedDatasets)
 	assert.Len(t, user1OneDOIResp.Datasets, len(user1CollectionOneDOI.DOIs))
 	for i := 0; i < len(user1CollectionOneDOI.DOIs); i++ {
 		actualDataset := user1OneDOIResp.Datasets[i]
 		expectedDOI := user1CollectionOneDOI.DOIs[i].DOI
-		assert.False(t, actualDataset.Problem)
-		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
-		var actualData dto.PublicDataset
-		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
-		assert.Equal(t, expectedDOI, actualData.DOI)
 		var actualPublicDataset dto.PublicDataset
 		apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPublicDataset)
+		assert.Equal(t, expectedDOI, actualPublicDataset.DOI)
 		assert.Equal(t, expectedDatasets.DOIToPublicDataset[expectedDOI], actualPublicDataset)
 	}
 	assert.Equal(t, expectedDatasets.ExpectedContributorsForDOIs(t, user1CollectionOneDOI.DOIs.Strings()), user1OneDOIResp.DerivedContributors)
@@ -203,19 +198,14 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	}
 	user1FiveDOIResp, err := GetCollection(ctx, paramsFiveDOI)
 	assert.NoError(t, err)
-	assert.NotNil(t, user1CollectionFiveDOI)
 	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp.CollectionResponse, expectedDatasets)
 	assert.Len(t, user1FiveDOIResp.Datasets, len(user1CollectionFiveDOI.DOIs))
 	for i := 0; i < len(user1CollectionFiveDOI.DOIs); i++ {
 		actualDataset := user1FiveDOIResp.Datasets[i]
 		expectedDOI := user1CollectionFiveDOI.DOIs[i].DOI
-		assert.False(t, actualDataset.Problem)
-		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
-		var actualData dto.PublicDataset
-		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
-		assert.Equal(t, expectedDOI, actualData.DOI)
 		var actualPublicDataset dto.PublicDataset
 		apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPublicDataset)
+		assert.Equal(t, expectedDOI, actualPublicDataset.DOI)
 		assert.Equal(t, expectedDatasets.DOIToPublicDataset[expectedDOI], actualPublicDataset)
 	}
 	// there should be no duplicates in the contributors since they contain UUIDs for any strings
@@ -234,22 +224,72 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	}
 	user2CollectionResp, err := GetCollection(ctx, paramsUser2)
 	require.NoError(t, err)
-	assert.NotNil(t, user2CollectionResp)
 	assertExpectedEqualCollectionResponse(t, user2Collection, user2CollectionResp.CollectionResponse, expectedDatasets)
 	assert.Len(t, user2CollectionResp.Datasets, len(user2Collection.DOIs))
 	for i := 0; i < len(user2Collection.DOIs); i++ {
 		actualDataset := user2CollectionResp.Datasets[i]
 		expectedDOI := user2Collection.DOIs[i].DOI
-		assert.False(t, actualDataset.Problem)
-		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
-		var actualData dto.PublicDataset
-		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
-		assert.Equal(t, expectedDOI, actualData.DOI)
 		var actualPublicDataset dto.PublicDataset
 		apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPublicDataset)
+		assert.Equal(t, expectedDOI, actualPublicDataset.DOI)
 		assert.Equal(t, expectedDatasets.DOIToPublicDataset[expectedDOI], actualPublicDataset)
 	}
 	assert.Equal(t, expectedDatasets.ExpectedContributorsForDOIs(t, user2Collection.DOIs.Strings()), user2CollectionResp.DerivedContributors)
+
+}
+
+func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	callingUser := apitest.User
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	expectedPublicDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithDegree()), apitest.NewPublicContributor())
+	expectedTombstone := expectedDatasets.NewUnpublished()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedPublicDataset.DOI, expectedTombstone.DOI)
+	expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	userClaims := apitest.DefaultClaims(callingUser)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithDockerPostgresDBConfig().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
+			WithClaims(userClaims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &userClaims,
+	}
+	resp, err := GetCollection(ctx, params)
+	require.NoError(t, err)
+
+	assertExpectedEqualCollectionResponse(t, expectedCollection, resp.CollectionResponse, expectedDatasets)
+	// Only the public dataset will add to the derived contributors
+	assert.Equal(t, expectedDatasets.ExpectedContributorsForDOI(t, expectedPublicDataset.DOI), resp.DerivedContributors)
+
+	require.Len(t, resp.Datasets, 2)
+	// should be in same order that the DOIs were added to the ExpectedCollection
+	var actualPublicDataset dto.PublicDataset
+	apitest.RequireAsPennsieveDataset(t, resp.Datasets[0], &actualPublicDataset)
+	assert.Equal(t, expectedPublicDataset, actualPublicDataset)
+
+	var actualTombstone dto.Tombstone
+	apitest.RequireAsPennsieveTombstone(t, resp.Datasets[1], &actualTombstone)
+	assert.Equal(t, expectedTombstone, actualTombstone)
 
 }
 

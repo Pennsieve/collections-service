@@ -436,8 +436,6 @@ func testGetCollection(t *testing.T) {
 
 	require.Len(t, responseDTO.Datasets, 1)
 	actualDataset := responseDTO.Datasets[0]
-	assert.Equal(t, dto.PennsieveSource, actualDataset.Source)
-	assert.False(t, actualDataset.Problem)
 	var actualPennsieveDataset dto.PublicDataset
 	apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPennsieveDataset)
 	assert.Equal(t, expectedDataset, actualPennsieveDataset)
