@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"maps"
 	"net/http"
-	"slices"
 )
 
 const GetCollectionsRouteKey = "GET /"
@@ -39,15 +37,15 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 
 	response.TotalCount = storeResp.TotalCount
 
-	doiToBanner := map[string]string{}
+	// Gather all the banner DOIs to eventually look up banners in Discover
+	var dois []string
 	for _, storeCollection := range storeResp.Collections {
 		for _, doi := range storeCollection.BannerDOIs {
-			doiToBanner[doi] = ""
+			dois = append(dois, doi)
 		}
 	}
 
-	var dois []string
-	dois = slices.AppendSeq(dois, maps.Keys(doiToBanner))
+	var doiToPublicDataset map[string]dto.PublicDataset
 
 	// For now we are assuming only PennsieveDOIs will be present in collections
 	pennsieveDOIs, _ := CategorizeDOIs(params.Config.PennsieveConfig.DOIPrefix, dois)
@@ -56,24 +54,15 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 		if err != nil {
 			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error looking up DOIs in Discover for user %s", userClaim.NodeId), err)
 		}
-		for doi, dataset := range discoverResp.Published {
-			bannerOpt := dataset.Banner
-			if bannerOpt != nil {
-				doiToBanner[doi] = *dataset.Banner
-			}
-		}
+		doiToPublicDataset = discoverResp.Published
 	}
 
 	for _, storeCollection := range storeResp.Collections {
-		var banners []string
-		for _, doi := range storeCollection.BannerDOIs {
-			banners = append(banners, doiToBanner[doi])
-		}
 		collectionDTO := dto.CollectionResponse{
 			NodeID:      storeCollection.NodeID,
 			Name:        storeCollection.Name,
 			Description: storeCollection.Description,
-			Banners:     banners,
+			Banners:     collectBanners(storeCollection.BannerDOIs, doiToPublicDataset),
 			Size:        storeCollection.Size,
 			UserRole:    storeCollection.UserRole,
 		}

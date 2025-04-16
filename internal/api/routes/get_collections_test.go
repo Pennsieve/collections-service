@@ -2,8 +2,6 @@ package routes
 
 import (
 	"context"
-	"github.com/pennsieve/collections-service/internal/api/config"
-	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -13,6 +11,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -60,7 +59,7 @@ func testGetCollectionsNone(t *testing.T, expectationDB *fixtures.ExpectationDB)
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
 	// Test route
@@ -105,29 +104,29 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	user1 := apitest.User
 
-	testBanners := apitest.TestBanners{}
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	// Set up using the ExpectationDB
-	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
-	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+		WithDOIs(expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
-	testBanners.WithExpectedPennsieveBanners(user1CollectionOneDOI.DOIs.Strings())
 
-	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+		WithDOIs(expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
-	testBanners.WithExpectedPennsieveBanners(user1CollectionFiveDOI.DOIs.Strings())
 
 	user2 := apitest.User2
-	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
+		WithDOIs(expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user2Collection)
-	testBanners.WithExpectedPennsieveBanners(user2Collection.DOIs.Strings())
 
 	// Test route
 	user1Claims := apitest.DefaultClaims(user1)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, testBanners.ToDiscoverGetDatasetsByDOIFunc()))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
@@ -160,13 +159,13 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	// They should be returned in oldest first order
 	actualCollection1 := response.Collections[0]
-	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, actualCollection1, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, actualCollection1, expectedDatasets)
 
 	actualCollection2 := response.Collections[1]
-	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, actualCollection2, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, actualCollection2, expectedDatasets)
 
 	actualCollection3 := response.Collections[2]
-	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, actualCollection3, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, actualCollection3, expectedDatasets)
 
 	// try user2's collections
 	user2Claims := apitest.DefaultClaims(user2)
@@ -186,19 +185,21 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assert.Len(t, user2CollectionResp.Collections, 1)
 
 	actualUser2Collection := user2CollectionResp.Collections[0]
-	assertExpectedEqualCollectionResponse(t, user2Collection, actualUser2Collection, testBanners)
+	assertExpectedEqualCollectionResponse(t, user2Collection, actualUser2Collection, expectedDatasets)
 }
 
 func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	totalCollections := 12
-	testBanners := apitest.TestBanners{}
-	var expectedCollections []*fixtures.ExpectedCollection
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	var expectedCollections []*apitest.ExpectedCollection
 	for i := 0; i < totalCollections; i++ {
-		expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithNPennsieveDOIs(i)
+		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
+		for j := 0; j < i; j++ {
+			expectedCollection = expectedCollection.WithDOIs(expectedDatasets.NewPublished().DOI)
+		}
 		expectationDB.CreateCollection(ctx, t, expectedCollection)
 		expectedCollections = append(expectedCollections, expectedCollection)
-		testBanners.WithExpectedPennsieveBanners(expectedCollection.DOIs.Strings())
 	}
 
 	limit := 6
@@ -207,7 +208,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	offset := 0
 
 	userClaims := apitest.DefaultClaims(apitest.User)
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, testBanners.ToDiscoverGetDatasetsByDOIFunc()))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
@@ -241,7 +242,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 		expectedCollectionLen := min(limit, totalCollections-offset)
 		if assert.Len(t, resp.Collections, expectedCollectionLen) {
 			for i := 0; i < expectedCollectionLen; i++ {
-				assertExpectedEqualCollectionResponse(t, expectedCollections[offset+i], resp.Collections[i], testBanners)
+				assertExpectedEqualCollectionResponse(t, expectedCollections[offset+i], resp.Collections[i], expectedDatasets)
 			}
 		}
 	}
@@ -267,26 +268,19 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	assert.Empty(t, emptyResp.Collections)
 }
 
-func assertExpectedEqualCollectionResponse(t *testing.T, expected *fixtures.ExpectedCollection, actual dto.CollectionResponse, banners apitest.TestBanners) {
-	assert.Equal(t, *expected.NodeID, actual.NodeID)
-	assert.Equal(t, expected.Name, actual.Name)
-	assert.Equal(t, expected.Description, actual.Description)
-	assert.Equal(t, expected.Users[0].PermissionBit.ToRole().String(), actual.UserRole)
-	assert.Len(t, expected.DOIs, actual.Size)
-	bannerLen := min(config.MaxBannersPerCollection, len(expected.DOIs))
-	expectedBanners := banners.GetExpectedBannersForDOIs(expected.DOIs.Strings()[:bannerLen])
-	assert.Equal(t, expectedBanners, actual.Banners)
-}
-
-// TestHandleCreateCollection tests that run the Handle wrapper around CreateCollection
+// TestHandleGetCollections tests that run the Handle wrapper around GetCollections
 func TestHandleGetCollections(t *testing.T) {
 	tests := []struct {
 		name    string
 		tstFunc func(t *testing.T)
 	}{
 		{
-			"return empty arrays instead of null",
-			testHandleGetCollectionsEmptyBannerArray,
+			"return empty collections array instead of null",
+			testHandleGetCollectionsEmptyCollectionsArray,
+		},
+		{
+			"return empty banners array instead of null",
+			testHandleGetCollectionsEmptyBannersArray,
 		},
 	}
 
@@ -297,7 +291,7 @@ func TestHandleGetCollections(t *testing.T) {
 	}
 }
 
-func testHandleGetCollectionsEmptyBannerArray(t *testing.T) {
+func testHandleGetCollectionsEmptyCollectionsArray(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.User
 
@@ -326,5 +320,49 @@ func testHandleGetCollectionsEmptyBannerArray(t *testing.T) {
 
 	assert.NotContains(t, response.Body, `"collections":null`)
 	assert.Contains(t, response.Body, `"collections":[]`)
+
+}
+
+func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
+	ctx := context.Background()
+	callingUser := apitest.User
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
+			return store.GetCollectionsResponse{
+				Limit:      DefaultGetCollectionsLimit,
+				Offset:     DefaultGetCollectionsOffset,
+				TotalCount: 1,
+				Collections: []store.CollectionSummary{{
+					CollectionBase: store.CollectionBase{
+						NodeID:      *expectedCollection.NodeID,
+						Name:        expectedCollection.Name,
+						Description: expectedCollection.Description,
+						Size:        0,
+						UserRole:    role.Owner.String(),
+					},
+				}},
+			}, nil
+		})
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
+			WithClaims(claims).
+			Build(),
+		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
+		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
+		Claims:    &claims,
+	}
+	response, err := Handle(ctx, NewGetCollectionsRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	assert.NotContains(t, response.Body, `"banners":null`)
+	assert.Contains(t, response.Body, `"banners":[]`)
 
 }

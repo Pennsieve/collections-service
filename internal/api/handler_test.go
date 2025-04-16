@@ -11,6 +11,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,22 +21,26 @@ import (
 )
 
 func TestAPILambdaHandler(t *testing.T) {
-	tests := map[string]func(t *testing.T){
-		"default not found response": testDefaultNotFound,
-		"no claims":                  testNoClaims,
-		"create collection bad request: external DOIs":        testCreateCollectionExternalDOIs,
-		"create collection bad request: empty name":           testCreateCollectionEmptyName,
-		"create collection bad request: name too long":        testCreateCollectionNameTooLong,
-		"create collection bad request: description too long": testCreateCollectionDescriptionTooLong,
-		"create collection bad request: unpublished DOIs":     testCreateCollectionUnpublishedDOIs,
-		"create collection bad request: no body":              testCreateCollectionNoBody,
-		"create collection bad request: malformed body":       testCreateCollectionMalformedBody,
-		"create collection":                                   testCreateCollection,
-		"get collections":                                     testGetCollections,
+	tests := []struct {
+		scenario string
+		fn       func(t *testing.T)
+	}{
+		{"default not found response", testDefaultNotFound},
+		{"no claims", testNoClaims},
+		{"create collection bad request: external DOIs", testCreateCollectionExternalDOIs},
+		{"create collection bad request: empty name", testCreateCollectionEmptyName},
+		{"create collection bad request: name too long", testCreateCollectionNameTooLong},
+		{"create collection bad request: description too long", testCreateCollectionDescriptionTooLong},
+		{"create collection bad request: unpublished DOIs", testCreateCollectionUnpublishedDOIs},
+		{"create collection bad request: no body", testCreateCollectionNoBody},
+		{"create collection bad request: malformed body", testCreateCollectionMalformedBody},
+		{"create collection", testCreateCollection},
+		{"get collections", testGetCollections},
+		{"get collection", testGetCollection},
 	}
-	for scenario, fn := range tests {
-		t.Run(scenario, func(t *testing.T) {
-			fn(t)
+	for _, tt := range tests {
+		t.Run(tt.scenario, func(t *testing.T) {
+			tt.fn(t)
 		})
 	}
 }
@@ -312,18 +317,19 @@ func testCreateCollection(t *testing.T) {
 func testGetCollections(t *testing.T) {
 	callingUser := apitest.User
 
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	expectedDataset := expectedDatasets.NewPublished()
+
 	expectedOffset := 100
 
-	expectedDOI := apitest.NewPennsieveDOI()
-	expectedBanner := apitest.NewBanner()
+	expectedDOI := expectedDataset.DOI
+	expectedBanner := expectedDataset.Banner
 
 	expectedNodeID := uuid.NewString()
 	expectedName := uuid.NewString()
 	expectedDescription := uuid.NewString()
 	expectedSize := 1
 	expectedUserRole := role.Owner.String()
-
-	testBanners := apitest.TestBanners{expectedDOI: *expectedBanner}
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
@@ -334,18 +340,20 @@ func testGetCollections(t *testing.T) {
 				Limit:      routes.DefaultGetCollectionsLimit,
 				Offset:     expectedOffset,
 				TotalCount: 101,
-				Collections: []store.CollectionResponse{{
-					NodeID:      expectedNodeID,
-					Name:        expectedName,
-					Description: expectedDescription,
-					Size:        expectedSize,
-					BannerDOIs:  []string{expectedDOI},
-					UserRole:    expectedUserRole,
+				Collections: []store.CollectionSummary{{
+					CollectionBase: store.CollectionBase{
+						NodeID:      expectedNodeID,
+						Name:        expectedName,
+						Description: expectedDescription,
+						Size:        expectedSize,
+						UserRole:    expectedUserRole,
+					},
+					BannerDOIs: []string{expectedDOI},
 				}},
 			}, nil
 		})
 
-	mockDiscoverService := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(testBanners.ToDiscoverGetDatasetsByDOIFunc())
+	mockDiscoverService := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
 
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().
@@ -381,4 +389,54 @@ func testGetCollections(t *testing.T) {
 	assert.Equal(t, expectedUserRole, actualCollection.UserRole)
 	assert.Equal(t, []string{*expectedBanner}, actualCollection.Banners)
 
+}
+
+func testGetCollection(t *testing.T) {
+	callingUser := apitest.User
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	expectedDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDataset.DOI)
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+
+	mockDiscoverService := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
+
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer().
+			WithCollectionsStore(mockCollectionStore).
+			WithDiscover(mockDiscoverService),
+		apitest.NewConfigBuilder().
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+			Build(),
+	)
+	req := apitest.NewAPIGatewayRequestBuilder(routes.GetCollectionRouteKey).
+		WithDefaultClaims(callingUser).
+		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
+		Build()
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	var responseDTO dto.GetCollectionResponse
+	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
+
+	assert.Equal(t, expectedCollection.Name, responseDTO.Name)
+	assert.Equal(t, *expectedCollection.NodeID, responseDTO.NodeID)
+	assert.Equal(t, expectedCollection.Description, responseDTO.Description)
+	assert.Equal(t, len(expectedCollection.DOIs), responseDTO.Size)
+	assert.Equal(t, role.Owner.String(), responseDTO.UserRole)
+	assert.Equal(t, []string{*expectedDataset.Banner}, responseDTO.Banners)
+
+	assert.Equal(t, expectedDataset.Contributors, responseDTO.DerivedContributors)
+
+	require.Len(t, responseDTO.Datasets, 1)
+	actualDataset := responseDTO.Datasets[0]
+	var actualPennsieveDataset dto.PublicDataset
+	apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPennsieveDataset)
+	assert.Equal(t, expectedDataset, actualPennsieveDataset)
 }

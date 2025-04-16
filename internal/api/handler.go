@@ -37,7 +37,7 @@ func CollectionsServiceAPIHandler(
 		logger := logging.Default.With(slog.String("routeKey", routeKey),
 			slog.String("requestId", request.RequestContext.RequestID))
 		container.SetLogger(logger)
-		logger.Info("configuration",
+		logger.Debug("configuration",
 			slog.Group("postgres",
 				slog.String("user", config.PostgresDB.User),
 				slog.String("collectionsDatabase", config.PostgresDB.CollectionsDatabase),
@@ -67,6 +67,8 @@ func CollectionsServiceAPIHandler(
 			return routes.Handle(ctx, routes.NewCreateCollectionRouteHandler(), routeParams)
 		case routes.GetCollectionsRouteKey:
 			return routes.Handle(ctx, routes.NewGetCollectionsRouteHandler(), routeParams)
+		case routes.GetCollectionRouteKey:
+			return routes.Handle(ctx, routes.NewGetCollectionRouteHandler(), routeParams)
 		default:
 			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", routeKey), nil, http.StatusNotFound)
 			routeNotFound.LogError(logger)

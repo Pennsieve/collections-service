@@ -56,7 +56,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 
 	callingUser := apitest.User
 
-	expectedCollection := fixtures.NewExpectedCollection().
+	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
@@ -107,7 +107,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	publishedDOI2 := apitest.NewPennsieveDOI()
 	banner2 := apitest.NewBanner()
 
-	expectedCollection := fixtures.NewExpectedCollection().
+	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
 		WithDOIs(publishedDOI1, publishedDOI2)
 
@@ -183,7 +183,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	publishedDTO5 := apitest.NewPennsieveDOI()
 	banner5 := apitest.NewBanner()
 
-	expectedCollection := fixtures.NewExpectedCollection().
+	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
 		WithDOIs(publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5)
 
@@ -264,7 +264,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	publishedDTO5 := apitest.NewPennsieveDOI()
 	var banner5 *string = nil
 
-	expectedCollection := fixtures.NewExpectedCollection().
+	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
 		WithDOIs(publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5)
 
@@ -349,7 +349,7 @@ func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 
 	callingUser := apitest.User
 
-	expectedCollection := fixtures.NewExpectedCollection().
+	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner)
 
 	createCollectionRequest := dto.CreateCollectionRequest{

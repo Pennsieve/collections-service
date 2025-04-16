@@ -2,6 +2,7 @@ package dto
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -33,29 +34,43 @@ type GetCollectionsResponse struct {
 }
 
 func (r GetCollectionsResponse) MarshalJSON() ([]byte, error) {
-	type alias GetCollectionsResponse
+	type GetCollectionsResponseAlias GetCollectionsResponse
 	if r.Collections == nil {
 		r.Collections = []CollectionResponse{}
 	}
-	return json.Marshal(alias(r))
+	return json.Marshal(GetCollectionsResponseAlias(r))
 }
 
 // GetCollectionResponse represents the response body of GET /{nodeId}
 type GetCollectionResponse struct {
 	CollectionResponse
-	Contributors []string        `json:"contributors"`
-	Datasets     []PublicDataset `json:"datasets"`
+	DerivedContributors []PublicContributor `json:"derivedContributors"`
+	Datasets            []Dataset           `json:"datasets"`
 }
 
+// MarshalJSON is implemented so that nil slices get marshalled as [] instead of null.
+// The subtleties of embedded structs with added fields and JSON marshalling has complicated
+// the implementation
 func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
-	type alias GetCollectionResponse
-	if r.Contributors == nil {
-		r.Contributors = []string{}
+	if r.Banners == nil {
+		r.Banners = []string{}
+	}
+	if r.DerivedContributors == nil {
+		r.DerivedContributors = []PublicContributor{}
 	}
 	if r.Datasets == nil {
-		r.Datasets = []PublicDataset{}
+		r.Datasets = []Dataset{}
 	}
-	return json.Marshal(alias(r))
+	type Alias CollectionResponse
+	return json.Marshal(struct {
+		Alias
+		DerivedContributors []PublicContributor `json:"derivedContributors"`
+		Datasets            []Dataset           `json:"datasets"`
+	}{
+		Alias(r.CollectionResponse),
+		r.DerivedContributors,
+		r.Datasets,
+	})
 }
 
 // CollectionResponse is a base struct shared by POST /,  GET /, and GET /{nodeId}
@@ -70,11 +85,50 @@ type CollectionResponse struct {
 
 func (r CollectionResponse) MarshalJSON() ([]byte, error) {
 	// I think this is to avoid infinite recursion
-	type alias CollectionResponse
+	type CollectionResponseAlias CollectionResponse
 	if r.Banners == nil {
 		r.Banners = []string{}
 	}
-	return json.Marshal(alias(r))
+	return json.Marshal(CollectionResponseAlias(r))
+}
+
+type DOIInformationSource string
+
+const PennsieveSource DOIInformationSource = "Pennsieve"
+const ExternalSource DOIInformationSource = "External"
+
+type Dataset struct {
+	Source  DOIInformationSource `json:"source"`
+	Problem bool                 `json:"problem"`
+	// Data is the info we got from looking up the DOI.
+	// If Source == PennsieveSource AND Problem == false, then Data is a PublicDataset.
+	// If Source == PennsieveSource AND Problem == true, then Data is a Tombstone.
+	Data json.RawMessage `json:"data"`
+}
+
+func NewPennsieveDataset(publicDataset PublicDataset) (Dataset, error) {
+	pennsieveBytes, err := json.Marshal(publicDataset)
+	if err != nil {
+		return Dataset{}, fmt.Errorf("error marshalling PublicDataset %d version %d: %w",
+			publicDataset.ID, publicDataset.Version, err)
+	}
+	return Dataset{
+		Source: PennsieveSource,
+		Data:   pennsieveBytes,
+	}, nil
+}
+
+func NewTombstoneDataset(tombstone Tombstone) (Dataset, error) {
+	tombstoneBytes, err := json.Marshal(tombstone)
+	if err != nil {
+		return Dataset{}, fmt.Errorf("error marshalling Tombstone: %d version %d: %w",
+			tombstone.ID, tombstone.Version, err)
+	}
+	return Dataset{
+		Source:  PennsieveSource,
+		Problem: true,
+		Data:    tombstoneBytes,
+	}, nil
 }
 
 // PublicDataset and it's child DTOs are taken from the Discover service so that
@@ -125,7 +179,7 @@ type PublicDataset struct {
 }
 
 func (p PublicDataset) MarshalJSON() ([]byte, error) {
-	type alias PublicDataset
+	type PublicDatasetAlias PublicDataset
 	if p.Tags == nil {
 		p.Tags = []string{}
 	}
@@ -141,7 +195,7 @@ func (p PublicDataset) MarshalJSON() ([]byte, error) {
 	if p.ExternalPublications == nil {
 		p.ExternalPublications = []PublicExternalPublication{}
 	}
-	return json.Marshal(alias(p))
+	return json.Marshal(PublicDatasetAlias(p))
 }
 
 type ModelCount struct {
@@ -194,9 +248,9 @@ type Tombstone struct {
 }
 
 func (t Tombstone) MarshalJSON() ([]byte, error) {
-	type alias Tombstone
+	type TombstoneAlias Tombstone
 	if t.Tags == nil {
 		t.Tags = []string{}
 	}
-	return json.Marshal(alias(t))
+	return json.Marshal(TombstoneAlias(t))
 }
