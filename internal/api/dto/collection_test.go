@@ -3,7 +3,6 @@ package dto_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
@@ -13,7 +12,7 @@ import (
 
 func TestGetCollectionResponse_MarshalJSON(t *testing.T) {
 	banner := apitest.NewBanner()
-	contributor := uuid.NewString()
+	contributor := apitest.NewPublicContributor()
 	externalData := `{"name":"external name","externalProp":"external value"}`
 	tests := []struct {
 		scenario    string
@@ -25,18 +24,18 @@ func TestGetCollectionResponse_MarshalJSON(t *testing.T) {
 			dto.GetCollectionResponse{
 				CollectionResponse: apitest.NewCollectionResponse(0),
 			},
-			[]string{`"banners":[]`, `"contributors":[]`, `"datasets":[]`},
-			[]string{`"banners":null`, `"contributors":null`, `"datasets":null`},
+			[]string{`"banners":[]`, `"derivedContributors":[]`, `"datasets":[]`},
+			[]string{`"banners":null`, `"derivedContributors":null`, `"datasets":null`},
 		},
 		{"collection contains contributor and dataset",
 			dto.GetCollectionResponse{
-				CollectionResponse: apitest.NewCollectionResponse(1, *banner),
-				Contributors:       []string{contributor},
-				Datasets:           []dto.Dataset{{Source: dto.ExternalSource, Data: []byte(externalData)}},
+				CollectionResponse:  apitest.NewCollectionResponse(1, *banner),
+				DerivedContributors: []dto.PublicContributor{contributor},
+				Datasets:            []dto.Dataset{{Source: dto.ExternalSource, Data: []byte(externalData)}},
 			},
 			[]string{
 				fmt.Sprintf(`"banners":[%q]`, *banner),
-				fmt.Sprintf(`"contributors":[%q]`, contributor),
+				`"derivedContributors":[{`,
 				fmt.Sprintf(`"source":%q`, dto.ExternalSource),
 				fmt.Sprintf(`"data":%s`, externalData),
 			},

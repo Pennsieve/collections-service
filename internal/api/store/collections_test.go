@@ -176,13 +176,13 @@ func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, exp
 
 	// They should be returned in oldest first order
 	actualCollection1 := response.Collections[0]
-	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, actualCollection1)
+	assertExpectedEqualCollectionSummary(t, user1CollectionNoDOI, actualCollection1)
 
 	actualCollection2 := response.Collections[1]
-	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, actualCollection2)
+	assertExpectedEqualCollectionSummary(t, user1CollectionOneDOI, actualCollection2)
 
 	actualCollection3 := response.Collections[2]
-	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, actualCollection3)
+	assertExpectedEqualCollectionSummary(t, user1CollectionFiveDOI, actualCollection3)
 
 	// try user2's collections
 	user2CollectionResp, err := store.GetCollections(ctx, apitest.User2.ID, limit, offset)
@@ -194,7 +194,7 @@ func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, exp
 	assert.Len(t, user2CollectionResp.Collections, 1)
 
 	actualUser2Collection := user2CollectionResp.Collections[0]
-	assertExpectedEqualCollectionResponse(t, user2Collection, actualUser2Collection)
+	assertExpectedEqualCollectionSummary(t, user2Collection, actualUser2Collection)
 
 }
 
@@ -224,7 +224,7 @@ func testGetCollectionsLimitOffset(t *testing.T, store *store.PostgresCollection
 		expectedCollectionLen := min(limit, totalCollections-offset)
 		if assert.Len(t, resp.Collections, expectedCollectionLen) {
 			for i := 0; i < expectedCollectionLen; i++ {
-				assertExpectedEqualCollectionResponse(t, expectedCollections[offset+i], resp.Collections[i])
+				assertExpectedEqualCollectionSummary(t, expectedCollections[offset+i], resp.Collections[i])
 			}
 		}
 	}
@@ -277,38 +277,44 @@ func testGetCollection(t *testing.T, store *store.PostgresCollectionsStore, expe
 	user1NoDOIResp, err := store.GetCollection(ctx, apitest.User.ID, *user1CollectionNoDOI.NodeID)
 	require.NoError(t, err)
 	assert.NotNil(t, user1NoDOIResp)
-	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, user1NoDOIResp.CollectionResponse)
+	assertExpectedEqualCollectionBase(t, user1CollectionNoDOI, user1NoDOIResp.CollectionBase)
 	assert.Empty(t, user1NoDOIResp.DOIs)
 
 	// user1OneDOI
 	user1OneDOIResp, err := store.GetCollection(ctx, apitest.User.ID, *user1CollectionOneDOI.NodeID)
 	assert.NoError(t, err)
 	assert.NotNil(t, user1CollectionOneDOI)
-	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp.CollectionResponse)
+	assertExpectedEqualCollectionBase(t, user1CollectionOneDOI, user1OneDOIResp.CollectionBase)
 	assert.Equal(t, user1CollectionOneDOI.DOIs.Strings(), user1OneDOIResp.DOIs)
 
 	// user1FiveDOI
 	user1FiveDOIResp, err := store.GetCollection(ctx, apitest.User.ID, *user1CollectionFiveDOI.NodeID)
 	assert.NoError(t, err)
 	assert.NotNil(t, user1CollectionFiveDOI)
-	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp.CollectionResponse)
+	assertExpectedEqualCollectionBase(t, user1CollectionFiveDOI, user1FiveDOIResp.CollectionBase)
 	assert.Equal(t, user1CollectionFiveDOI.DOIs.Strings(), user1FiveDOIResp.DOIs)
 
 	// try user2's collections
 	user2CollectionResp, err := store.GetCollection(ctx, apitest.User2.ID, *user2Collection.NodeID)
 	require.NoError(t, err)
 	assert.NotNil(t, user2CollectionResp)
-	assertExpectedEqualCollectionResponse(t, user2Collection, user2CollectionResp.CollectionResponse)
+	assertExpectedEqualCollectionBase(t, user2Collection, user2CollectionResp.CollectionBase)
 	assert.Equal(t, user2Collection.DOIs.Strings(), user2CollectionResp.DOIs)
 
 }
 
-func assertExpectedEqualCollectionResponse(t *testing.T, expected *fixtures.ExpectedCollection, actual store.CollectionResponse) {
+func assertExpectedEqualCollectionBase(t *testing.T, expected *fixtures.ExpectedCollection, actual store.CollectionBase) {
+	t.Helper()
 	assert.Equal(t, *expected.NodeID, actual.NodeID)
 	assert.Equal(t, expected.Name, actual.Name)
 	assert.Equal(t, expected.Description, actual.Description)
 	assert.Equal(t, expected.Users[0].PermissionBit.ToRole().String(), actual.UserRole)
 	assert.Len(t, expected.DOIs, actual.Size)
+}
+
+func assertExpectedEqualCollectionSummary(t *testing.T, expected *fixtures.ExpectedCollection, actual store.CollectionSummary) {
+	t.Helper()
+	assertExpectedEqualCollectionBase(t, expected, actual.CollectionBase)
 	bannerLen := min(store.MaxDOIsPerCollection, len(expected.DOIs))
 	assert.Equal(t, expected.DOIs.Strings()[:bannerLen], actual.BannerDOIs)
 }

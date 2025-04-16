@@ -44,8 +44,8 @@ func (r GetCollectionsResponse) MarshalJSON() ([]byte, error) {
 // GetCollectionResponse represents the response body of GET /{nodeId}
 type GetCollectionResponse struct {
 	CollectionResponse
-	Contributors []string  `json:"contributors"`
-	Datasets     []Dataset `json:"datasets"`
+	DerivedContributors []PublicContributor `json:"derivedContributors"`
+	Datasets            []Dataset           `json:"datasets"`
 }
 
 // MarshalJSON is implemented so that nil slices get marshalled as [] instead of null.
@@ -55,8 +55,8 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 	if r.Banners == nil {
 		r.Banners = []string{}
 	}
-	if r.Contributors == nil {
-		r.Contributors = []string{}
+	if r.DerivedContributors == nil {
+		r.DerivedContributors = []PublicContributor{}
 	}
 	if r.Datasets == nil {
 		r.Datasets = []Dataset{}
@@ -64,11 +64,11 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 	type Alias CollectionResponse
 	return json.Marshal(struct {
 		Alias
-		Contributors []string  `json:"contributors"`
-		Datasets     []Dataset `json:"datasets"`
+		DerivedContributors []PublicContributor `json:"derivedContributors"`
+		Datasets            []Dataset           `json:"datasets"`
 	}{
 		Alias(r.CollectionResponse),
-		r.Contributors,
+		r.DerivedContributors,
 		r.Datasets,
 	})
 }
@@ -98,7 +98,8 @@ const PennsieveSource DOIInformationSource = "Pennsieve"
 const ExternalSource DOIInformationSource = "External"
 
 type Dataset struct {
-	Source DOIInformationSource `json:"source"`
+	Source  DOIInformationSource `json:"source"`
+	Problem bool                 `json:"problem"`
 	// Data is the info we got from looking up the DOI. If Source == PennsieveSource, then
 	// Data should be a PublicDataset
 	Data json.RawMessage `json:"data"`
@@ -107,11 +108,25 @@ type Dataset struct {
 func NewPennsieveDataset(publicDataset PublicDataset) (Dataset, error) {
 	pennsieveBytes, err := json.Marshal(publicDataset)
 	if err != nil {
-		return Dataset{}, fmt.Errorf("error marshalling PublicDataset %d: %w", publicDataset.ID, err)
+		return Dataset{}, fmt.Errorf("error marshalling PublicDataset %d version %d: %w",
+			publicDataset.ID, publicDataset.Version, err)
 	}
 	return Dataset{
 		Source: PennsieveSource,
 		Data:   pennsieveBytes,
+	}, nil
+}
+
+func NewTombstoneDataset(tombstone Tombstone) (Dataset, error) {
+	tombstoneBytes, err := json.Marshal(tombstone)
+	if err != nil {
+		return Dataset{}, fmt.Errorf("error marshalling Tombstone: %d version %d: %w",
+			tombstone.ID, tombstone.Version, err)
+	}
+	return Dataset{
+		Source:  PennsieveSource,
+		Problem: true,
+		Data:    tombstoneBytes,
 	}, nil
 }
 

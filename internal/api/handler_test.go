@@ -312,18 +312,19 @@ func testCreateCollection(t *testing.T) {
 func testGetCollections(t *testing.T) {
 	callingUser := apitest.User
 
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	expectedDataset := expectedDatasets.NewPublished()
+
 	expectedOffset := 100
 
-	expectedDOI := apitest.NewPennsieveDOI()
-	expectedBanner := apitest.NewBanner()
+	expectedDOI := expectedDataset.DOI
+	expectedBanner := expectedDataset.Banner
 
 	expectedNodeID := uuid.NewString()
 	expectedName := uuid.NewString()
 	expectedDescription := uuid.NewString()
 	expectedSize := 1
 	expectedUserRole := role.Owner.String()
-
-	testBanners := apitest.TestBanners{expectedDOI: *expectedBanner}
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
@@ -334,18 +335,20 @@ func testGetCollections(t *testing.T) {
 				Limit:      routes.DefaultGetCollectionsLimit,
 				Offset:     expectedOffset,
 				TotalCount: 101,
-				Collections: []store.CollectionResponse{{
-					NodeID:      expectedNodeID,
-					Name:        expectedName,
-					Description: expectedDescription,
-					Size:        expectedSize,
-					BannerDOIs:  []string{expectedDOI},
-					UserRole:    expectedUserRole,
+				Collections: []store.CollectionSummary{{
+					CollectionBase: store.CollectionBase{
+						NodeID:      expectedNodeID,
+						Name:        expectedName,
+						Description: expectedDescription,
+						Size:        expectedSize,
+						UserRole:    expectedUserRole,
+					},
+					BannerDOIs: []string{expectedDOI},
 				}},
 			}, nil
 		})
 
-	mockDiscoverService := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(testBanners.ToDiscoverGetDatasetsByDOIFunc())
+	mockDiscoverService := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
 
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().

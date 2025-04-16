@@ -84,7 +84,7 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam("nodeId", nonExistentNodeID).
+			WithPathParam(nodeIDPathParamKey, nonExistentNodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -102,31 +102,36 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 }
 
 func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
-	t.Skip("implement contributors and tests")
 	ctx := context.Background()
 
 	user1 := apitest.User
 	user2 := apitest.User2
 
-	testBanners := apitest.TestBanners{}
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	// Set up using the ExpectationDB
 	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
-	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+		WithDOIs(expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
-	testBanners.WithExpectedPennsieveBanners(user1CollectionNoDOI.DOIs.Strings())
 
-	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+		WithDOIs(
+			expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI,
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()), apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()), apitest.NewPublicContributor(apitest.WithOrcid(), apitest.WithDegree())).DOI,
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
+		)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
-	testBanners.WithExpectedPennsieveBanners(user1CollectionFiveDOI.DOIs.Strings())
 
-	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
+		WithDOIs(expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI, expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial(), apitest.WithDegree(), apitest.WithOrcid())).DOI)
 	expectationDB.CreateCollection(ctx, t, user2Collection)
-	testBanners.WithExpectedPennsieveBanners(user2Collection.DOIs.Strings())
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, testBanners.ToDiscoverGetDatasetsByDOIFunc()))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	user1Claims := apitest.DefaultClaims(user1)
@@ -146,7 +151,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	paramsNoDOI := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(user1Claims).
-			WithPathParam("nodeId", *user1CollectionNoDOI.NodeID).
+			WithPathParam(nodeIDPathParamKey, *user1CollectionNoDOI.NodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -155,15 +160,15 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1NoDOIResp, err := GetCollection(ctx, paramsNoDOI)
 	require.NoError(t, err)
 	assert.NotNil(t, user1NoDOIResp)
-	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, user1NoDOIResp.CollectionResponse, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, user1NoDOIResp.CollectionResponse, expectedDatasets)
 	assert.Empty(t, user1NoDOIResp.Datasets)
-	assert.Empty(t, user1NoDOIResp.Contributors)
+	assert.Empty(t, user1NoDOIResp.DerivedContributors)
 
 	// user1OneDOI
 	paramsOneDOI := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(user1Claims).
-			WithPathParam("nodeId", *user1CollectionOneDOI.NodeID).
+			WithPathParam(nodeIDPathParamKey, *user1CollectionOneDOI.NodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -172,23 +177,27 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1OneDOIResp, err := GetCollection(ctx, paramsOneDOI)
 	assert.NoError(t, err)
 	assert.NotNil(t, user1CollectionOneDOI)
-	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp.CollectionResponse, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp.CollectionResponse, expectedDatasets)
 	assert.Len(t, user1OneDOIResp.Datasets, len(user1CollectionOneDOI.DOIs))
 	for i := 0; i < len(user1CollectionOneDOI.DOIs); i++ {
 		actualDataset := user1OneDOIResp.Datasets[i]
 		expectedDOI := user1CollectionOneDOI.DOIs[i].DOI
+		assert.False(t, actualDataset.Problem)
 		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
 		var actualData dto.PublicDataset
 		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
 		assert.Equal(t, expectedDOI, actualData.DOI)
+		var actualPublicDataset dto.PublicDataset
+		apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPublicDataset)
+		assert.Equal(t, expectedDatasets.DOIToPublicDataset[expectedDOI], actualPublicDataset)
 	}
-	assert.NotEmpty(t, user1OneDOIResp.Contributors)
+	assert.Equal(t, expectedDatasets.ExpectedContributorsForDOIs(t, user1CollectionOneDOI.DOIs.Strings()), user1OneDOIResp.DerivedContributors)
 
 	// user1FiveDOI
 	paramsFiveDOI := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(user1Claims).
-			WithPathParam("nodeId", *user1CollectionFiveDOI.NodeID).
+			WithPathParam(nodeIDPathParamKey, *user1CollectionFiveDOI.NodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -197,23 +206,29 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1FiveDOIResp, err := GetCollection(ctx, paramsFiveDOI)
 	assert.NoError(t, err)
 	assert.NotNil(t, user1CollectionFiveDOI)
-	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp.CollectionResponse, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp.CollectionResponse, expectedDatasets)
 	assert.Len(t, user1FiveDOIResp.Datasets, len(user1CollectionFiveDOI.DOIs))
 	for i := 0; i < len(user1CollectionFiveDOI.DOIs); i++ {
 		actualDataset := user1FiveDOIResp.Datasets[i]
 		expectedDOI := user1CollectionFiveDOI.DOIs[i].DOI
+		assert.False(t, actualDataset.Problem)
 		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
 		var actualData dto.PublicDataset
 		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
 		assert.Equal(t, expectedDOI, actualData.DOI)
+		var actualPublicDataset dto.PublicDataset
+		apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPublicDataset)
+		assert.Equal(t, expectedDatasets.DOIToPublicDataset[expectedDOI], actualPublicDataset)
 	}
-	assert.NotEmpty(t, user1FiveDOIResp.Contributors)
+	// there should be no duplicates in the contributors since they contain UUIDs for any strings
+	// So it's ok to use results straight from ExpectedContributorsForDOIs
+	assert.Equal(t, expectedDatasets.ExpectedContributorsForDOIs(t, user1CollectionFiveDOI.DOIs.Strings()), user1FiveDOIResp.DerivedContributors)
 
 	// try user2's collections
 	paramsUser2 := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(user2Claims).
-			WithPathParam("nodeId", *user2Collection.NodeID).
+			WithPathParam(nodeIDPathParamKey, *user2Collection.NodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -222,17 +237,21 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user2CollectionResp, err := GetCollection(ctx, paramsUser2)
 	require.NoError(t, err)
 	assert.NotNil(t, user2CollectionResp)
-	assertExpectedEqualCollectionResponse(t, user2Collection, user2CollectionResp.CollectionResponse, testBanners)
+	assertExpectedEqualCollectionResponse(t, user2Collection, user2CollectionResp.CollectionResponse, expectedDatasets)
 	assert.Len(t, user2CollectionResp.Datasets, len(user2Collection.DOIs))
 	for i := 0; i < len(user2Collection.DOIs); i++ {
 		actualDataset := user2CollectionResp.Datasets[i]
 		expectedDOI := user2Collection.DOIs[i].DOI
+		assert.False(t, actualDataset.Problem)
 		require.Equal(t, dto.PennsieveSource, actualDataset.Source)
 		var actualData dto.PublicDataset
 		require.NoError(t, json.Unmarshal(actualDataset.Data, &actualData))
 		assert.Equal(t, expectedDOI, actualData.DOI)
+		var actualPublicDataset dto.PublicDataset
+		apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPublicDataset)
+		assert.Equal(t, expectedDatasets.DOIToPublicDataset[expectedDOI], actualPublicDataset)
 	}
-	assert.NotEmpty(t, user2CollectionResp.Contributors)
+	assert.Equal(t, expectedDatasets.ExpectedContributorsForDOIs(t, user2Collection.DOIs.Strings()), user2CollectionResp.DerivedContributors)
 
 }
 
@@ -268,7 +287,7 @@ func testHandleGetCollectionEmptyArrays(t *testing.T) {
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error) {
 			return &store.GetCollectionResponse{
-				CollectionResponse: store.CollectionResponse{
+				CollectionBase: store.CollectionBase{
 					NodeID:      *expectedCollection.NodeID,
 					Name:        expectedCollection.Name,
 					Description: expectedCollection.Description,
@@ -282,7 +301,7 @@ func testHandleGetCollectionEmptyArrays(t *testing.T) {
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam("nodeId", *expectedCollection.NodeID).
+			WithPathParam(nodeIDPathParamKey, *expectedCollection.NodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
@@ -296,8 +315,8 @@ func testHandleGetCollectionEmptyArrays(t *testing.T) {
 	assert.NotContains(t, response.Body, `"banners":null`)
 	assert.Contains(t, response.Body, `"banners":[]`)
 
-	assert.NotContains(t, response.Body, `"contributors":null`)
-	assert.Contains(t, response.Body, `"contributors":[]`)
+	assert.NotContains(t, response.Body, `"derivedContributors":null`)
+	assert.Contains(t, response.Body, `"derivedContributors":[]`)
 
 	assert.NotContains(t, response.Body, `"datasets":null`)
 	assert.Contains(t, response.Body, `"datasets":[]`)
@@ -314,13 +333,12 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error) {
 			return &store.GetCollectionResponse{
-				CollectionResponse: store.CollectionResponse{
+				CollectionBase: store.CollectionBase{
 					NodeID:      *expectedCollection.NodeID,
 					Name:        expectedCollection.Name,
 					Description: expectedCollection.Description,
 					UserRole:    role.Owner.String(),
 					Size:        1,
-					BannerDOIs:  expectedCollection.DOIs.Strings(),
 				},
 				DOIs: expectedCollection.DOIs.Strings(),
 			}, nil
@@ -328,7 +346,7 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 
 	mockDiscover := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
 		return service.DatasetsByDOIResponse{Published: map[string]dto.PublicDataset{
-			expectedDOI: apitest.NewPublicDataset(expectedDOI, apitest.NewBanner()),
+			expectedDOI: apitest.NewPublicDataset(expectedDOI, apitest.NewBanner(), apitest.NewPublicContributor()),
 		}}, nil
 	})
 	claims := apitest.DefaultClaims(callingUser)
@@ -336,7 +354,7 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam("nodeId", *expectedCollection.NodeID).
+			WithPathParam(nodeIDPathParamKey, *expectedCollection.NodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore).WithDiscover(mockDiscover),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),

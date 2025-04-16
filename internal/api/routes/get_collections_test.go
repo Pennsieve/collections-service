@@ -104,29 +104,29 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	user1 := apitest.User
 
-	testBanners := apitest.TestBanners{}
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	// Set up using the ExpectationDB
 	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
-	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+		WithDOIs(expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
-	testBanners.WithExpectedPennsieveBanners(user1CollectionOneDOI.DOIs.Strings())
 
-	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+		WithDOIs(expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
-	testBanners.WithExpectedPennsieveBanners(user1CollectionFiveDOI.DOIs.Strings())
 
 	user2 := apitest.User2
-	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
+		WithDOIs(expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user2Collection)
-	testBanners.WithExpectedPennsieveBanners(user2Collection.DOIs.Strings())
 
 	// Test route
 	user1Claims := apitest.DefaultClaims(user1)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, testBanners.ToDiscoverGetDatasetsByDOIFunc()))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
@@ -159,13 +159,13 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	// They should be returned in oldest first order
 	actualCollection1 := response.Collections[0]
-	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, actualCollection1, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionNoDOI, actualCollection1, expectedDatasets)
 
 	actualCollection2 := response.Collections[1]
-	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, actualCollection2, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionOneDOI, actualCollection2, expectedDatasets)
 
 	actualCollection3 := response.Collections[2]
-	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, actualCollection3, testBanners)
+	assertExpectedEqualCollectionResponse(t, user1CollectionFiveDOI, actualCollection3, expectedDatasets)
 
 	// try user2's collections
 	user2Claims := apitest.DefaultClaims(user2)
@@ -185,19 +185,21 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assert.Len(t, user2CollectionResp.Collections, 1)
 
 	actualUser2Collection := user2CollectionResp.Collections[0]
-	assertExpectedEqualCollectionResponse(t, user2Collection, actualUser2Collection, testBanners)
+	assertExpectedEqualCollectionResponse(t, user2Collection, actualUser2Collection, expectedDatasets)
 }
 
 func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	totalCollections := 12
-	testBanners := apitest.TestBanners{}
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	var expectedCollections []*fixtures.ExpectedCollection
 	for i := 0; i < totalCollections; i++ {
-		expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithNPennsieveDOIs(i)
+		expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
+		for j := 0; j < i; j++ {
+			expectedCollection = expectedCollection.WithDOIs(expectedDatasets.NewPublished().DOI)
+		}
 		expectationDB.CreateCollection(ctx, t, expectedCollection)
 		expectedCollections = append(expectedCollections, expectedCollection)
-		testBanners.WithExpectedPennsieveBanners(expectedCollection.DOIs.Strings())
 	}
 
 	limit := 6
@@ -206,7 +208,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	offset := 0
 
 	userClaims := apitest.DefaultClaims(apitest.User)
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, testBanners.ToDiscoverGetDatasetsByDOIFunc()))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
@@ -240,7 +242,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 		expectedCollectionLen := min(limit, totalCollections-offset)
 		if assert.Len(t, resp.Collections, expectedCollectionLen) {
 			for i := 0; i < expectedCollectionLen; i++ {
-				assertExpectedEqualCollectionResponse(t, expectedCollections[offset+i], resp.Collections[i], testBanners)
+				assertExpectedEqualCollectionResponse(t, expectedCollections[offset+i], resp.Collections[i], expectedDatasets)
 			}
 		}
 	}
@@ -333,12 +335,14 @@ func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 				Limit:      DefaultGetCollectionsLimit,
 				Offset:     DefaultGetCollectionsOffset,
 				TotalCount: 1,
-				Collections: []store.CollectionResponse{{
-					NodeID:      *expectedCollection.NodeID,
-					Name:        expectedCollection.Name,
-					Description: expectedCollection.Description,
-					Size:        0,
-					UserRole:    role.Owner.String(),
+				Collections: []store.CollectionSummary{{
+					CollectionBase: store.CollectionBase{
+						NodeID:      *expectedCollection.NodeID,
+						Name:        expectedCollection.Name,
+						Description: expectedCollection.Description,
+						Size:        0,
+						UserRole:    role.Owner.String(),
+					},
 				}},
 			}, nil
 		})

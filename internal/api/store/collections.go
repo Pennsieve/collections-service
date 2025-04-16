@@ -128,22 +128,23 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 
 	var collectionIDs []int64
 
-	collections, err := pgx.CollectRows(collectionUserJoinRows, func(row pgx.CollectableRow) (CollectionResponse, error) {
+	collections, err := pgx.CollectRows(collectionUserJoinRows, func(row pgx.CollectableRow) (CollectionSummary, error) {
 		join, err := pgx.RowToStructByName[CollectionUserJoin](row)
 		if err != nil {
-			return CollectionResponse{}, err
+			return CollectionSummary{}, err
 		}
 		//redundant
 		response.TotalCount = join.TotalCount
 
 		collectionIDs = append(collectionIDs, join.ID)
 
-		return CollectionResponse{
-			NodeID:      join.NodeID,
-			Name:        join.Name,
-			Description: join.Description,
-			UserRole:    join.Role.AsRole().String(),
-		}, nil
+		return CollectionSummary{
+			CollectionBase: CollectionBase{
+				NodeID:      join.NodeID,
+				Name:        join.Name,
+				Description: join.Description,
+				UserRole:    join.Role.AsRole().String(),
+			}}, nil
 
 	})
 	if err != nil {
@@ -163,7 +164,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 		return response, nil
 	}
 
-	nodeIDToCollection := make(map[string]*CollectionResponse, len(collections))
+	nodeIDToCollection := make(map[string]*CollectionSummary, len(collections))
 	for i := range collections {
 		collection := &collections[i]
 		nodeIDToCollection[collection.NodeID] = collection
@@ -227,7 +228,7 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 	_, err = pgx.ForEachRow(rows, []any{&name, &description, &role, &doiOpt}, func() error {
 		if response == nil {
 			response = &GetCollectionResponse{
-				CollectionResponse: CollectionResponse{
+				CollectionBase: CollectionBase{
 					NodeID:      nodeID,
 					Name:        name,
 					Description: description,
@@ -245,9 +246,6 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 	}
 	if response != nil {
 		response.Size = len(response.DOIs)
-		for i := 0; i < min(len(response.DOIs), MaxDOIsPerCollection); i++ {
-			response.BannerDOIs = append(response.BannerDOIs, response.DOIs[i])
-		}
 	}
 	return response, nil
 }

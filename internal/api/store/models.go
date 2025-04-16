@@ -7,23 +7,27 @@ type CreateCollectionResponse struct {
 	CreatorRole role.Role
 }
 
-type CollectionResponse struct {
+type CollectionBase struct {
 	NodeID      string
 	Name        string
 	Description string
 	Size        int
-	BannerDOIs  []string
 	UserRole    string
+}
+
+type CollectionSummary struct {
+	CollectionBase
+	BannerDOIs []string
 }
 
 type GetCollectionsResponse struct {
 	Limit       int
 	Offset      int
-	Collections []CollectionResponse
+	Collections []CollectionSummary
 	TotalCount  int
 }
 
 type GetCollectionResponse struct {
-	CollectionResponse
+	CollectionBase
 	DOIs []string
 }
