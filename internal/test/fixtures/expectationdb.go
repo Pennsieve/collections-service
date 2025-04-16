@@ -2,7 +2,6 @@ package fixtures
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
@@ -12,76 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"log/slog"
 )
-
-// ExpectedCollection is what we expect the collection to look like
-// in Postgres, so it doesn't include things not persisted there. Like banners for
-// example.
-type ExpectedCollection struct {
-	Name        string
-	Description string
-	// NodeID is optional since it may not be known depending
-	// on the level we are testing. We can have an expected nodeID
-	// if testing collection creation at the store level, but not at the route handling level
-	// for example
-	NodeID *string
-	Users  []ExpectedUser
-	DOIs   ExpectedDOIs
-}
-
-func NewExpectedCollection() *ExpectedCollection {
-	return &ExpectedCollection{
-		Name:        uuid.NewString(),
-		Description: uuid.NewString(),
-	}
-}
-
-func (c *ExpectedCollection) WithNodeID() *ExpectedCollection {
-	nodeID := uuid.NewString()
-	c.NodeID = &nodeID
-	return c
-}
-
-type ExpectedUser struct {
-	UserID        int64
-	PermissionBit pgdb.DbPermission
-}
-
-func (c *ExpectedCollection) WithUser(userID int64, permission pgdb.DbPermission) *ExpectedCollection {
-	c.Users = append(c.Users, ExpectedUser{userID, permission})
-	return c
-}
-
-type ExpectedDOI struct {
-	DOI string
-}
-
-func (c *ExpectedCollection) WithDOIs(dois ...string) *ExpectedCollection {
-	for _, doi := range dois {
-		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: doi})
-	}
-	return c
-}
-
-func (c *ExpectedCollection) WithNPennsieveDOIs(n int) *ExpectedCollection {
-	var dois []string
-	for i := 0; i < n; i++ {
-		dois = append(dois, apitest.NewPennsieveDOI())
-	}
-	return c.WithDOIs(dois...)
-}
-
-type ExpectedDOIs []ExpectedDOI
-
-func (d ExpectedDOIs) Strings() []string {
-	if len(d) == 0 {
-		return nil
-	}
-	strs := make([]string, len(d))
-	for i, doi := range d {
-		strs[i] = doi.DOI
-	}
-	return strs
-}
 
 type ExpectationDB struct {
 	db            *test.PostgresDB
@@ -110,7 +39,7 @@ func (e *ExpectationDB) connect(ctx context.Context, t require.TestingT) *pgx.Co
 	return conn
 }
 
-func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.TestingT, expected *ExpectedCollection, expectedCollectionID int64) {
+func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection, expectedCollectionID int64) {
 	test.Helper(t)
 	conn := e.connect(ctx, t)
 	defer test.CloseConnection(ctx, t, conn)
@@ -119,7 +48,7 @@ func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.Testing
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
-func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require.TestingT, expected *ExpectedCollection, expectedNodeID string) {
+func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection, expectedNodeID string) {
 	test.Helper(t)
 	conn := e.connect(ctx, t)
 	defer test.CloseConnection(ctx, t, conn)
@@ -128,7 +57,7 @@ func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
-func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *ExpectedCollection) store.CreateCollectionResponse {
+func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection) store.CreateCollectionResponse {
 	test.Helper(t)
 	require.Len(t, expected.Users, 1, "ExpectationDB.CreateCollection can only be called with one expected user: an owner")
 	user := expected.Users[0]
@@ -140,7 +69,7 @@ func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT
 	return response
 }
 
-func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, expected *ExpectedCollection, actual store.Collection) {
+func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, expected *apitest.ExpectedCollection, actual store.Collection) {
 	require.Equal(t, expected.Name, actual.Name)
 	require.Equal(t, expected.Description, actual.Description)
 	if expected.NodeID != nil {

@@ -59,7 +59,7 @@ func testGetCollectionsNone(t *testing.T, expectationDB *fixtures.ExpectationDB)
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
 	// Test route
@@ -107,19 +107,19 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	// Set up using the ExpectationDB
-	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
-	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
 		WithDOIs(expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
 
-	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
 		WithDOIs(expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
 	user2 := apitest.User2
-	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
 		WithDOIs(expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
@@ -192,9 +192,9 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	ctx := context.Background()
 	totalCollections := 12
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
-	var expectedCollections []*fixtures.ExpectedCollection
+	var expectedCollections []*apitest.ExpectedCollection
 	for i := 0; i < totalCollections; i++ {
-		expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
+		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
 		for j := 0; j < i; j++ {
 			expectedCollection = expectedCollection.WithDOIs(expectedDatasets.NewPublished().DOI)
 		}
@@ -327,7 +327,7 @@ func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.User
 
-	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {

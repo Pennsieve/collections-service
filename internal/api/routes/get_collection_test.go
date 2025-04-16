@@ -7,7 +7,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -16,7 +15,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
-	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -63,7 +61,7 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 
 	// Set up using the ExpectationDB
 
-	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
 	// Test route
@@ -84,7 +82,7 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam(nodeIDPathParamKey, nonExistentNodeID).
+			WithPathParam(NodeIDPathParamKey, nonExistentNodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -110,14 +108,14 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	// Set up using the ExpectationDB
-	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
-	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
 		WithDOIs(expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
 
-	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
 		WithDOIs(
 			expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI,
 			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()), apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
@@ -127,7 +125,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
-	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
 		WithDOIs(expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI, expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial(), apitest.WithDegree(), apitest.WithOrcid())).DOI)
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
@@ -151,7 +149,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	paramsNoDOI := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(user1Claims).
-			WithPathParam(nodeIDPathParamKey, *user1CollectionNoDOI.NodeID).
+			WithPathParam(NodeIDPathParamKey, *user1CollectionNoDOI.NodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -168,7 +166,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	paramsOneDOI := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(user1Claims).
-			WithPathParam(nodeIDPathParamKey, *user1CollectionOneDOI.NodeID).
+			WithPathParam(NodeIDPathParamKey, *user1CollectionOneDOI.NodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -197,7 +195,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	paramsFiveDOI := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(user1Claims).
-			WithPathParam(nodeIDPathParamKey, *user1CollectionFiveDOI.NodeID).
+			WithPathParam(NodeIDPathParamKey, *user1CollectionFiveDOI.NodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -228,7 +226,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	paramsUser2 := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(user2Claims).
-			WithPathParam(nodeIDPathParamKey, *user2Collection.NodeID).
+			WithPathParam(NodeIDPathParamKey, *user2Collection.NodeID).
 			Build(),
 		Container: container,
 		Config:    apiConfig,
@@ -282,26 +280,17 @@ func testHandleGetCollectionEmptyArrays(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.User
 
-	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
-		WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error) {
-			return &store.GetCollectionResponse{
-				CollectionBase: store.CollectionBase{
-					NodeID:      *expectedCollection.NodeID,
-					Name:        expectedCollection.Name,
-					Description: expectedCollection.Description,
-					UserRole:    role.Owner.String(),
-				},
-			}, nil
-		})
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam(nodeIDPathParamKey, *expectedCollection.NodeID).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
@@ -328,21 +317,10 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	callingUser := apitest.User
 
 	expectedDOI := apitest.NewPennsieveDOI()
-	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
-		WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error) {
-			return &store.GetCollectionResponse{
-				CollectionBase: store.CollectionBase{
-					NodeID:      *expectedCollection.NodeID,
-					Name:        expectedCollection.Name,
-					Description: expectedCollection.Description,
-					UserRole:    role.Owner.String(),
-					Size:        1,
-				},
-				DOIs: expectedCollection.DOIs.Strings(),
-			}, nil
-		})
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
 	mockDiscover := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
 		return service.DatasetsByDOIResponse{Published: map[string]dto.PublicDataset{
@@ -354,7 +332,7 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam(nodeIDPathParamKey, *expectedCollection.NodeID).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore).WithDiscover(mockDiscover),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),

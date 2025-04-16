@@ -62,7 +62,7 @@ func TestStore(t *testing.T) {
 func testCreateCollectionNilDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := apitest.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
 
 	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, nil)
 	require.NoError(t, err)
@@ -75,7 +75,7 @@ func testCreateCollectionNilDOIs(t *testing.T, store *store.PostgresCollectionsS
 func testCreateCollectionEmptyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := apitest.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner)
 
 	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []string{})
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func testCreateCollectionEmptyDOIs(t *testing.T, store *store.PostgresCollection
 func testCreateCollectionOneDOI(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := apitest.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
 
 	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func testCreateCollectionOneDOI(t *testing.T, store *store.PostgresCollectionsSt
 func testCreateCollectionManyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := apitest.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 
 	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func testCreateCollectionManyDOIs(t *testing.T, store *store.PostgresCollections
 func testCreateCollectionEmptyDescription(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwnerID := apitest.User.ID
-	expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(expectedOwnerID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectedCollection.Description = ""
 
 	resp, err := store.CreateCollection(ctx, expectedOwnerID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
@@ -133,7 +133,7 @@ func testGetCollectionsNone(t *testing.T, store *store.PostgresCollectionsStore,
 
 	// Set up using the ExpectationDB
 
-	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
 	// Test with store
@@ -153,14 +153,14 @@ func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, exp
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
-	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
-	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
-	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
 	// Test with store
@@ -201,9 +201,9 @@ func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, exp
 func testGetCollectionsLimitOffset(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	totalCollections := 11
-	var expectedCollections []*fixtures.ExpectedCollection
+	var expectedCollections []*apitest.ExpectedCollection
 	for i := 0; i < totalCollections; i++ {
-		expectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithNPennsieveDOIs(i)
+		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithNPennsieveDOIs(i)
 		expectationDB.CreateCollection(ctx, t, expectedCollection)
 		expectedCollections = append(expectedCollections, expectedCollection)
 	}
@@ -247,7 +247,7 @@ func testGetCollectionNone(t *testing.T, store *store.PostgresCollectionsStore, 
 
 	// Set up using the ExpectationDB
 
-	user2ExpectedCollection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
 	// Test with store
@@ -262,14 +262,14 @@ func testGetCollection(t *testing.T, store *store.PostgresCollectionsStore, expe
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user1CollectionNoDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
-	user1CollectionOneDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
-	user1CollectionFiveDOI := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
-	user2Collection := fixtures.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
 	// Test with store
@@ -303,7 +303,7 @@ func testGetCollection(t *testing.T, store *store.PostgresCollectionsStore, expe
 
 }
 
-func assertExpectedEqualCollectionBase(t *testing.T, expected *fixtures.ExpectedCollection, actual store.CollectionBase) {
+func assertExpectedEqualCollectionBase(t *testing.T, expected *apitest.ExpectedCollection, actual store.CollectionBase) {
 	t.Helper()
 	assert.Equal(t, *expected.NodeID, actual.NodeID)
 	assert.Equal(t, expected.Name, actual.Name)
@@ -312,7 +312,7 @@ func assertExpectedEqualCollectionBase(t *testing.T, expected *fixtures.Expected
 	assert.Len(t, expected.DOIs, actual.Size)
 }
 
-func assertExpectedEqualCollectionSummary(t *testing.T, expected *fixtures.ExpectedCollection, actual store.CollectionSummary) {
+func assertExpectedEqualCollectionSummary(t *testing.T, expected *apitest.ExpectedCollection, actual store.CollectionSummary) {
 	t.Helper()
 	assertExpectedEqualCollectionBase(t, expected, actual.CollectionBase)
 	bannerLen := min(store.MaxDOIsPerCollection, len(expected.DOIs))

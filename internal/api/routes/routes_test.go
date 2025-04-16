@@ -4,12 +4,11 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
-	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func assertExpectedEqualCollectionResponse(t *testing.T, expected *fixtures.ExpectedCollection, actual dto.CollectionResponse, expectedDatasets *apitest.ExpectedPennsieveDatasets) {
+func assertExpectedEqualCollectionResponse(t *testing.T, expected *apitest.ExpectedCollection, actual dto.CollectionResponse, expectedDatasets *apitest.ExpectedPennsieveDatasets) {
 	t.Helper()
 	assert.Equal(t, *expected.NodeID, actual.NodeID)
 	assert.Equal(t, expected.Name, actual.Name)

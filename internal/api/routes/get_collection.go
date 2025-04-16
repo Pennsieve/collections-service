@@ -9,18 +9,18 @@ import (
 	"net/http"
 )
 
-const nodeIDPathParamKey = "nodeId"
+const NodeIDPathParamKey = "nodeId"
 
-var GetCollectionRouteKey = fmt.Sprintf("GET /{%s}", nodeIDPathParamKey)
+var GetCollectionRouteKey = fmt.Sprintf("GET /{%s}", NodeIDPathParamKey)
 
 func GetCollection(ctx context.Context, params Params) (dto.GetCollectionResponse, error) {
-	nodeID := params.Request.PathParameters[nodeIDPathParamKey]
+	nodeID := params.Request.PathParameters[NodeIDPathParamKey]
 	if len(nodeID) == 0 {
-		return dto.GetCollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf(`missing %q path parameter`, nodeIDPathParamKey))
+		return dto.GetCollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf(`missing %q path parameter`, NodeIDPathParamKey))
 	}
 	userClaim := params.Claims.UserClaim
 	params.Container.AddLoggingContext(
-		slog.String(nodeIDPathParamKey, nodeID),
+		slog.String(NodeIDPathParamKey, nodeID),
 		slog.String("userNodeId", userClaim.NodeId))
 
 	storeResp, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
