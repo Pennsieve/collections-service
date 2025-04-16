@@ -100,7 +100,7 @@ paths:
       x-amazon-apigateway-integration:
         $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
       operationId: getCollection
-      summary: Return a collections
+      summary: Returns a collection
       description: |
         Returns the collection with the given nodeId
       parameters:
