@@ -62,7 +62,7 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 				datasetDTO, err = dto.NewPennsieveDataset(published)
 				if err != nil {
 					return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
-						"error marshalling Discover PublicDataset",
+						fmt.Sprintf("error marshalling Discover PublicDataset %s", doi),
 						err)
 				}
 				mergedContributors = mergedContributors.Append(published.Contributors...)
@@ -70,7 +70,7 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 				datasetDTO, err = dto.NewTombstoneDataset(unpublished)
 				if err != nil {
 					return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
-						"error marshalling Discover Tombstone", err)
+						fmt.Sprintf("error marshalling Discover Tombstone %s", doi), err)
 				}
 
 			} else {
@@ -82,7 +82,7 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 				})
 				if err != nil {
 					return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
-						"error marshalling Discover Tombstone for missing dataset", err)
+						fmt.Sprintf("error marshalling Discover Tombstone for missing dataset %s", doi), err)
 				}
 			}
 			response.Datasets = append(response.Datasets, datasetDTO)
