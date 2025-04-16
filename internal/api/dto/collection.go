@@ -100,8 +100,9 @@ const ExternalSource DOIInformationSource = "External"
 type Dataset struct {
 	Source  DOIInformationSource `json:"source"`
 	Problem bool                 `json:"problem"`
-	// Data is the info we got from looking up the DOI. If Source == PennsieveSource, then
-	// Data should be a PublicDataset
+	// Data is the info we got from looking up the DOI.
+	// If Source == PennsieveSource AND Problem == false, then Data is a PublicDataset.
+	// If Source == PennsieveSource AND Problem == true, then Data is a Tombstone.
 	Data json.RawMessage `json:"data"`
 }
 
