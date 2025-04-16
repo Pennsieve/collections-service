@@ -74,10 +74,16 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 				}
 
 			} else {
-				// info on the doi was not returned. This shouldn't really happen
-				return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
-					fmt.Sprintf("Discover did not return information on Pennsieve DOI %s", doi),
-					nil)
+				// info on the Pennsieve DOI was not returned by Discover. This shouldn't really happen, but who knows.
+				// Maybe in future we fall back to doi.org?
+				datasetDTO, err = dto.NewTombstoneDataset(dto.Tombstone{
+					Status: "UNKNOWN",
+					DOI:    doi,
+				})
+				if err != nil {
+					return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
+						"error marshalling Discover Tombstone for missing dataset", err)
+				}
 			}
 			response.Datasets = append(response.Datasets, datasetDTO)
 
