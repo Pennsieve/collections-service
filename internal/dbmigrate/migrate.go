@@ -138,7 +138,7 @@ func newCollectionsMigrator(ctx context.Context, username, password, host string
 	// Create source.Driver which will read the .sql files from the migrations subdir.
 	migrationsSource, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
-		return nil, closeOnError(fmt.Errorf("error creating migration iofs source.Driver: %w", err), db)
+		return nil, closeOnError(fmt.Errorf("error creating migration iofs source.Driver: %w", err), driver)
 	}
 
 	// Now we can create the Migrate instance
