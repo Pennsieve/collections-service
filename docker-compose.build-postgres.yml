@@ -1,0 +1,20 @@
+services:
+  base-pennsievedb:
+    image: pennsieve/pennsievedb:V20241120161735-seed
+    healthcheck:
+      test: [ "CMD-SHELL", "psql -U postgres -t postgres -c \"\\d+ pennsieve.users\"" ]
+      # Warning: Do not change this interval! Anything larger will slow down tests.
+      interval: 1s
+      timeout: 1s
+      retries: 10
+
+  collection-migrations:
+    image: pennsieve/collections-service-dbmigrate:latest
+    environment:
+      POSTGRES_HOST: base-pennsievedb
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_COLLECTIONS_DATABASE: postgres
+    # Override Cloudwrap entrypoint to use explicit environment variables
+    entrypoint: [ "/app/collections-dbmigrate" ]

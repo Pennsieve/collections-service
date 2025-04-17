@@ -17,6 +17,10 @@ ansiColor('xterm') {
       }
 
       if (!isMain) {
+        stage('Build Postgres Image') {
+          sh "IMAGE_TAG=${imageTag} ENVIRONMENT=jenkins make build-postgres"
+        }
+
         stage('Build') {
           sh "IMAGE_TAG=${imageTag} make package"
         }
