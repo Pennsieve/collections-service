@@ -9,9 +9,20 @@ import (
 // calling config.LoadPostgresDBConfig() because that method
 // will not create the correct configs if the tests are running locally instead
 // of in the Docker test container.
-func PostgresDBConfig() config.PostgresDBConfig {
-	return config.NewPostgresDBConfigBuilder().
+func PostgresDBConfig(options ...PostgresOption) config.PostgresDBConfig {
+	builder := config.NewPostgresDBConfigBuilder().
 		WithPostgresUser("postgres").
-		WithPostgresPassword("password").
-		Build()
+		WithPostgresPassword("password")
+	for _, option := range options {
+		builder = option(builder)
+	}
+	return builder.Build()
+}
+
+type PostgresOption func(builder *config.PostgresDBConfigBuilder) *config.PostgresDBConfigBuilder
+
+func WithPort(port int) PostgresOption {
+	return func(builder *config.PostgresDBConfigBuilder) *config.PostgresDBConfigBuilder {
+		return builder.WithPort(port)
+	}
 }
