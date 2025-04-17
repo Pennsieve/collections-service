@@ -6,11 +6,9 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/configtest"
-	"github.com/pennsieve/collections-service/internal/test/dbmigratetest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -33,15 +31,6 @@ func TestGetCollection(t *testing.T) {
 
 	ctx := context.Background()
 	postgresDBConfig := configtest.PostgresDBConfig()
-	migrator, err := dbmigrate.NewLocalCollectionsMigrator(ctx, dbmigrate.Config{
-		PostgresDB:     postgresDBConfig,
-		VerboseLogging: true,
-	})
-	t.Cleanup(func() {
-		dbmigratetest.Close(t, migrator)
-	})
-	require.NoError(t, err)
-	require.NoError(t, migrator.Up())
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
