@@ -20,7 +20,7 @@ help:
 
 local-services:
 	docker compose -f docker-compose.test.yml down --remove-orphans
-	docker compose -f docker-compose.test.yml -f docker-compose.local.override.yml up -d pennsievedb
+	docker compose -f docker-compose.test.yml -f docker-compose.local.override.yml up -d pennsievedb-collections
 
 test: local-services
 	go test -v -p 1 ./...

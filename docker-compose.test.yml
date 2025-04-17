@@ -4,19 +4,20 @@ services:
       context: .
       dockerfile: Dockerfile.test
     depends_on:
-      - pennsievedb
+      - pennsievedb-collections
     environment:
       - AWS_ACCESS_KEY_ID=TestAWSKey
       - AWS_SECRET_ACCESS_KEY=TestAWSSecret
-      - POSTGRES_HOST=pennsievedb
+      - POSTGRES_HOST=pennsievedb-collections
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
       - POSTGRES_COLLECTIONS_DATABASE=postgres
+      - TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
-  # Using this pennsieve image for testing because collections
-  # schema has a foreign key relation to pennsieve.users table.
-  pennsievedb:
-    image: pennsieve/pennsievedb:V20241120161735-seed
+  pennsievedb-collections:
+    image: pennsieve/pennsievedb-collections:20250327123104-seed
     restart: always
 #    command: [ "postgres", "-c", "log_statement=all" ]
 

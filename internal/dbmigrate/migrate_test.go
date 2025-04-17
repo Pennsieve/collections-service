@@ -2,7 +2,6 @@ package dbmigrate_test
 
 import (
 	"context"
-	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/dbmigrate"
@@ -13,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"net"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -32,12 +33,9 @@ func TestCollectionsMigrator(t *testing.T) {
 	// Also, so that we don't have to start a pre-collections pennsievedb seed in docker compose only for these tests
 	ctx := context.Background()
 
-	postgresPort, err := nat.NewPort("tcp", "5432")
-	require.NoError(t, err)
-
 	containerReq := testcontainers.ContainerRequest{
 		Image:        "pennsieve/pennsievedb:V20241120161735-seed",
-		ExposedPorts: []string{string(postgresPort)},
+		ExposedPorts: []string{"5432/tcp"},
 		WaitingFor: wait.ForLog("database system is ready to accept connections").
 			WithStartupTimeout(5 * time.Second),
 	}
@@ -50,10 +48,18 @@ func TestCollectionsMigrator(t *testing.T) {
 	testcontainers.CleanupContainer(t, pennsievedb)
 	require.NoError(t, err)
 
-	containerPort, err := pennsievedb.MappedPort(ctx, postgresPort)
+	hostPort, err := pennsievedb.Endpoint(ctx, "")
 	require.NoError(t, err)
 
-	migrateConfig := dbmigratetest.Config(configtest.WithPort(containerPort.Int()))
+	host, portStr, err := net.SplitHostPort(hostPort)
+	require.NoError(t, err)
+	port, err := strconv.Atoi(portStr)
+	require.NoError(t, err)
+
+	migrateConfig := dbmigratetest.Config(
+		configtest.WithHost(host),
+		configtest.WithPort(port),
+	)
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -113,7 +119,7 @@ func testUp(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationC
 // We don't really use the Down() method for real. Test is here so that
 // if we do write 'down' files something checks that they at least run
 // without error.
-func testDown(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
+func testDown(t *testing.T, migrator *dbmigrate.CollectionsMigrator, _ *pgx.Conn) {
 
 	require.NoError(t, migrator.Up())
 

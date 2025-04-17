@@ -26,3 +26,9 @@ func WithPort(port int) PostgresOption {
 		return builder.WithPort(port)
 	}
 }
+
+func WithHost(host string) PostgresOption {
+	return func(builder *config.PostgresDBConfigBuilder) *config.PostgresDBConfigBuilder {
+		return builder.WithHost(host)
+	}
+}

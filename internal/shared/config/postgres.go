@@ -30,6 +30,11 @@ func (b *PostgresDBConfigBuilder) WithPostgresPassword(postgresPassword string) 
 	return b
 }
 
+func (b *PostgresDBConfigBuilder) WithHost(host string) *PostgresDBConfigBuilder {
+	b.c.Host = host
+	return b
+}
+
 func (b *PostgresDBConfigBuilder) WithPort(port int) *PostgresDBConfigBuilder {
 	b.c.Port = port
 	return b
