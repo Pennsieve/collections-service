@@ -1,4 +1,4 @@
 services:
-  pennsievedb:
+  pennsievedb-collections:
     ports:
       - "5432:5432"

@@ -30,6 +30,16 @@ func (b *PostgresDBConfigBuilder) WithPostgresPassword(postgresPassword string) 
 	return b
 }
 
+func (b *PostgresDBConfigBuilder) WithHost(host string) *PostgresDBConfigBuilder {
+	b.c.Host = host
+	return b
+}
+
+func (b *PostgresDBConfigBuilder) WithPort(port int) *PostgresDBConfigBuilder {
+	b.c.Port = port
+	return b
+}
+
 func (b *PostgresDBConfigBuilder) Build() PostgresDBConfig {
 	if len(b.c.Host) == 0 {
 		b.c.Host = GetEnvOrDefault("POSTGRES_HOST", "localhost")

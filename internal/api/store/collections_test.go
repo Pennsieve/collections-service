@@ -4,12 +4,10 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/store"
-	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/configtest"
-	"github.com/pennsieve/collections-service/internal/test/dbmigratetest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
@@ -21,13 +19,6 @@ import (
 func TestStore(t *testing.T) {
 	ctx := context.Background()
 	config := configtest.PostgresDBConfig()
-	migrator, err := dbmigrate.NewLocalCollectionsMigrator(ctx, dbmigrate.Config{
-		PostgresDB:     config,
-		VerboseLogging: true,
-	})
-	require.NoError(t, err)
-	require.NoError(t, migrator.Up())
-	dbmigratetest.Close(t, migrator)
 
 	for _, tt := range []struct {
 		scenario string

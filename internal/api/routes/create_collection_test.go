@@ -5,11 +5,9 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
-	"github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/configtest"
-	"github.com/pennsieve/collections-service/internal/test/dbmigratetest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -24,13 +22,6 @@ import (
 func TestCreateCollection(t *testing.T) {
 	ctx := context.Background()
 	config := configtest.PostgresDBConfig()
-	migrator, err := dbmigrate.NewLocalCollectionsMigrator(ctx, dbmigrate.Config{
-		PostgresDB:     config,
-		VerboseLogging: true,
-	})
-	require.NoError(t, err)
-	require.NoError(t, migrator.Up())
-	dbmigratetest.Close(t, migrator)
 
 	for scenario, tstFunc := range map[string]func(t *testing.T, expectationDB *fixtures.ExpectationDB){
 		"create collection; no DTOs":              testCreateCollectionNoDTOs,
