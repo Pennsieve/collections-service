@@ -319,7 +319,7 @@ func testDeleteCollection(t *testing.T, store *store.PostgresCollectionsStore, e
 	expectationDB.RequireCollection(ctx, t, user2Collection, user2Resp.ID)
 }
 
-func testDeleteCollectionNonExistent(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func testDeleteCollectionNonExistent(t *testing.T, collectionsStore *store.PostgresCollectionsStore, _ *fixtures.ExpectationDB) {
 	nonExistentCollectionID := int64(99999)
 	err := collectionsStore.DeleteCollection(context.Background(), nonExistentCollectionID)
 	require.ErrorIs(t, err, store.ErrCollectionNotFound)

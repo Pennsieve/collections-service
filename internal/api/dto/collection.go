@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -21,6 +22,10 @@ type CreateCollectionRequest struct {
 // CreateCollectionResponse represents the response body of POST /
 type CreateCollectionResponse CollectionResponse
 
+func (r CreateCollectionResponse) Marshal(logger *slog.Logger) (string, error) {
+	return defaultMarshalImpl(r, logger)
+}
+
 func (r CreateCollectionResponse) MarshalJSON() ([]byte, error) {
 	return CollectionResponse(r).MarshalJSON()
 }
@@ -31,6 +36,10 @@ type GetCollectionsResponse struct {
 	Offset      int                  `json:"offset"`
 	TotalCount  int                  `json:"totalCount"`
 	Collections []CollectionResponse `json:"collections"`
+}
+
+func (r GetCollectionsResponse) Marshal(logger *slog.Logger) (string, error) {
+	return defaultMarshalImpl(r, logger)
 }
 
 func (r GetCollectionsResponse) MarshalJSON() ([]byte, error) {
@@ -46,6 +55,10 @@ type GetCollectionResponse struct {
 	CollectionResponse
 	DerivedContributors []PublicContributor `json:"derivedContributors"`
 	Datasets            []Dataset           `json:"datasets"`
+}
+
+func (r GetCollectionResponse) Marshal(logger *slog.Logger) (string, error) {
+	return defaultMarshalImpl(r, logger)
 }
 
 // MarshalJSON is implemented so that nil slices get marshalled as [] instead of null.
