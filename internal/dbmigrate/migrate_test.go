@@ -43,7 +43,6 @@ func TestCollectionsMigrator(t *testing.T) {
 	pennsievedb, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: containerReq,
 		Started:          true,
-		Reuse:            false,
 	})
 	testcontainers.CleanupContainer(t, pennsievedb)
 	require.NoError(t, err)
