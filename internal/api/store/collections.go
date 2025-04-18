@@ -17,7 +17,7 @@ type CollectionsStore interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error)
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
 	GetCollection(ctx context.Context, userID int64, nodeID string) (*GetCollectionResponse, error)
-	DeleteCollection(ctx context.Context, id int64) error
+	DeleteCollection(ctx context.Context, collectionID int64) error
 }
 
 type PostgresCollectionsStore struct {
@@ -252,9 +252,22 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 	return response, nil
 }
 
-func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, id int64) error {
-	//TODO implement me
-	panic("implement me")
+func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collectionID int64) error {
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return fmt.Errorf("DeleteCollection error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+
+	_, err = conn.Exec(
+		ctx,
+		"DELETE FROM collections.collections WHERE id = @collection_id",
+		pgx.NamedArgs{"collection_id": collectionID},
+	)
+	if err != nil {
+		return fmt.Errorf("DeleteCollection error deleting collection %d: %w", collectionID, err)
+	}
+	return nil
 }
 
 func (s *PostgresCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {

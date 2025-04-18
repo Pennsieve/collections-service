@@ -57,6 +57,19 @@ func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.Testing
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
+func (e *ExpectationDB) RequireNoCollection(ctx context.Context, t require.TestingT, expectedCollectionID int64) {
+	test.Helper(t)
+	e.knownCollectionIDs[expectedCollectionID] = true
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	rows, _ := conn.Query(ctx, "SELECT * from collections.collections where id = @id", pgx.NamedArgs{"id": expectedCollectionID})
+	unexpected, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (map[string]any, error) {
+		return pgx.RowToMap(row)
+	})
+	require.ErrorIs(t, err, pgx.ErrNoRows, "expected no row, got %v", unexpected)
+}
+
 func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection, expectedNodeID string) {
 	test.Helper(t)
 	e.knownCollectionNodeIDs[expectedNodeID] = true

@@ -34,6 +34,7 @@ func TestStore(t *testing.T) {
 		{"get collections, limit and offset", testGetCollectionsLimitOffset},
 		{"get collection, none", testGetCollectionNone},
 		{"get collection", testGetCollection},
+		{"delete collection", testDeleteCollection},
 	} {
 
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -292,6 +293,31 @@ func testGetCollection(t *testing.T, store *store.PostgresCollectionsStore, expe
 	assertExpectedEqualCollectionBase(t, user2Collection, user2CollectionResp.CollectionBase)
 	assert.Equal(t, user2Collection.DOIs.Strings(), user2CollectionResp.DOIs)
 
+}
+
+func testDeleteCollection(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user1 := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user1)
+	user2 := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user2)
+
+	user1CollectionDelete := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	createResp := expectationDB.CreateCollection(ctx, t, user1CollectionDelete)
+	idToDelete := createResp.ID
+
+	user1CollectionKeep := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	keepResp := expectationDB.CreateCollection(ctx, t, user1CollectionKeep)
+
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2Resp := expectationDB.CreateCollection(ctx, t, user2Collection)
+
+	require.NoError(t, store.DeleteCollection(ctx, idToDelete))
+
+	expectationDB.RequireNoCollection(ctx, t, idToDelete)
+	expectationDB.RequireCollection(ctx, t, user1CollectionKeep, keepResp.ID)
+	expectationDB.RequireCollection(ctx, t, user2Collection, user2Resp.ID)
 }
 
 func assertExpectedEqualCollectionBase(t *testing.T, expected *apitest.ExpectedCollection, actual store.CollectionBase) {
