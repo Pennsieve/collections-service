@@ -141,6 +141,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 
 		return CollectionSummary{
 			CollectionBase: CollectionBase{
+				ID:          join.ID,
 				NodeID:      join.NodeID,
 				Name:        join.Name,
 				Description: join.Description,
@@ -206,7 +207,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 // Otherwise, returns a non-nil response if a collection is found or nil and an error if an error occurs.
 func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
 	args := pgx.NamedArgs{"user_id": userID, "node_id": nodeID}
-	sql := `SELECT c.name, c.description, u.role, d.doi
+	sql := `SELECT c.id, c.name, c.description, u.role, d.doi
 			FROM collections.collections c
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
@@ -224,13 +225,15 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 	rows, _ := conn.Query(ctx, sql, args)
 
 	var response *GetCollectionResponse
+	var id int64
 	var name, description string
 	var pgxRole PgxRole
 	var doiOpt *string
-	_, err = pgx.ForEachRow(rows, []any{&name, &description, &pgxRole, &doiOpt}, func() error {
+	_, err = pgx.ForEachRow(rows, []any{&id, &name, &description, &pgxRole, &doiOpt}, func() error {
 		if response == nil {
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
+					ID:          id,
 					NodeID:      nodeID,
 					Name:        name,
 					Description: description,

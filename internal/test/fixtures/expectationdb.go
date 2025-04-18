@@ -89,6 +89,7 @@ func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT
 
 	response, err := e.collectionsStore().CreateCollection(ctx, user.UserID, *expected.NodeID, expected.Name, expected.Description, expected.DOIs.Strings())
 	require.NoError(t, err)
+	expected.ID = &response.ID
 	e.knownCollectionIDs[response.ID] = true
 	return response
 }

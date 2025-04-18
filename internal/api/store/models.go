@@ -8,6 +8,7 @@ type CreateCollectionResponse struct {
 }
 
 type CollectionBase struct {
+	ID          int64
 	NodeID      string
 	Name        string
 	Description string
