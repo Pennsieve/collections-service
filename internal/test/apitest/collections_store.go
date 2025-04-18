@@ -95,7 +95,7 @@ func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetColl
 				Name:        c.Name,
 				Description: c.Description,
 				Size:        len(c.DOIs),
-				UserRole:    user.PermissionBit.ToRole().String(),
+				UserRole:    user.PermissionBit.ToRole(),
 			},
 			DOIs: c.DOIs.Strings(),
 		}, nil

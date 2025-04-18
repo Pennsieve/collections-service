@@ -3,26 +3,12 @@ package fixtures
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/store"
-	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/collections-service/internal/test"
+	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/require"
 )
-
-func TruncateCollectionsSchema(ctx context.Context, t require.TestingT, db postgres.DB, dbName string) error {
-	conn, err := db.Connect(ctx, dbName)
-	if err != nil {
-		return fmt.Errorf("error connecting to trucate collections schema: %w", err)
-	}
-	defer test.CloseConnection(ctx, t, conn)
-	_, err = conn.Exec(ctx, "TRUNCATE collections.collections CASCADE")
-	if err != nil {
-		return fmt.Errorf("error running collections schema truncate: %w", err)
-	}
-	return nil
-}
 
 func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) store.Collection {
 	test.Helper(t)
@@ -86,4 +72,16 @@ func GetDOIs(ctx context.Context, t require.TestingT, conn *pgx.Conn, collection
 		doiToDOI[doi.DOI] = doi
 	}
 	return
+}
+
+func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, testUser *apitest.TestUser) {
+	test.Helper(t)
+	require.Nil(t, testUser.ID, "cannot create new user from TestUser: id already set: %d", *testUser.ID)
+	var userID int64
+	err := conn.QueryRow(ctx,
+		"INSERT INTO pennsieve.users (email, node_id, is_super_admin) VALUES (@email, @node_id, @is_super_admin) RETURNING id",
+		pgx.NamedArgs{"email": testUser.Email, "node_id": testUser.NodeID, "is_super_admin": testUser.IsSuperAdmin}).
+		Scan(&userID)
+	require.NoError(t, err, "error creating user from TestUser %v", testUser)
+	testUser.ID = &userID
 }

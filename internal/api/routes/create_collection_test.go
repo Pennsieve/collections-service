@@ -31,12 +31,13 @@ func TestCreateCollection(t *testing.T) {
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, config)
+			expectationDB := fixtures.NewExpectationDB(db, config.CollectionsDatabase)
 
 			t.Cleanup(func() {
-				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, config.CollectionsDatabase))
+				expectationDB.CleanUp(ctx, t)
 			})
 
-			tstFunc(t, fixtures.NewExpectationDB(db, config.CollectionsDatabase))
+			tstFunc(t, expectationDB)
 		})
 	}
 

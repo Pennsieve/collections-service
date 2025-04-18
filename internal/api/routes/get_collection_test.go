@@ -35,12 +35,13 @@ func TestGetCollection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, postgresDBConfig)
+			expectationDB := fixtures.NewExpectationDB(db, postgresDBConfig.CollectionsDatabase)
 
 			t.Cleanup(func() {
-				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, postgresDBConfig.CollectionsDatabase))
+				expectationDB.CleanUp(ctx, t)
 			})
 
-			tt.tstFunc(t, fixtures.NewExpectationDB(db, postgresDBConfig.CollectionsDatabase))
+			tt.tstFunc(t, expectationDB)
 		})
 	}
 }

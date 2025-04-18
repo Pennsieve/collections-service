@@ -11,12 +11,13 @@ import (
 	"strings"
 )
 
-const MaxDOIsPerCollection = config.MaxBannersPerCollection
+const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
 
 type CollectionsStore interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error)
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
 	GetCollection(ctx context.Context, userID int64, nodeID string) (*GetCollectionResponse, error)
+	DeleteCollection(ctx context.Context, id int64) error
 }
 
 type PostgresCollectionsStore struct {
@@ -143,7 +144,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 				NodeID:      join.NodeID,
 				Name:        join.Name,
 				Description: join.Description,
-				UserRole:    join.Role.AsRole().String(),
+				UserRole:    join.Role.AsRole(),
 			}}, nil
 
 	})
@@ -169,7 +170,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 		collection := &collections[i]
 		nodeIDToCollection[collection.NodeID] = collection
 	}
-	getDOIsArgs := pgx.NamedArgs{"limit": MaxDOIsPerCollection, "collection_ids": collectionIDs}
+	getDOIsArgs := pgx.NamedArgs{"limit": MaxBannerDOIsPerCollection, "collection_ids": collectionIDs}
 
 	getDOIsSQL := `SELECT c.node_id, d.doi, d.total_count
 				   FROM collections.collections c
@@ -223,16 +224,17 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 	rows, _ := conn.Query(ctx, sql, args)
 
 	var response *GetCollectionResponse
-	var name, description, role string
+	var name, description string
+	var pgxRole PgxRole
 	var doiOpt *string
-	_, err = pgx.ForEachRow(rows, []any{&name, &description, &role, &doiOpt}, func() error {
+	_, err = pgx.ForEachRow(rows, []any{&name, &description, &pgxRole, &doiOpt}, func() error {
 		if response == nil {
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
 					NodeID:      nodeID,
 					Name:        name,
 					Description: description,
-					UserRole:    role,
+					UserRole:    pgxRole.AsRole(),
 				},
 			}
 		}
@@ -248,6 +250,11 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 		response.Size = len(response.DOIs)
 	}
 	return response, nil
+}
+
+func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, id int64) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (s *PostgresCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {

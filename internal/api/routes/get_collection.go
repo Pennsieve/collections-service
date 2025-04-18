@@ -39,7 +39,7 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 			Name:        storeResp.Name,
 			Description: storeResp.Description,
 			Size:        storeResp.Size,
-			UserRole:    storeResp.UserRole,
+			UserRole:    storeResp.UserRole.String(),
 		},
 	}
 

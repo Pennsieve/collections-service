@@ -325,11 +325,7 @@ func testGetCollections(t *testing.T) {
 	expectedDOI := expectedDataset.DOI
 	expectedBanner := expectedDataset.Banner
 
-	expectedNodeID := uuid.NewString()
-	expectedName := uuid.NewString()
-	expectedDescription := uuid.NewString()
-	expectedSize := 1
-	expectedUserRole := role.Owner.String()
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
@@ -342,11 +338,11 @@ func testGetCollections(t *testing.T) {
 				TotalCount: 101,
 				Collections: []store.CollectionSummary{{
 					CollectionBase: store.CollectionBase{
-						NodeID:      expectedNodeID,
-						Name:        expectedName,
-						Description: expectedDescription,
-						Size:        expectedSize,
-						UserRole:    expectedUserRole,
+						NodeID:      *expectedCollection.NodeID,
+						Name:        expectedCollection.Name,
+						Description: expectedCollection.Description,
+						Size:        len(expectedCollection.DOIs),
+						UserRole:    expectedCollection.Users[0].PermissionBit.ToRole(),
 					},
 					BannerDOIs: []string{expectedDOI},
 				}},
@@ -382,11 +378,11 @@ func testGetCollections(t *testing.T) {
 
 	assert.Len(t, responseDTO.Collections, 1)
 	actualCollection := responseDTO.Collections[0]
-	assert.Equal(t, expectedName, actualCollection.Name)
-	assert.Equal(t, expectedNodeID, actualCollection.NodeID)
-	assert.Equal(t, expectedDescription, actualCollection.Description)
-	assert.Equal(t, expectedSize, actualCollection.Size)
-	assert.Equal(t, expectedUserRole, actualCollection.UserRole)
+	assert.Equal(t, expectedCollection.Name, actualCollection.Name)
+	assert.Equal(t, *expectedCollection.NodeID, actualCollection.NodeID)
+	assert.Equal(t, expectedCollection.Description, actualCollection.Description)
+	assert.Equal(t, len(expectedCollection.DOIs), actualCollection.Size)
+	assert.Equal(t, expectedCollection.Users[0].PermissionBit.ToRole().String(), actualCollection.UserRole)
 	assert.Equal(t, []string{*expectedBanner}, actualCollection.Banners)
 
 }

@@ -12,7 +12,7 @@ type CollectionBase struct {
 	Name        string
 	Description string
 	Size        int
-	UserRole    string
+	UserRole    role.Role
 }
 
 type CollectionSummary struct {

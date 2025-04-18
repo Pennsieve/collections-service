@@ -38,14 +38,14 @@ func TestStore(t *testing.T) {
 
 		t.Run(tt.scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, config)
-
+			expectationDB := fixtures.NewExpectationDB(db, config.CollectionsDatabase)
 			t.Cleanup(func() {
-				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, config.CollectionsDatabase))
+				expectationDB.CleanUp(ctx, t)
 			})
 
 			collectionsStore := store.NewPostgresCollectionsStore(db, config.CollectionsDatabase, logging.Default)
 
-			tt.tstFunc(t, collectionsStore, fixtures.NewExpectationDB(db, config.CollectionsDatabase))
+			tt.tstFunc(t, collectionsStore, expectationDB)
 		})
 	}
 }
@@ -299,13 +299,13 @@ func assertExpectedEqualCollectionBase(t *testing.T, expected *apitest.ExpectedC
 	assert.Equal(t, *expected.NodeID, actual.NodeID)
 	assert.Equal(t, expected.Name, actual.Name)
 	assert.Equal(t, expected.Description, actual.Description)
-	assert.Equal(t, expected.Users[0].PermissionBit.ToRole().String(), actual.UserRole)
+	assert.Equal(t, expected.Users[0].PermissionBit.ToRole(), actual.UserRole)
 	assert.Len(t, expected.DOIs, actual.Size)
 }
 
 func assertExpectedEqualCollectionSummary(t *testing.T, expected *apitest.ExpectedCollection, actual store.CollectionSummary) {
 	t.Helper()
 	assertExpectedEqualCollectionBase(t, expected, actual.CollectionBase)
-	bannerLen := min(store.MaxDOIsPerCollection, len(expected.DOIs))
+	bannerLen := min(store.MaxBannerDOIsPerCollection, len(expected.DOIs))
 	assert.Equal(t, expected.DOIs.Strings()[:bannerLen], actual.BannerDOIs)
 }

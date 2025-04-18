@@ -11,10 +11,13 @@ type GetCollectionsFunc func(ctx context.Context, userID int64, limit int, offse
 
 type GetCollectionFunc func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error)
 
+type DeleteCollectionFunc func(ctx context.Context, id int64) error
+
 type CollectionsStore struct {
 	CreateCollectionsFunc
 	GetCollectionsFunc
 	GetCollectionFunc
+	DeleteCollectionFunc
 }
 
 func NewMockCollectionsStore() *CollectionsStore {
@@ -33,6 +36,11 @@ func (c *CollectionsStore) WithGetCollectionsFunc(f GetCollectionsFunc) *Collect
 
 func (c *CollectionsStore) WithGetCollectionFunc(f GetCollectionFunc) *CollectionsStore {
 	c.GetCollectionFunc = f
+	return c
+}
+
+func (c *CollectionsStore) WithDeleteCollectionFunc(f DeleteCollectionFunc) *CollectionsStore {
+	c.DeleteCollectionFunc = f
 	return c
 }
 
@@ -55,4 +63,11 @@ func (c *CollectionsStore) GetCollection(ctx context.Context, userID int64, node
 		panic("mock GetCollection function not set")
 	}
 	return c.GetCollectionFunc(ctx, userID, nodeID)
+}
+
+func (c *CollectionsStore) DeleteCollection(ctx context.Context, id int64) error {
+	if c.DeleteCollectionFunc == nil {
+		panic("mock DeleteCollection function not set")
+	}
+	return c.DeleteCollection(ctx, id)
 }
