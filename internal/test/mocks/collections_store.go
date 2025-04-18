@@ -9,7 +9,7 @@ type CreateCollectionsFunc func(ctx context.Context, userID int64, nodeID, name,
 
 type GetCollectionsFunc func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error)
 
-type GetCollectionFunc func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error)
+type GetCollectionFunc func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error)
 
 type DeleteCollectionFunc func(ctx context.Context, collectionID int64) error
 
@@ -58,7 +58,7 @@ func (c *CollectionsStore) GetCollections(ctx context.Context, userID int64, lim
 	return c.GetCollectionsFunc(ctx, userID, limit, offset)
 }
 
-func (c *CollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error) {
+func (c *CollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
 	if c.GetCollectionFunc == nil {
 		panic("mock GetCollection function not set")
 	}

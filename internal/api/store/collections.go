@@ -16,7 +16,7 @@ const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
 type CollectionsStore interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error)
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
-	GetCollection(ctx context.Context, userID int64, nodeID string) (*GetCollectionResponse, error)
+	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
 }
 
@@ -204,7 +204,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 
 // GetCollection returns nil and no error if no collection with the given node id exists for the given user id.
 // Otherwise, returns a non-nil response if a collection is found or nil and an error if an error occurs.
-func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (*GetCollectionResponse, error) {
+func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
 	args := pgx.NamedArgs{"user_id": userID, "node_id": nodeID}
 	sql := `SELECT c.name, c.description, u.role, d.doi
 			FROM collections.collections c
@@ -217,7 +217,7 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
-		return nil, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
+		return GetCollectionResponse{}, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
 	}
 	defer s.closeConn(ctx, conn)
 
@@ -244,12 +244,14 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("GetCollection error querying for collection %s: %w", nodeID, err)
+		return GetCollectionResponse{}, fmt.Errorf("GetCollection error querying for collection %s: %w", nodeID, err)
 	}
-	if response != nil {
-		response.Size = len(response.DOIs)
+	if response == nil {
+		return GetCollectionResponse{}, ErrCollectionNotFound
 	}
-	return response, nil
+
+	response.Size = len(response.DOIs)
+	return *response, nil
 }
 
 func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collectionID int64) error {
@@ -259,13 +261,16 @@ func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collect
 	}
 	defer s.closeConn(ctx, conn)
 
-	_, err = conn.Exec(
+	commandTag, err := conn.Exec(
 		ctx,
 		"DELETE FROM collections.collections WHERE id = @collection_id",
 		pgx.NamedArgs{"collection_id": collectionID},
 	)
 	if err != nil {
 		return fmt.Errorf("DeleteCollection error deleting collection %d: %w", collectionID, err)
+	}
+	if commandTag.RowsAffected() == 0 {
+		return ErrCollectionNotFound
 	}
 	return nil
 }

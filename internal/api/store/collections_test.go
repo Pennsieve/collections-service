@@ -35,6 +35,7 @@ func TestStore(t *testing.T) {
 		{"get collection, none", testGetCollectionNone},
 		{"get collection", testGetCollection},
 		{"delete collection", testDeleteCollection},
+		{"delete non-existent collection", testDeleteCollectionNonExistent},
 	} {
 
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -234,7 +235,7 @@ func testGetCollectionsLimitOffset(t *testing.T, store *store.PostgresCollection
 
 }
 
-func testGetCollectionNone(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func testGetCollectionNone(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
@@ -242,12 +243,10 @@ func testGetCollectionNone(t *testing.T, store *store.PostgresCollectionsStore, 
 	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
-	// Test with store
+	// Test with collectionsStore
 	// use a different user with no collections
-	response, err := store.GetCollection(ctx, apitest.User.ID, uuid.NewString())
-	require.NoError(t, err)
-
-	assert.Nil(t, response)
+	_, err := collectionsStore.GetCollection(ctx, apitest.User.ID, uuid.NewString())
+	require.ErrorIs(t, err, store.ErrCollectionNotFound)
 }
 
 func testGetCollection(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
@@ -318,6 +317,12 @@ func testDeleteCollection(t *testing.T, store *store.PostgresCollectionsStore, e
 	expectationDB.RequireNoCollection(ctx, t, idToDelete)
 	expectationDB.RequireCollection(ctx, t, user1CollectionKeep, keepResp.ID)
 	expectationDB.RequireCollection(ctx, t, user2Collection, user2Resp.ID)
+}
+
+func testDeleteCollectionNonExistent(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	nonExistentCollectionID := int64(99999)
+	err := collectionsStore.DeleteCollection(context.Background(), nonExistentCollectionID)
+	require.ErrorIs(t, err, store.ErrCollectionNotFound)
 }
 
 func assertExpectedEqualCollectionBase(t *testing.T, expected *apitest.ExpectedCollection, actual store.CollectionBase) {

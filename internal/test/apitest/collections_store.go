@@ -81,7 +81,7 @@ func (d ExpectedDOIs) Strings() []string {
 }
 
 func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetCollectionFunc {
-	return func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
 		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
 		userIdx := slices.IndexFunc(c.Users, func(user ExpectedUser) bool {
@@ -89,7 +89,7 @@ func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetColl
 		})
 		require.NotEqual(t, -1, userIdx, "given user %d has no permission for collection %s", userID, nodeID)
 		user := c.Users[userIdx]
-		return &store.GetCollectionResponse{
+		return store.GetCollectionResponse{
 			CollectionBase: store.CollectionBase{
 				NodeID:      nodeID,
 				Name:        c.Name,
