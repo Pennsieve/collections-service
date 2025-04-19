@@ -4,25 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
-	"log/slog"
 )
 
 type DTO interface {
-	Marshal(logger *slog.Logger) (string, error)
+	Marshal() (string, error)
 }
 
-func defaultMarshalImpl(dto any, logger *slog.Logger) (string, error) {
-	body, marshalErr := json.Marshal(dto)
-	if marshalErr != nil {
-		responseErr := apierrors.NewInternalServerError(fmt.Sprintf("error marshalling response body to %T", dto), marshalErr)
-		responseErr.LogError(logger)
-		return "", responseErr
+func defaultMarshalImpl(dto any) (string, error) {
+	body, err := json.Marshal(dto)
+	if err != nil {
+		return "", apierrors.NewInternalServerError(fmt.Sprintf("error marshalling response body to %T", dto), err)
 	}
 	return string(body), nil
 }
 
 type NoContent struct{}
 
-func (d NoContent) Marshal(_ *slog.Logger) (string, error) {
+func (d NoContent) Marshal() (string, error) {
 	return "", nil
 }

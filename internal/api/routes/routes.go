@@ -13,7 +13,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"log/slog"
-	"net/http"
 	"strconv"
 )
 
@@ -42,7 +41,7 @@ func Handle[T dto.DTO](ctx context.Context, handler Handler[T], params Params) (
 	if err != nil {
 		return handleError(err, params.Container.Logger())
 	}
-	body, err := response.Marshal(params.Container.Logger())
+	body, err := response.Marshal()
 	if err != nil {
 		return handleError(err, params.Container.Logger())
 	}
@@ -75,21 +74,11 @@ func handleError(err error, logger *slog.Logger) (events.APIGatewayV2HTTPRespons
 	var apiError *apierrors.Error
 	if errors.As(err, &apiError) {
 		apiError.LogError(logger)
-		return APIErrorGatewayResponse(apiError), nil
 	} else {
-		logger.Error("handler returned a non-apierrors error",
-			slog.String("nudge", "consider modifying route handler to always return an *apierrors.Error"),
-			slog.Any("cause", err))
-		return StdErrorGatewayResponse(err), nil
+		apiError = apierrors.NewInternalServerError("server error", err)
 	}
-}
+	return APIErrorGatewayResponse(apiError), nil
 
-func StdErrorGatewayResponse(err error) events.APIGatewayV2HTTPResponse {
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: http.StatusInternalServerError,
-		Headers:    DefaultErrorResponseHeaders(),
-		Body:       fmt.Sprintf(`{"message": %q}`, err.Error()),
-	}
 }
 
 func GetIntQueryParam(queryParams map[string]string, key string, requiredMin int, defaultValue int) (int, *apierrors.Error) {
