@@ -24,7 +24,7 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 	}
 	ccParams := createCollectionParams{Params: params}
 
-	if err := ccParams.ValidateCreateRequest(createRequest); err != nil {
+	if err := ccParams.ValidateCreateRequest(&createRequest); err != nil {
 		return dto.CreateCollectionResponse{}, err
 	}
 
@@ -83,7 +83,10 @@ type createCollectionParams struct {
 	Params
 }
 
-func (p createCollectionParams) ValidateCreateRequest(request dto.CreateCollectionRequest) *apierrors.Error {
+// ValidateCreateRequest may alter the passed in request by trimming whitespace from request.Name and request.Description.
+func (p createCollectionParams) ValidateCreateRequest(request *dto.CreateCollectionRequest) *apierrors.Error {
+	request.Name = strings.TrimSpace(request.Name)
+	request.Description = strings.TrimSpace(request.Description)
 	if err := validate.CollectionName(request.Name); err != nil {
 		return err
 	}

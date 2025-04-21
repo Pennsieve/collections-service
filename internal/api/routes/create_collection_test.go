@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
@@ -28,6 +29,7 @@ func TestCreateCollection(t *testing.T) {
 		"create collection; two DTOs":             testCreateCollectionTwoDTOs,
 		"create collection; five DTOs":            testCreateCollectionFiveDTOs,
 		"create collection; some missing banners": testCreateCollectionSomeMissingBanners,
+		"create collection; remove whitespace":    testCreateCollectionRemoveWhitespace,
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, config)
@@ -311,6 +313,75 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	assert.Equal(t, createCollectionRequest.Description, response.Description)
 	assert.Equal(t, len(createCollectionRequest.DOIs), response.Size)
 	assert.Equal(t, []string{"", *banner2, "", *banner4}, response.Banners)
+	assert.Equal(t, role.Owner.String(), response.UserRole)
+
+	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
+
+}
+
+func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	callingUser := apitest.SeedUser1
+
+	publishedDOI1 := apitest.NewPennsieveDOI()
+	banner1 := apitest.NewBanner()
+
+	publishedDOI2 := apitest.NewPennsieveDOI()
+	banner2 := apitest.NewBanner()
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithDOIs(publishedDOI1, publishedDOI2)
+
+	//Add some whitespace to name and description. Server should trim it off before creation.
+	createCollectionRequest := dto.CreateCollectionRequest{
+		Name:        fmt.Sprintf("   %s ", expectedCollection.Name),
+		Description: fmt.Sprintf("%s  ", expectedCollection.Description),
+		DOIs:        expectedCollection.DOIs.Strings(),
+	}
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, func(dois []string) (service.DatasetsByDOIResponse, error) {
+		t.Helper()
+		require.Equal(t, []string{publishedDOI1, publishedDOI2}, dois)
+		return service.DatasetsByDOIResponse{
+			Published: map[string]dto.PublicDataset{
+				publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
+				publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2)},
+		}, nil
+	}))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	config := apitest.NewConfigBuilder().
+		WithDockerPostgresDBConfig().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
+		WithHTTPTestDiscover(mockDiscoverServer.URL).
+		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
+			WithClaims(claims).
+			WithBody(t, createCollectionRequest).
+			Build(),
+		Container: container,
+		Config:    config,
+		Claims:    &claims,
+	}
+
+	response, err := CreateCollection(ctx, params)
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, t, response.NodeID)
+	assert.Equal(t, expectedCollection.Name, response.Name)
+	assert.Equal(t, expectedCollection.Description, response.Description)
+	assert.Equal(t, len(expectedCollection.DOIs), response.Size)
+	assert.Equal(t, []string{*banner1, *banner2}, response.Banners)
 	assert.Equal(t, role.Owner.String(), response.UserRole)
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
