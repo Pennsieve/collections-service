@@ -19,7 +19,7 @@ var userIDSequence = atomic.Int64{}
 
 func init() {
 	// initialize sequence at highest existing seed user id
-	userIDSequence.Store(apitest.SuperUser.ID)
+	userIDSequence.Store(apitest.SeedSuperUser.ID)
 }
 
 func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) store.Collection {

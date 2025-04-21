@@ -69,5 +69,5 @@ func (c *CollectionsStore) DeleteCollection(ctx context.Context, collectionID in
 	if c.DeleteCollectionFunc == nil {
 		panic("mock DeleteCollection function not set")
 	}
-	return c.DeleteCollection(ctx, collectionID)
+	return c.DeleteCollectionFunc(ctx, collectionID)
 }

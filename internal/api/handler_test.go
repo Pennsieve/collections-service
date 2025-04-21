@@ -49,7 +49,7 @@ func testDefaultNotFound(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(), apitest.NewConfigBuilder().Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder("GET /unknown").
-		WithDefaultClaims(apitest.User2).
+		WithDefaultClaims(apitest.SeedUser2).
 		Build()
 
 	response, err := handler(context.Background(), req)
@@ -85,7 +85,7 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -111,7 +111,7 @@ func testCreateCollectionEmptyName(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -135,7 +135,7 @@ func testCreateCollectionNameTooLong(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -159,7 +159,7 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -197,7 +197,7 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -216,7 +216,7 @@ func testCreateCollectionNoBody(t *testing.T) {
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).WithDefaultClaims(apitest.User).Build()
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).WithDefaultClaims(apitest.SeedUser1).Build()
 
 	response, err := handler(context.Background(), req)
 	require.NoError(t, err)
@@ -232,7 +232,7 @@ func testCreateCollectionMalformedBody(t *testing.T) {
 		apitest.NewConfigBuilder().Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		Build()
 
 	req.Body = "{]"
@@ -252,7 +252,7 @@ func testCreateCollection(t *testing.T) {
 	publishedDOI2 := apitest.NewPennsieveDOI()
 	banner2 := apitest.NewBanner()
 
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        uuid.NewString(),
@@ -315,7 +315,7 @@ func testCreateCollection(t *testing.T) {
 }
 
 func testGetCollections(t *testing.T) {
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	expectedDataset := expectedDatasets.NewPublished()
@@ -388,7 +388,7 @@ func testGetCollections(t *testing.T) {
 }
 
 func testGetCollection(t *testing.T) {
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	expectedDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
