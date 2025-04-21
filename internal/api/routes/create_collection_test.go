@@ -31,12 +31,13 @@ func TestCreateCollection(t *testing.T) {
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, config)
+			expectationDB := fixtures.NewExpectationDB(db, config.CollectionsDatabase)
 
 			t.Cleanup(func() {
-				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, config.CollectionsDatabase))
+				expectationDB.CleanUp(ctx, t)
 			})
 
-			tstFunc(t, fixtures.NewExpectationDB(db, config.CollectionsDatabase))
+			tstFunc(t, expectationDB)
 		})
 	}
 
@@ -45,7 +46,7 @@ func TestCreateCollection(t *testing.T) {
 func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner)
@@ -90,7 +91,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
@@ -157,7 +158,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
@@ -238,7 +239,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	publishedDOI1 := apitest.NewPennsieveDOI()
 	var banner1 *string = nil
@@ -338,7 +339,7 @@ func TestHandleCreateCollection(t *testing.T) {
 func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner)

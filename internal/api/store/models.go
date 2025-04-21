@@ -8,11 +8,12 @@ type CreateCollectionResponse struct {
 }
 
 type CollectionBase struct {
+	ID          int64
 	NodeID      string
 	Name        string
 	Description string
 	Size        int
-	UserRole    string
+	UserRole    role.Role
 }
 
 type CollectionSummary struct {

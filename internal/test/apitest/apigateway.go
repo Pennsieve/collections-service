@@ -64,12 +64,12 @@ func (b *APIGatewayRequestBuilder) Build() events.APIGatewayV2HTTPRequest {
 	return *b.r
 }
 
-func DefaultClaims(seedUser SeedUser) authorizer.Claims {
+func DefaultClaims(testUser User) authorizer.Claims {
 	return authorizer.Claims{
 		UserClaim: &user.Claim{
-			Id:           seedUser.ID,
-			NodeId:       seedUser.NodeID,
-			IsSuperAdmin: seedUser.IsSuperAdmin,
+			Id:           testUser.GetID(),
+			NodeId:       testUser.GetNodeID(),
+			IsSuperAdmin: testUser.GetIsSuperAdmin(),
 		},
 	}
 }

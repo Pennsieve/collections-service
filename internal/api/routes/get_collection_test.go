@@ -35,12 +35,13 @@ func TestGetCollection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, postgresDBConfig)
+			expectationDB := fixtures.NewExpectationDB(db, postgresDBConfig.CollectionsDatabase)
 
 			t.Cleanup(func() {
-				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, postgresDBConfig.CollectionsDatabase))
+				expectationDB.CleanUp(ctx, t)
 			})
 
-			tt.tstFunc(t, fixtures.NewExpectationDB(db, postgresDBConfig.CollectionsDatabase))
+			tt.tstFunc(t, expectationDB)
 		})
 	}
 }
@@ -50,12 +51,12 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 
 	// Set up using the ExpectationDB
 
-	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.SeedUser2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
 	// Test route
 	// use a different user with no collections
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -91,8 +92,8 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user1 := apitest.User
-	user2 := apitest.User2
+	user1 := apitest.SeedUser1
+	user2 := apitest.SeedUser2
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
@@ -230,7 +231,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	expectedPublicDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithDegree()), apitest.NewPublicContributor())
@@ -307,7 +308,7 @@ func TestHandleGetCollection(t *testing.T) {
 
 func testHandleGetCollectionEmptyArrays(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
@@ -343,7 +344,7 @@ func testHandleGetCollectionEmptyArrays(t *testing.T) {
 
 func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedDOI := apitest.NewPennsieveDOI()
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)

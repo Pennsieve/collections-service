@@ -2,9 +2,11 @@ package routes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/store"
 	"log/slog"
 	"net/http"
 )
@@ -25,21 +27,20 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 
 	storeResp, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
 	if err != nil {
+		if errors.Is(err, store.ErrCollectionNotFound) {
+			return dto.GetCollectionResponse{}, apierrors.NewCollectionNotFoundError(nodeID)
+		}
 		return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
 			"error querying store for collection",
 			err)
 	}
-	if storeResp == nil {
-		return dto.GetCollectionResponse{}, apierrors.NewCollectionNotFoundError(nodeID)
-	}
-
 	response := dto.GetCollectionResponse{
 		CollectionResponse: dto.CollectionResponse{
 			NodeID:      nodeID,
 			Name:        storeResp.Name,
 			Description: storeResp.Description,
 			Size:        storeResp.Size,
-			UserRole:    storeResp.UserRole,
+			UserRole:    storeResp.UserRole.String(),
 		},
 	}
 

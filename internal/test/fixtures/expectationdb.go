@@ -10,18 +10,26 @@ import (
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
 	"log/slog"
+	"maps"
+	"slices"
 )
 
 type ExpectationDB struct {
-	db            *test.PostgresDB
-	dbName        string
-	internalStore *store.PostgresCollectionsStore
+	db                     *test.PostgresDB
+	dbName                 string
+	internalStore          *store.PostgresCollectionsStore
+	createdUsers           map[int64]bool
+	knownCollectionIDs     map[int64]bool
+	knownCollectionNodeIDs map[string]bool
 }
 
 func NewExpectationDB(db *test.PostgresDB, dbName string) *ExpectationDB {
 	return &ExpectationDB{
-		db:     db,
-		dbName: dbName,
+		db:                     db,
+		dbName:                 dbName,
+		createdUsers:           map[int64]bool{},
+		knownCollectionIDs:     map[int64]bool{},
+		knownCollectionNodeIDs: map[string]bool{},
 	}
 }
 
@@ -41,6 +49,7 @@ func (e *ExpectationDB) connect(ctx context.Context, t require.TestingT) *pgx.Co
 
 func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection, expectedCollectionID int64) {
 	test.Helper(t)
+	e.knownCollectionIDs[expectedCollectionID] = true
 	conn := e.connect(ctx, t)
 	defer test.CloseConnection(ctx, t, conn)
 
@@ -48,8 +57,22 @@ func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.Testing
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
+func (e *ExpectationDB) RequireNoCollection(ctx context.Context, t require.TestingT, expectedCollectionID int64) {
+	test.Helper(t)
+	e.knownCollectionIDs[expectedCollectionID] = true
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	rows, _ := conn.Query(ctx, "SELECT * from collections.collections where id = @id", pgx.NamedArgs{"id": expectedCollectionID})
+	unexpected, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (map[string]any, error) {
+		return pgx.RowToMap(row)
+	})
+	require.ErrorIs(t, err, pgx.ErrNoRows, "expected no row, got %v", unexpected)
+}
+
 func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection, expectedNodeID string) {
 	test.Helper(t)
+	e.knownCollectionNodeIDs[expectedNodeID] = true
 	conn := e.connect(ctx, t)
 	defer test.CloseConnection(ctx, t, conn)
 
@@ -66,7 +89,50 @@ func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT
 
 	response, err := e.collectionsStore().CreateCollection(ctx, user.UserID, *expected.NodeID, expected.Name, expected.Description, expected.DOIs.Strings())
 	require.NoError(t, err)
+	expected.ID = &response.ID
+	e.knownCollectionIDs[response.ID] = true
 	return response
+}
+
+func (e *ExpectationDB) CreateTestUser(ctx context.Context, t require.TestingT, testUser *apitest.TestUser) {
+	test.Helper(t)
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+	CreateTestUser(ctx, t, conn, testUser)
+	e.createdUsers[*testUser.ID] = true
+}
+
+func (e *ExpectationDB) CleanUp(ctx context.Context, t require.TestingT) {
+	test.Helper(t)
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	if len(e.knownCollectionIDs) > 0 {
+		_, err := conn.Exec(
+			ctx,
+			"DELETE FROM collections.collections WHERE id = ANY(@collection_ids)",
+			pgx.NamedArgs{"collection_ids": slices.AppendSeq([]int64{}, maps.Keys(e.knownCollectionIDs))},
+		)
+		require.NoError(t, err, "error deleting collections by id in CleanUp")
+	}
+
+	if len(e.knownCollectionNodeIDs) > 0 {
+		_, err := conn.Exec(
+			ctx,
+			"DELETE FROM collections.collections WHERE node_id = ANY(@collection_node_ids)",
+			pgx.NamedArgs{"collection_node_ids": slices.AppendSeq([]string{}, maps.Keys(e.knownCollectionNodeIDs))},
+		)
+		require.NoError(t, err, "error deleting collections by node id in CleanUp")
+	}
+
+	if len(e.createdUsers) > 0 {
+		_, err := conn.Exec(
+			ctx,
+			"DELETE FROM pennsieve.users WHERE id = ANY(@user_ids)",
+			pgx.NamedArgs{"user_ids": slices.AppendSeq([]int64{}, maps.Keys(e.createdUsers))},
+		)
+		require.NoError(t, err, "error deleting test users in CleanUp")
+	}
 }
 
 func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, expected *apitest.ExpectedCollection, actual store.Collection) {

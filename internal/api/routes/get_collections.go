@@ -29,7 +29,6 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	}
 	collectionsStore := params.Container.CollectionsStore()
 	userClaim := params.Claims.UserClaim
-
 	storeResp, err := collectionsStore.GetCollections(ctx, userClaim.Id, limit, offset)
 	if err != nil {
 		return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error getting collections for user %s", userClaim.NodeId), err)
@@ -64,7 +63,7 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 			Description: storeCollection.Description,
 			Banners:     collectBanners(storeCollection.BannerDOIs, doiToPublicDataset),
 			Size:        storeCollection.Size,
-			UserRole:    storeCollection.UserRole,
+			UserRole:    storeCollection.UserRole.String(),
 		}
 		response.Collections = append(response.Collections, collectionDTO)
 	}

@@ -49,6 +49,10 @@ func NewUnauthorizedError(userMessage string) *Error {
 	return NewError(userMessage, nil, http.StatusUnauthorized)
 }
 
+func NewForbiddenError(userMessage string) *Error {
+	return NewError(userMessage, nil, http.StatusForbidden)
+}
+
 func NewCollectionNotFoundError(missingID string) *Error {
 	return NewError(fmt.Sprintf("collection %s not found", missingID), nil, http.StatusNotFound)
 }

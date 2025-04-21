@@ -34,12 +34,13 @@ func TestGetCollections(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, postgresDBConfig)
+			expectationDB := fixtures.NewExpectationDB(db, postgresDBConfig.CollectionsDatabase)
 
 			t.Cleanup(func() {
-				require.NoError(t, fixtures.TruncateCollectionsSchema(ctx, t, db, postgresDBConfig.CollectionsDatabase))
+				expectationDB.CleanUp(ctx, t)
 			})
 
-			tt.tstFunc(t, fixtures.NewExpectationDB(db, postgresDBConfig.CollectionsDatabase))
+			tt.tstFunc(t, expectationDB)
 		})
 	}
 }
@@ -48,12 +49,12 @@ func testGetCollectionsNone(t *testing.T, expectationDB *fixtures.ExpectationDB)
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.SeedUser2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
 
 	// Test route
 	// use a different user with no collections
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -91,7 +92,7 @@ func testGetCollectionsNone(t *testing.T, expectationDB *fixtures.ExpectationDB)
 func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user1 := apitest.User
+	user1 := apitest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
@@ -107,7 +108,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		WithDOIs(expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
-	user2 := apitest.User2
+	user2 := apitest.SeedUser2
 	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
 		WithDOIs(expectedDatasets.NewPublished().DOI, expectedDatasets.NewPublished().DOI)
 	expectationDB.CreateCollection(ctx, t, user2Collection)
@@ -183,7 +184,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	var expectedCollections []*apitest.ExpectedCollection
 	for i := 0; i < totalCollections; i++ {
-		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.User.ID, pgdb.Owner)
+		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.SeedUser1.ID, pgdb.Owner)
 		for j := 0; j < i; j++ {
 			expectedCollection = expectedCollection.WithDOIs(expectedDatasets.NewPublished().DOI)
 		}
@@ -196,7 +197,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	// response sizes: 6 6  0
 	offset := 0
 
-	userClaims := apitest.DefaultClaims(apitest.User)
+	userClaims := apitest.DefaultClaims(apitest.SeedUser1)
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
@@ -282,7 +283,7 @@ func TestHandleGetCollections(t *testing.T) {
 
 func testHandleGetCollectionsEmptyCollectionsArray(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
@@ -314,7 +315,7 @@ func testHandleGetCollectionsEmptyCollectionsArray(t *testing.T) {
 
 func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
@@ -330,7 +331,7 @@ func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 						Name:        expectedCollection.Name,
 						Description: expectedCollection.Description,
 						Size:        0,
-						UserRole:    role.Owner.String(),
+						UserRole:    role.Owner,
 					},
 				}},
 			}, nil

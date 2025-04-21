@@ -14,6 +14,7 @@ import (
 // in Postgres, so it doesn't include things not persisted there. Like banners for
 // example.
 type ExpectedCollection struct {
+	ID          *int64
 	Name        string
 	Description string
 	// NodeID is optional since it may not be known depending
@@ -81,7 +82,7 @@ func (d ExpectedDOIs) Strings() []string {
 }
 
 func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetCollectionFunc {
-	return func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
 		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
 		userIdx := slices.IndexFunc(c.Users, func(user ExpectedUser) bool {
@@ -89,15 +90,21 @@ func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetColl
 		})
 		require.NotEqual(t, -1, userIdx, "given user %d has no permission for collection %s", userID, nodeID)
 		user := c.Users[userIdx]
-		return &store.GetCollectionResponse{
-			CollectionBase: store.CollectionBase{
-				NodeID:      nodeID,
-				Name:        c.Name,
-				Description: c.Description,
-				Size:        len(c.DOIs),
-				UserRole:    user.PermissionBit.ToRole().String(),
-			},
-			DOIs: c.DOIs.Strings(),
+		collectionBase := store.CollectionBase{
+			NodeID:      nodeID,
+			Name:        c.Name,
+			Description: c.Description,
+			Size:        len(c.DOIs),
+			UserRole:    user.PermissionBit.ToRole(),
+		}
+		if c.ID != nil {
+			// The id will be set if this ExpectedCollection was created by an ExpectationDB, but
+			// we may not know it otherwise. We can set it manually in a test if required.
+			collectionBase.ID = *c.ID
+		}
+		return store.GetCollectionResponse{
+			CollectionBase: collectionBase,
+			DOIs:           c.DOIs.Strings(),
 		}, nil
 	}
 }

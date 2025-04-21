@@ -9,12 +9,15 @@ type CreateCollectionsFunc func(ctx context.Context, userID int64, nodeID, name,
 
 type GetCollectionsFunc func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error)
 
-type GetCollectionFunc func(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error)
+type GetCollectionFunc func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error)
+
+type DeleteCollectionFunc func(ctx context.Context, collectionID int64) error
 
 type CollectionsStore struct {
 	CreateCollectionsFunc
 	GetCollectionsFunc
 	GetCollectionFunc
+	DeleteCollectionFunc
 }
 
 func NewMockCollectionsStore() *CollectionsStore {
@@ -36,6 +39,11 @@ func (c *CollectionsStore) WithGetCollectionFunc(f GetCollectionFunc) *Collectio
 	return c
 }
 
+func (c *CollectionsStore) WithDeleteCollectionFunc(f DeleteCollectionFunc) *CollectionsStore {
+	c.DeleteCollectionFunc = f
+	return c
+}
+
 func (c *CollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (store.CreateCollectionResponse, error) {
 	if c.CreateCollectionsFunc == nil {
 		panic("mock CreateCollections function not set")
@@ -50,9 +58,16 @@ func (c *CollectionsStore) GetCollections(ctx context.Context, userID int64, lim
 	return c.GetCollectionsFunc(ctx, userID, limit, offset)
 }
 
-func (c *CollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (*store.GetCollectionResponse, error) {
+func (c *CollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
 	if c.GetCollectionFunc == nil {
 		panic("mock GetCollection function not set")
 	}
 	return c.GetCollectionFunc(ctx, userID, nodeID)
+}
+
+func (c *CollectionsStore) DeleteCollection(ctx context.Context, collectionID int64) error {
+	if c.DeleteCollectionFunc == nil {
+		panic("mock DeleteCollection function not set")
+	}
+	return c.DeleteCollectionFunc(ctx, collectionID)
 }

@@ -37,6 +37,7 @@ func TestAPILambdaHandler(t *testing.T) {
 		{"create collection", testCreateCollection},
 		{"get collections", testGetCollections},
 		{"get collection", testGetCollection},
+		{"delete collection", testDeleteCollection},
 	}
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -49,7 +50,7 @@ func testDefaultNotFound(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(), apitest.NewConfigBuilder().Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder("GET /unknown").
-		WithDefaultClaims(apitest.User2).
+		WithDefaultClaims(apitest.SeedUser2).
 		Build()
 
 	response, err := handler(context.Background(), req)
@@ -85,7 +86,7 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -111,7 +112,7 @@ func testCreateCollectionEmptyName(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -135,7 +136,7 @@ func testCreateCollectionNameTooLong(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -159,7 +160,7 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -197,7 +198,7 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -216,7 +217,7 @@ func testCreateCollectionNoBody(t *testing.T) {
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).WithDefaultClaims(apitest.User).Build()
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).WithDefaultClaims(apitest.SeedUser1).Build()
 
 	response, err := handler(context.Background(), req)
 	require.NoError(t, err)
@@ -232,7 +233,7 @@ func testCreateCollectionMalformedBody(t *testing.T) {
 		apitest.NewConfigBuilder().Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.User).
+		WithDefaultClaims(apitest.SeedUser1).
 		Build()
 
 	req.Body = "{]"
@@ -252,7 +253,7 @@ func testCreateCollection(t *testing.T) {
 	publishedDOI2 := apitest.NewPennsieveDOI()
 	banner2 := apitest.NewBanner()
 
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        uuid.NewString(),
@@ -315,7 +316,7 @@ func testCreateCollection(t *testing.T) {
 }
 
 func testGetCollections(t *testing.T) {
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	expectedDataset := expectedDatasets.NewPublished()
@@ -325,11 +326,7 @@ func testGetCollections(t *testing.T) {
 	expectedDOI := expectedDataset.DOI
 	expectedBanner := expectedDataset.Banner
 
-	expectedNodeID := uuid.NewString()
-	expectedName := uuid.NewString()
-	expectedDescription := uuid.NewString()
-	expectedSize := 1
-	expectedUserRole := role.Owner.String()
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
@@ -342,11 +339,11 @@ func testGetCollections(t *testing.T) {
 				TotalCount: 101,
 				Collections: []store.CollectionSummary{{
 					CollectionBase: store.CollectionBase{
-						NodeID:      expectedNodeID,
-						Name:        expectedName,
-						Description: expectedDescription,
-						Size:        expectedSize,
-						UserRole:    expectedUserRole,
+						NodeID:      *expectedCollection.NodeID,
+						Name:        expectedCollection.Name,
+						Description: expectedCollection.Description,
+						Size:        len(expectedCollection.DOIs),
+						UserRole:    expectedCollection.Users[0].PermissionBit.ToRole(),
 					},
 					BannerDOIs: []string{expectedDOI},
 				}},
@@ -382,17 +379,17 @@ func testGetCollections(t *testing.T) {
 
 	assert.Len(t, responseDTO.Collections, 1)
 	actualCollection := responseDTO.Collections[0]
-	assert.Equal(t, expectedName, actualCollection.Name)
-	assert.Equal(t, expectedNodeID, actualCollection.NodeID)
-	assert.Equal(t, expectedDescription, actualCollection.Description)
-	assert.Equal(t, expectedSize, actualCollection.Size)
-	assert.Equal(t, expectedUserRole, actualCollection.UserRole)
+	assert.Equal(t, expectedCollection.Name, actualCollection.Name)
+	assert.Equal(t, *expectedCollection.NodeID, actualCollection.NodeID)
+	assert.Equal(t, expectedCollection.Description, actualCollection.Description)
+	assert.Equal(t, len(expectedCollection.DOIs), actualCollection.Size)
+	assert.Equal(t, expectedCollection.Users[0].PermissionBit.ToRole().String(), actualCollection.UserRole)
 	assert.Equal(t, []string{*expectedBanner}, actualCollection.Banners)
 
 }
 
 func testGetCollection(t *testing.T) {
-	callingUser := apitest.User
+	callingUser := apitest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	expectedDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
@@ -439,4 +436,41 @@ func testGetCollection(t *testing.T) {
 	var actualPennsieveDataset dto.PublicDataset
 	apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPennsieveDataset)
 	assert.Equal(t, expectedDataset, actualPennsieveDataset)
+}
+
+func testDeleteCollection(t *testing.T) {
+	callingUser := apitest.SeedUser1
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	expectedDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDataset.DOI)
+	mockCollectionID := int64(999)
+	expectedCollection.ID = &mockCollectionID
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
+			require.Equal(t, mockCollectionID, collectionID)
+			return nil
+		})
+
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer().
+			WithCollectionsStore(mockCollectionStore),
+		apitest.NewConfigBuilder().
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+			Build(),
+	)
+	req := apitest.NewAPIGatewayRequestBuilder(routes.DeleteCollectionRouteKey).
+		WithDefaultClaims(callingUser).
+		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
+		Build()
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+	assert.Empty(t, response.Body)
+
 }

@@ -21,6 +21,10 @@ type CreateCollectionRequest struct {
 // CreateCollectionResponse represents the response body of POST /
 type CreateCollectionResponse CollectionResponse
 
+func (r CreateCollectionResponse) Marshal() (string, error) {
+	return defaultMarshalImpl(r)
+}
+
 func (r CreateCollectionResponse) MarshalJSON() ([]byte, error) {
 	return CollectionResponse(r).MarshalJSON()
 }
@@ -31,6 +35,10 @@ type GetCollectionsResponse struct {
 	Offset      int                  `json:"offset"`
 	TotalCount  int                  `json:"totalCount"`
 	Collections []CollectionResponse `json:"collections"`
+}
+
+func (r GetCollectionsResponse) Marshal() (string, error) {
+	return defaultMarshalImpl(r)
 }
 
 func (r GetCollectionsResponse) MarshalJSON() ([]byte, error) {
@@ -46,6 +54,10 @@ type GetCollectionResponse struct {
 	CollectionResponse
 	DerivedContributors []PublicContributor `json:"derivedContributors"`
 	Datasets            []Dataset           `json:"datasets"`
+}
+
+func (r GetCollectionResponse) Marshal() (string, error) {
+	return defaultMarshalImpl(r)
 }
 
 // MarshalJSON is implemented so that nil slices get marshalled as [] instead of null.

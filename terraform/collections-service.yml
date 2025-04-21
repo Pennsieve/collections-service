@@ -54,7 +54,7 @@ paths:
         - Collections Service
       responses:
         '200':
-          description: A list of collections
+          description: the list of collections was returned
           content:
             application/json:
               schema:
@@ -84,7 +84,7 @@ paths:
         - Collections Service
       responses:
         '201':
-          description: collection created
+          description: the collection was created
           content:
             application/json:
               schema:
@@ -116,7 +116,7 @@ paths:
         - Collections Service
       responses:
         '200':
-          description: The collection
+          description: The collection was returned
           content:
             application/json:
               schema:
@@ -127,6 +127,34 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '5XX':
           $ref: '#/components/responses/Error'
+    delete:
+      x-amazon-apigateway-integration:
+        $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
+      operationId: deleteCollection
+      summary: Deletes a collection
+      description: |
+        deletes the collection with the given nodeId
+      parameters:
+        - in: path
+          name: nodeId
+          schema:
+            type: string
+          required: true
+          description: The nodeId of the collection to delete
+      security:
+        - token_auth: [ ]
+      tags:
+        - Collections Service
+      responses:
+        '204':
+          description: The collection was deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '4XX':
+          $ref: '#/components/responses/Unauthorized'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
 
 components:
   x-amazon-apigateway-integrations:

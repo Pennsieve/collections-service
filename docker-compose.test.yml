@@ -12,10 +12,10 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
       - POSTGRES_COLLECTIONS_DATABASE=postgres
-      # This var needs to be set if the Docker server is Desktop and not Engine
-      # On Jenkins it is Engine and not needed, but if you run the test container
-      # locally you will probably need it. Run the test-ci-local Make target instead of test-ci
-      # and it will be set for you.
+      # This var needs to be set to 'host.docker.internal' if the Docker server is Desktop and not Engine.
+      # On Jenkins it is Engine and so, not needed, but if you run the test container
+      # locally you will probably need it. Run the 'test-ci-local' Make target instead of 'test-ci'
+      # and it will be set for you. See: https://golang.testcontainers.org/system_requirements/ci/dind_patterns/
       - TESTCONTAINERS_HOST_OVERRIDE
     volumes:
       # one of the tests uses testcontainers-go to start
