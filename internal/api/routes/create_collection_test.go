@@ -334,11 +334,12 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 		WithUser(callingUser.ID, pgdb.Owner).
 		WithDOIs(publishedDOI1, publishedDOI2)
 
-	//Add some whitespace to name and description. Server should trim it off before creation.
+	// Add some whitespace to vales in the create request.
+	// Server should trim it off before creation and return the trimmed values.
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        fmt.Sprintf("   %s ", expectedCollection.Name),
 		Description: fmt.Sprintf("%s  ", expectedCollection.Description),
-		DOIs:        expectedCollection.DOIs.Strings(),
+		DOIs:        []string{fmt.Sprintf(" %s", publishedDOI1), fmt.Sprintf("%s ", publishedDOI2)},
 	}
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, func(dois []string) (service.DatasetsByDOIResponse, error) {

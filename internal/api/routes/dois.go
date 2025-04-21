@@ -13,6 +13,7 @@ func CategorizeDOIs(pennsieveDOIPrefix string, dois []string) (pennsieveDOIs []s
 	// Maybe overly complicated, but trying to maintain order of the dois so that
 	// if there are dups, we take the first one
 	for _, doi := range dois {
+		doi = strings.TrimSpace(doi)
 		if _, seen := seenDOIs[doi]; !seen {
 			seenDOIs[doi] = true
 			if strings.HasPrefix(doi, pennsievePrefixAndSlash) {

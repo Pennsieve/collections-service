@@ -56,7 +56,7 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 			return dto.CreateCollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf("request contains unpublished DOIs: %s", strings.Join(details, ", ")))
 		}
 
-		response.Banners = collectBanners(createRequest.DOIs, datasetResults.Published)
+		response.Banners = collectBanners(pennsieveDOIs, datasetResults.Published)
 
 	}
 	collectionsStore := ccParams.Container.CollectionsStore()
