@@ -132,13 +132,14 @@ func testPreventEmptyName(t *testing.T, migrator *dbmigrate.CollectionsMigrator,
 
 	ctx := context.Background()
 
-	_, insertErr := verificationConn.Exec(ctx,
+	_, err := verificationConn.Exec(ctx,
 		"INSERT INTO collections.collections (name, description, node_id) VALUES (@name, @description, @node_id)",
 		pgx.NamedArgs{
 			"name":        "",
 			"description": uuid.NewString(),
 			"node_id":     uuid.NewString()},
 	)
+	require.Error(t, err)
 
 	emptyNameRows, err := verificationConn.Query(ctx, "SELECT id FROM collections.collections WHERE name = ''")
 	require.NoError(t, err)
@@ -147,7 +148,6 @@ func testPreventEmptyName(t *testing.T, migrator *dbmigrate.CollectionsMigrator,
 	require.NoError(t, err)
 	assert.Empty(t, emptyNameIDs)
 
-	require.Error(t, insertErr)
 }
 
 func testPreventWhiteSpaceName(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
@@ -156,13 +156,14 @@ func testPreventWhiteSpaceName(t *testing.T, migrator *dbmigrate.CollectionsMigr
 	ctx := context.Background()
 
 	whiteSpaceName := "   "
-	_, insertErr := verificationConn.Exec(ctx,
+	_, err := verificationConn.Exec(ctx,
 		"INSERT INTO collections.collections (name, description, node_id) VALUES (@name, @description, @node_id)",
 		pgx.NamedArgs{
 			"name":        whiteSpaceName,
 			"description": uuid.NewString(),
 			"node_id":     uuid.NewString()},
 	)
+	require.Error(t, err)
 
 	emptyNameRows, err := verificationConn.Query(ctx, "SELECT id FROM collections.collections WHERE name = @white_space_name",
 		pgx.NamedArgs{"white_space_name": whiteSpaceName})
@@ -172,5 +173,4 @@ func testPreventWhiteSpaceName(t *testing.T, migrator *dbmigrate.CollectionsMigr
 	require.NoError(t, err)
 	assert.Empty(t, emptyNameIDs)
 
-	require.Error(t, insertErr)
 }
