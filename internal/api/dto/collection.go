@@ -21,6 +21,18 @@ type CreateCollectionRequest struct {
 // CreateCollectionResponse represents the response body of POST /
 type CreateCollectionResponse CollectionResponse
 
+// PatchCollectionRequest represents the request body of PATCH /collections/{nodeId}
+type PatchCollectionRequest struct {
+	Name        *string    `json:"name,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	DOIs        *PatchDOIs `json:"dois,omitempty"`
+}
+
+type PatchDOIs struct {
+	Remove []string `json:"remove,omitempty"`
+	Add    []string `json:"add,omitempty"`
+}
+
 func (r CreateCollectionResponse) Marshal() (string, error) {
 	return defaultMarshalImpl(r)
 }
