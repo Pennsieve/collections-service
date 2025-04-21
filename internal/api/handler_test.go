@@ -37,6 +37,7 @@ func TestAPILambdaHandler(t *testing.T) {
 		{"create collection", testCreateCollection},
 		{"get collections", testGetCollections},
 		{"get collection", testGetCollection},
+		{"delete collection", testDeleteCollection},
 	}
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -435,4 +436,41 @@ func testGetCollection(t *testing.T) {
 	var actualPennsieveDataset dto.PublicDataset
 	apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPennsieveDataset)
 	assert.Equal(t, expectedDataset, actualPennsieveDataset)
+}
+
+func testDeleteCollection(t *testing.T) {
+	callingUser := apitest.SeedUser1
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	expectedDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDataset.DOI)
+	mockCollectionID := int64(999)
+	expectedCollection.ID = &mockCollectionID
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
+			require.Equal(t, mockCollectionID, collectionID)
+			return nil
+		})
+
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer().
+			WithCollectionsStore(mockCollectionStore),
+		apitest.NewConfigBuilder().
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+			Build(),
+	)
+	req := apitest.NewAPIGatewayRequestBuilder(routes.DeleteCollectionRouteKey).
+		WithDefaultClaims(callingUser).
+		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
+		Build()
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+	assert.Empty(t, response.Body)
+
 }
