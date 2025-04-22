@@ -13,11 +13,14 @@ type GetCollectionFunc func(ctx context.Context, userID int64, nodeID string) (s
 
 type DeleteCollectionFunc func(ctx context.Context, collectionID int64) error
 
+type UpdateCollectionFunc func(ctx context.Context, userID int64, collectionID int64, name, description *string, doisToRemove []string, doisToAdd []string) (store.GetCollectionResponse, error)
+
 type CollectionsStore struct {
 	CreateCollectionsFunc
 	GetCollectionsFunc
 	GetCollectionFunc
 	DeleteCollectionFunc
+	UpdateCollectionFunc
 }
 
 func NewMockCollectionsStore() *CollectionsStore {
@@ -41,6 +44,11 @@ func (c *CollectionsStore) WithGetCollectionFunc(f GetCollectionFunc) *Collectio
 
 func (c *CollectionsStore) WithDeleteCollectionFunc(f DeleteCollectionFunc) *CollectionsStore {
 	c.DeleteCollectionFunc = f
+	return c
+}
+
+func (c *CollectionsStore) WithUpdateCollectionFunc(f UpdateCollectionFunc) *CollectionsStore {
+	c.UpdateCollectionFunc = f
 	return c
 }
 
@@ -70,4 +78,11 @@ func (c *CollectionsStore) DeleteCollection(ctx context.Context, collectionID in
 		panic("mock DeleteCollection function not set")
 	}
 	return c.DeleteCollectionFunc(ctx, collectionID)
+}
+
+func (c *CollectionsStore) UpdateCollection(ctx context.Context, userID int64, collectionID int64, name, description *string, doisToRemove []string, doisToAdd []string) (store.GetCollectionResponse, error) {
+	if c.UpdateCollectionFunc == nil {
+		panic("mock UpdateCollection function not set")
+	}
+	return c.UpdateCollectionFunc(ctx, userID, collectionID, name, description, doisToRemove, doisToAdd)
 }

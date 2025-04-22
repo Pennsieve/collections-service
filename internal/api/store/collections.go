@@ -18,6 +18,7 @@ type CollectionsStore interface {
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
+	UpdateCollection(ctx context.Context, userID int64, collectionID int64, name, description *string, doisToRemove []string, doisToAdd []string) (GetCollectionResponse, error)
 }
 
 type PostgresCollectionsStore struct {
@@ -203,9 +204,8 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 	return response, nil
 }
 
-// GetCollection returns nil and no error if no collection with the given node id exists for the given user id.
-// Otherwise, returns a non-nil response if a collection is found or nil and an error if an error occurs.
-func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
+// getCollection returns the error ErrCollectionNotFound if no collection with the given node id exists for the given user id.
+func getCollection(ctx context.Context, conn *pgx.Conn, userID int64, nodeID string) (GetCollectionResponse, error) {
 	args := pgx.NamedArgs{"user_id": userID, "node_id": nodeID}
 	sql := `SELECT c.id, c.name, c.description, u.role, d.doi
 			FROM collections.collections c
@@ -216,12 +216,6 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
   			  AND c.node_id = @node_id
 			ORDER BY d.id asc`
 
-	conn, err := s.db.Connect(ctx, s.databaseName)
-	if err != nil {
-		return GetCollectionResponse{}, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
-	}
-	defer s.closeConn(ctx, conn)
-
 	rows, _ := conn.Query(ctx, sql, args)
 
 	var response *GetCollectionResponse
@@ -229,7 +223,7 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 	var name, description string
 	var pgxRole PgxRole
 	var doiOpt *string
-	_, err = pgx.ForEachRow(rows, []any{&id, &name, &description, &pgxRole, &doiOpt}, func() error {
+	_, err := pgx.ForEachRow(rows, []any{&id, &name, &description, &pgxRole, &doiOpt}, func() error {
 		if response == nil {
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
@@ -247,7 +241,7 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 		return nil
 	})
 	if err != nil {
-		return GetCollectionResponse{}, fmt.Errorf("GetCollection error querying for collection %s: %w", nodeID, err)
+		return GetCollectionResponse{}, err
 	}
 	if response == nil {
 		return GetCollectionResponse{}, ErrCollectionNotFound
@@ -255,6 +249,16 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 
 	response.Size = len(response.DOIs)
 	return *response, nil
+}
+
+// GetCollection returns the error ErrCollectionNotFound if no collection with the given node id exists for the given user id.
+func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+	return getCollection(ctx, conn, userID, nodeID)
 }
 
 func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collectionID int64) error {
@@ -276,6 +280,11 @@ func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collect
 		return ErrCollectionNotFound
 	}
 	return nil
+}
+
+func (s *PostgresCollectionsStore) UpdateCollection(ctx context.Context, userID int64, collectionID int64, name, description *string, doisToRemove []string, doisToAdd []string) (GetCollectionResponse, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (s *PostgresCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {

@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Create a postgres Docker image that contains the Pennsieve API schema that includes the collections schema.
+# Relies on being called from Makefile to ensure latest version of the collections-migrations image is used.
+# So run 'make build-postgres' rather than this script directly.
 
 set -eu
 
