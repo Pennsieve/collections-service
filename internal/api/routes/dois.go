@@ -6,7 +6,7 @@ import (
 )
 
 // CategorizeDOIs splits the given dois into either Pennsieve or non-Pennsieve, based on the prefix.
-// Also de-duplicates the DOIs.
+// Also de-duplicates the DOIs and trims any leading or trailing whitespace.
 func CategorizeDOIs(pennsieveDOIPrefix string, dois []string) (pennsieveDOIs []string, externalDOIs []string) {
 	pennsievePrefixAndSlash := fmt.Sprintf("%s/", pennsieveDOIPrefix)
 	seenDOIs := map[string]bool{}
