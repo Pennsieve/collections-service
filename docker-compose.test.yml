@@ -24,7 +24,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   pennsievedb-collections:
-    image: pennsieve/pennsievedb-collections:20250421162715-seed
+    image: pennsieve/pennsievedb-collections:20250422101951-seed
     restart: always
 #    command: [ "postgres", "-c", "log_statement=all" ]
 
