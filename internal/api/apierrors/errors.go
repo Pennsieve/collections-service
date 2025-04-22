@@ -31,7 +31,8 @@ func NewInternalServerError(userMessage string, cause error) *Error {
 }
 
 func NewRequestUnmarshallError(bodyType any, cause error) *Error {
-	return NewBadRequestErrorWithCause(fmt.Sprintf("error unmarshalling request body to %T", bodyType), cause)
+	// Adding the cause to the user message, since it can be useful for the user to figure out how to fix the request
+	return NewBadRequestErrorWithCause(fmt.Sprintf("error unmarshalling request body to %T: %v", bodyType, cause), cause)
 }
 
 func NewBadRequestError(userMessage string) *Error {

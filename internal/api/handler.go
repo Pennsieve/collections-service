@@ -37,6 +37,7 @@ func CollectionsServiceAPIHandler(
 		logger := logging.Default.With(slog.String("routeKey", routeKey),
 			slog.String("requestId", request.RequestContext.RequestID))
 		container.SetLogger(logger)
+
 		logger.Debug("configuration",
 			slog.Group("postgres",
 				slog.String("user", config.PostgresDB.User),
