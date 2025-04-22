@@ -34,9 +34,14 @@ func (b *APIGatewayRequestBuilder) WithDefaultClaims(seedUser SeedUser) *APIGate
 }
 
 func (b *APIGatewayRequestBuilder) WithBody(t require.TestingT, bodyStruct any) *APIGatewayRequestBuilder {
-	bodyBytes, err := json.Marshal(bodyStruct)
-	require.NoError(t, err)
-	b.r.Body = string(bodyBytes)
+	switch v := bodyStruct.(type) {
+	case string:
+		b.r.Body = v
+	default:
+		bodyBytes, err := json.Marshal(bodyStruct)
+		require.NoError(t, err)
+		b.r.Body = string(bodyBytes)
+	}
 	return b
 }
 

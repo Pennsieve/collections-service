@@ -3,6 +3,7 @@ package routes
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
@@ -399,6 +400,9 @@ func TestHandleCreateCollection(t *testing.T) {
 			"return empty arrays instead of null",
 			testHandleCreateCollectionEmptyBannerArray,
 		},
+		{
+			"return Bad Request when given unknown fields", testRejectUnknownFields,
+		},
 	}
 
 	for _, tt := range tests {
@@ -461,4 +465,39 @@ func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 	// Want the banner url array to be empty and not null
 	assert.NotContains(t, response.Body, "null")
 	assert.Contains(t, response.Body, "[]")
+}
+
+func testRejectUnknownFields(t *testing.T) {
+	ctx := context.Background()
+
+	callingUser := apitest.SeedUser1
+
+	unknownFieldName := uuid.NewString()
+	badRequest := fmt.Sprintf(`{"name": "bad request collection", %q: ["test-doi"]}`, unknownFieldName)
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	config := apitest.NewConfigBuilder().
+		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+		Build()
+
+	container := apitest.NewTestContainer()
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
+			WithClaims(claims).
+			WithBody(t, badRequest).
+			Build(),
+		Container: container,
+		Config:    config,
+		Claims:    &claims,
+	}
+
+	response, err := Handle(ctx, NewCreateCollectionRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+
+	assert.Contains(t, response.Body, unknownFieldName)
+	assert.Contains(t, response.Body, "unknown field")
 }

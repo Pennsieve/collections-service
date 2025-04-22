@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/validate"
+	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -15,11 +16,18 @@ import (
 const CreateCollectionRouteKey = "POST /"
 
 func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionResponse, error) {
-	if len(params.Request.Body) == 0 {
+	requestBody := params.Request.Body
+	if len(requestBody) == 0 {
 		return dto.CreateCollectionResponse{}, apierrors.NewBadRequestError("no request body")
 	}
+	logger := params.Container.Logger()
+	if logger.Enabled(ctx, slog.LevelDebug) {
+		logger.Debug("create collection request body", slog.String("body", requestBody))
+	}
 	var createRequest dto.CreateCollectionRequest
-	if err := json.Unmarshal([]byte(params.Request.Body), &createRequest); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(requestBody))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&createRequest); err != nil {
 		return dto.CreateCollectionResponse{}, apierrors.NewRequestUnmarshallError(createRequest, err)
 	}
 	ccParams := createCollectionParams{Params: params}
