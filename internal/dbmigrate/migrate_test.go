@@ -25,6 +25,9 @@ func TestCollectionsMigrator(t *testing.T) {
 	}{
 		{"test up and collections created_at and updated_at", testUp},
 		{"Down runs without error", testDown},
+		{"prevent empty name", testPreventEmptyName},
+		{"prevent all white space name", testPreventWhiteSpaceName},
+		{"prevent empty DOI", testPreventEmptyDOI},
 	}
 
 	// Set up testcontainer that will be used by all tests.
@@ -123,4 +126,84 @@ func testDown(t *testing.T, migrator *dbmigrate.CollectionsMigrator, _ *pgx.Conn
 	require.NoError(t, migrator.Up())
 
 	require.NoError(t, migrator.Down())
+}
+
+func testPreventEmptyName(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
+	require.NoError(t, migrator.Up())
+
+	ctx := context.Background()
+
+	_, err := verificationConn.Exec(ctx,
+		"INSERT INTO collections.collections (name, description, node_id) VALUES (@name, @description, @node_id)",
+		pgx.NamedArgs{
+			"name":        "",
+			"description": uuid.NewString(),
+			"node_id":     uuid.NewString()},
+	)
+	require.Error(t, err)
+
+	emptyNameRows, err := verificationConn.Query(ctx, "SELECT id FROM collections.collections WHERE name = ''")
+	require.NoError(t, err)
+
+	emptyNameIDs, err := pgx.CollectRows(emptyNameRows, pgx.RowTo[int64])
+	require.NoError(t, err)
+	assert.Empty(t, emptyNameIDs)
+
+}
+
+func testPreventWhiteSpaceName(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
+	require.NoError(t, migrator.Up())
+
+	ctx := context.Background()
+
+	whiteSpaceName := "   "
+	_, err := verificationConn.Exec(ctx,
+		"INSERT INTO collections.collections (name, description, node_id) VALUES (@name, @description, @node_id)",
+		pgx.NamedArgs{
+			"name":        whiteSpaceName,
+			"description": uuid.NewString(),
+			"node_id":     uuid.NewString()},
+	)
+	require.Error(t, err)
+
+	emptyNameRows, err := verificationConn.Query(ctx, "SELECT id FROM collections.collections WHERE name = @white_space_name",
+		pgx.NamedArgs{"white_space_name": whiteSpaceName})
+	require.NoError(t, err)
+
+	emptyNameIDs, err := pgx.CollectRows(emptyNameRows, pgx.RowTo[int64])
+	require.NoError(t, err)
+	assert.Empty(t, emptyNameIDs)
+
+}
+
+func testPreventEmptyDOI(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
+	require.NoError(t, migrator.Up())
+
+	ctx := context.Background()
+
+	var collectionID int64
+	err := verificationConn.QueryRow(ctx,
+		"INSERT INTO collections.collections (name, description, node_id) VALUES (@name, @description, @node_id) RETURNING id",
+		pgx.NamedArgs{
+			"name":        uuid.NewString(),
+			"description": uuid.NewString(),
+			"node_id":     uuid.NewString()},
+	).Scan(&collectionID)
+	require.NoError(t, err)
+
+	_, err = verificationConn.Exec(ctx,
+		"INSERT INTO collections.dois (collection_id, doi) VALUES (@collection_id, @doi)",
+		pgx.NamedArgs{
+			"collection_id": collectionID,
+			"doi":           ""},
+	)
+	require.Error(t, err)
+
+	emptyDOIRows, err := verificationConn.Query(ctx, "SELECT id FROM collections.dois WHERE doi = ''")
+	require.NoError(t, err)
+
+	emptyDOIIDs, err := pgx.CollectRows(emptyDOIRows, pgx.RowTo[int64])
+	require.NoError(t, err)
+	assert.Empty(t, emptyDOIIDs)
+
 }
