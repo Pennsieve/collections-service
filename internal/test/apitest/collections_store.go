@@ -53,10 +53,21 @@ type ExpectedDOI struct {
 	DOI string
 }
 
+// WithDOIs adds to the current ExpectedDOI slice
 func (c *ExpectedCollection) WithDOIs(dois ...string) *ExpectedCollection {
 	for _, doi := range dois {
 		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: doi})
 	}
+	return c
+}
+
+// SetDOIs replaces the current ExpectedDOI slice with the given DOIs
+func (c *ExpectedCollection) SetDOIs(dois ...string) *ExpectedCollection {
+	var newDOIs []ExpectedDOI
+	for _, doi := range dois {
+		newDOIs = append(newDOIs, ExpectedDOI{DOI: doi})
+	}
+	c.DOIs = newDOIs
 	return c
 }
 

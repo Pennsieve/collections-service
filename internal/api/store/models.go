@@ -32,3 +32,14 @@ type GetCollectionResponse struct {
 	CollectionBase
 	DOIs []string
 }
+
+type DOIUpdate struct {
+	Add    []string
+	Remove []string
+}
+
+type UpdateCollectionRequest struct {
+	Name        *string
+	Description *string
+	DOIs        DOIUpdate
+}

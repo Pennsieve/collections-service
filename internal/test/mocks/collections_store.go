@@ -13,7 +13,7 @@ type GetCollectionFunc func(ctx context.Context, userID int64, nodeID string) (s
 
 type DeleteCollectionFunc func(ctx context.Context, collectionID int64) error
 
-type UpdateCollectionFunc func(ctx context.Context, userID int64, collectionID int64, name, description *string, doisToRemove []string, doisToAdd []string) (store.GetCollectionResponse, error)
+type UpdateCollectionFunc func(ctx context.Context, userID int64, collectionID int64, update store.UpdateCollectionRequest) (store.GetCollectionResponse, error)
 
 type CollectionsStore struct {
 	CreateCollectionsFunc
@@ -80,9 +80,9 @@ func (c *CollectionsStore) DeleteCollection(ctx context.Context, collectionID in
 	return c.DeleteCollectionFunc(ctx, collectionID)
 }
 
-func (c *CollectionsStore) UpdateCollection(ctx context.Context, userID int64, collectionID int64, name, description *string, doisToRemove []string, doisToAdd []string) (store.GetCollectionResponse, error) {
+func (c *CollectionsStore) UpdateCollection(ctx context.Context, userID, collectionID int64, update store.UpdateCollectionRequest) (store.GetCollectionResponse, error) {
 	if c.UpdateCollectionFunc == nil {
 		panic("mock UpdateCollection function not set")
 	}
-	return c.UpdateCollectionFunc(ctx, userID, collectionID, name, description, doisToRemove, doisToAdd)
+	return c.UpdateCollectionFunc(ctx, userID, collectionID, update)
 }
