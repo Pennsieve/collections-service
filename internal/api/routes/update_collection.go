@@ -66,7 +66,7 @@ func UpdateCollection(ctx context.Context, params Params) (dto.GetCollectionResp
 		)
 	}
 
-	updateCollectionRequest, err := params.GetUpdateRequest(patchRequest, currentState)
+	updateCollectionRequest, err := GetUpdateRequest(params.Config.PennsieveConfig.DOIPrefix, patchRequest, currentState)
 	if err != nil {
 		return dto.GetCollectionResponse{}, err
 	}
@@ -111,7 +111,7 @@ func ValidatePatchRequest(request *dto.PatchCollectionRequest) error {
 
 }
 
-func (p Params) GetUpdateRequest(patchRequest dto.PatchCollectionRequest, currentState store.GetCollectionResponse) (store.UpdateCollectionRequest, error) {
+func GetUpdateRequest(pennsieveDOIPrefix string, patchRequest dto.PatchCollectionRequest, currentState store.GetCollectionResponse) (store.UpdateCollectionRequest, error) {
 	storeRequest := store.UpdateCollectionRequest{}
 	if patchRequest.Name != nil && *patchRequest.Name != currentState.Name {
 		storeRequest.Name = patchRequest.Name
@@ -135,15 +135,16 @@ func (p Params) GetUpdateRequest(patchRequest dto.PatchCollectionRequest, curren
 		}
 	}
 
-	pennsieveDOIsToAdd, externalDOIs := CategorizeDOIs(p.Config.PennsieveConfig.DOIPrefix, patchRequest.DOIs.Add)
+	_, externalDOIs := CategorizeDOIs(pennsieveDOIPrefix, patchRequest.DOIs.Add)
 	if len(externalDOIs) > 0 {
 		// We may later allow non-Pennsieve DOIs, but for now, this is an error
 		return store.UpdateCollectionRequest{}, apierrors.NewBadRequestError(
 			fmt.Sprintf("request contains non-Pennsieve DOIs: %s", strings.Join(externalDOIs, ", ")))
 	}
 
-	for _, toAdd := range pennsieveDOIsToAdd {
-		if _, exists := existingDOIs[toAdd]; exists {
+	// Iterate over all the DOIs to Add to maintain the same order
+	for _, toAdd := range patchRequest.DOIs.Add {
+		if _, exists := existingDOIs[toAdd]; !exists {
 			storeRequest.DOIs.Add = append(storeRequest.DOIs.Add, toAdd)
 		}
 	}

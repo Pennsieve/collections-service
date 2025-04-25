@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
+	"math/rand/v2"
 	"slices"
 )
 
@@ -44,6 +45,14 @@ func (c *ExpectedCollection) WithNodeID() *ExpectedCollection {
 // but still needs an ID for the test.
 func (c *ExpectedCollection) WithMockID(mockID int64) *ExpectedCollection {
 	c.ID = &mockID
+	return c
+}
+
+// WithRandomID is meant for cases where this ExpectedCollection is not persisted to the test DB
+// but still needs an ID for the test, but you don't care what it is.
+func (c *ExpectedCollection) WithRandomID() *ExpectedCollection {
+	id := rand.Int64() + 1
+	c.ID = &id
 	return c
 }
 
@@ -100,32 +109,34 @@ func (d ExpectedDOIs) Strings() []string {
 	return strs
 }
 
+func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) store.GetCollectionResponse {
+	test.Helper(t)
+	require.NotNil(t, c.ID, "expected collection does not have ID set")
+	require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
+	userIdx := slices.IndexFunc(c.Users, func(user ExpectedUser) bool {
+		return user.UserID == expectedUserID
+	})
+	require.NotEqual(t, -1, userIdx, "given user %d has no permission for expected collection", expectedUserID)
+	user := c.Users[userIdx]
+	collectionBase := store.CollectionBase{
+		ID:          *c.ID,
+		NodeID:      *c.NodeID,
+		Name:        c.Name,
+		Description: c.Description,
+		Size:        len(c.DOIs),
+		UserRole:    user.PermissionBit.ToRole(),
+	}
+	return store.GetCollectionResponse{
+		CollectionBase: collectionBase,
+		DOIs:           c.DOIs.Strings(),
+	}
+}
+
 func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetCollectionFunc {
 	test.Helper(t)
 	return func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
-		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
-		userIdx := slices.IndexFunc(c.Users, func(user ExpectedUser) bool {
-			return user.UserID == userID
-		})
-		require.NotEqual(t, -1, userIdx, "given user %d has no permission for collection %s", userID, nodeID)
-		user := c.Users[userIdx]
-		collectionBase := store.CollectionBase{
-			NodeID:      nodeID,
-			Name:        c.Name,
-			Description: c.Description,
-			Size:        len(c.DOIs),
-			UserRole:    user.PermissionBit.ToRole(),
-		}
-		if c.ID != nil {
-			// The id will be set if this ExpectedCollection was created by an ExpectationDB, but
-			// we may not know it otherwise. We can set it manually in a test if required.
-			collectionBase.ID = *c.ID
-		}
-		return store.GetCollectionResponse{
-			CollectionBase: collectionBase,
-			DOIs:           c.DOIs.Strings(),
-		}, nil
+		return c.ToGetCollectionResponse(t, userID), nil
 	}
 }
 

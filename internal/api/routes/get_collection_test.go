@@ -278,7 +278,7 @@ func testHandleGetCollectionEmptyArrays(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
@@ -315,7 +315,7 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	callingUser := apitest.SeedUser1
 
 	expectedDOI := apitest.NewPennsieveDOI()
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))

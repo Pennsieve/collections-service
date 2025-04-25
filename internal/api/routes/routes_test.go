@@ -27,14 +27,15 @@ func assertEqualExpectedGetCollectionResponse(t *testing.T, expected *apitest.Ex
 	t.Helper()
 	assertExpectedEqualCollectionSummary(t, expected, actual.CollectionSummary, expectedDatasets)
 
-	assert.Len(t, actual.Datasets, len(expected.DOIs))
-	for i := 0; i < len(expected.DOIs); i++ {
-		actualDataset := actual.Datasets[i]
-		expectedDOI := expected.DOIs[i].DOI
-		var actualPublicDataset dto.PublicDataset
-		apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPublicDataset)
-		assert.Equal(t, expectedDOI, actualPublicDataset.DOI)
-		assert.Equal(t, expectedDatasets.DOIToPublicDataset[expectedDOI], actualPublicDataset)
+	if assert.Len(t, actual.Datasets, len(expected.DOIs)) {
+		for i := 0; i < len(expected.DOIs); i++ {
+			actualDataset := actual.Datasets[i]
+			expectedDOI := expected.DOIs[i].DOI
+			var actualPublicDataset dto.PublicDataset
+			apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPublicDataset)
+			assert.Equal(t, expectedDOI, actualPublicDataset.DOI)
+			assert.Equal(t, expectedDatasets.DOIToPublicDataset[expectedDOI], actualPublicDataset)
+		}
 	}
 	// there should be no duplicates in the contributors since they contain UUIDs for any strings
 	// So it's ok to use results straight from ExpectedContributorsForDOIs
