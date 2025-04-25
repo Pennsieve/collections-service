@@ -38,6 +38,7 @@ func TestAPILambdaHandler(t *testing.T) {
 		{"get collections", testGetCollections},
 		{"get collection", testGetCollection},
 		{"delete collection", testDeleteCollection},
+		{"update collection", testUpdateCollection},
 	}
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -445,13 +446,11 @@ func testDeleteCollection(t *testing.T) {
 	expectedDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
 
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDataset.DOI)
-	mockCollectionID := int64(999)
-	expectedCollection.ID = &mockCollectionID
 
 	mockCollectionStore := mocks.NewMockCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
 		WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
-			require.Equal(t, mockCollectionID, collectionID)
+			require.Equal(t, *expectedCollection.ID, collectionID)
 			return nil
 		})
 
@@ -472,5 +471,68 @@ func testDeleteCollection(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, response.StatusCode)
 	assert.Empty(t, response.Body)
+
+}
+
+func testUpdateCollection(t *testing.T) {
+	callingUser := apitest.SeedUser1
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	datasetToRemove := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
+	datasetToAdd := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()))
+
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(datasetToRemove.DOI)
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
+
+	newName := uuid.NewString()
+	newDescription := uuid.NewString()
+	update := dto.PatchCollectionRequest{
+		Name:        &newName,
+		Description: &newDescription,
+		DOIs: &dto.PatchDOIs{
+			Remove: []string{datasetToRemove.DOI},
+			Add:    []string{datasetToAdd.DOI},
+		},
+	}
+
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer().
+			WithCollectionsStore(mockCollectionStore).
+			WithDiscover(mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))),
+		apitest.NewConfigBuilder().
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+			Build(),
+	)
+	req := apitest.NewAPIGatewayRequestBuilder(routes.UpdateCollectionRouteKey).
+		WithDefaultClaims(callingUser).
+		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
+		WithBody(t, update).
+		Build()
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	var responseDTO dto.GetCollectionResponse
+	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
+
+	assert.Equal(t, newName, responseDTO.Name)
+	assert.Equal(t, *expectedCollection.NodeID, responseDTO.NodeID)
+	assert.Equal(t, newDescription, responseDTO.Description)
+	assert.Equal(t, 1, responseDTO.Size)
+	assert.Equal(t, role.Owner.String(), responseDTO.UserRole)
+	assert.Equal(t, []string{*datasetToAdd.Banner}, responseDTO.Banners)
+
+	assert.Equal(t, datasetToAdd.Contributors, responseDTO.DerivedContributors)
+
+	require.Len(t, responseDTO.Datasets, 1)
+	actualDataset := responseDTO.Datasets[0]
+	var actualPennsieveDataset dto.PublicDataset
+	apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPennsieveDataset)
+	assert.Equal(t, datasetToAdd, actualPennsieveDataset)
 
 }
