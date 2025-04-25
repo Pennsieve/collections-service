@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -24,7 +25,18 @@ func TestUpdateCollection(t *testing.T) {
 		scenario string
 		tstFunc  func(t *testing.T, expectationDB *fixtures.ExpectationDB)
 	}{
-		// TODO add some tests
+		{"update collection name", testUpdateCollectionName},
+		{"update collection description", testUpdateCollectionDescription},
+		{"update collection name and description", testUpdateCollectionNameAndDescription},
+		{"remove DOI from collection", testUpdateCollectionRemoveDOI},
+		{"remove DOIs from collection", testUpdateCollectionRemoveDOIs},
+		{"add DOI to collection", testUpdateCollectionAddDOI},
+		{"add DOIs to collection", testUpdateCollectionAddDOIs},
+		{"update collection", testUpdateCollection},
+		{"update asking to remove a non-existent DOI should succeed", testUpdateCollectionRemoveNonExistentDOI},
+		{"update asking to add an already existing DOI should succeed", testUpdateCollectionAddExistingDOI},
+		{"update non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistent},
+		{"update DOIs on non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistentDOIUpdateOnly},
 	}
 
 	ctx := context.Background()
@@ -42,6 +54,259 @@ func TestUpdateCollection(t *testing.T) {
 			tt.tstFunc(t, expectationDB)
 		})
 	}
+}
+
+func testUpdateCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newName := uuid.NewString()
+	update := dto.PatchCollectionRequest{Name: &newName}
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithDockerPostgresDBConfig().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, update).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+
+	updatedCollection, err := UpdateCollection(ctx, params)
+	require.NoError(t, err)
+
+	expectedCollection.Name = newName
+	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+}
+
+func testUpdateCollectionDescription(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
+		WithDOIs(
+			expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI,
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
+		)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newDescription := uuid.NewString()
+	update := dto.PatchCollectionRequest{Description: &newDescription}
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithDockerPostgresDBConfig().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, update).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+
+	updatedCollection, err := UpdateCollection(ctx, params)
+	require.NoError(t, err)
+
+	expectedCollection.Description = newDescription
+	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+}
+
+func testUpdateCollectionNameAndDescription(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
+		WithDOIs(
+			expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI,
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
+		)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newName := uuid.NewString()
+	newDescription := uuid.NewString()
+	update := dto.PatchCollectionRequest{Name: &newName, Description: &newDescription}
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithDockerPostgresDBConfig().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, update).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+
+	updatedCollection, err := UpdateCollection(ctx, params)
+	require.NoError(t, err)
+
+	expectedCollection.Name = newName
+	expectedCollection.Description = newDescription
+	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+}
+
+func testUpdateCollectionRemoveDOI(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doiToKeep1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial())).DOI
+	doiToRemove := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI
+	doiToKeep2 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
+		WithDOIs(doiToKeep1, doiToRemove, doiToKeep2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Remove: []string{doiToRemove}}}
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithDockerPostgresDBConfig().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, update).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+
+	updatedCollection, err := UpdateCollection(ctx, params)
+	require.NoError(t, err)
+
+	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
+	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+}
+
+func testUpdateCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("implement me")
+}
+
+func testUpdateCollectionAddDOI(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("implement me")
+
+}
+
+func testUpdateCollectionAddDOIs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("implement me")
+
+}
+
+func testUpdateCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("implement me")
+
+}
+
+func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("implement me")
+
+}
+
+func testUpdateCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("implement me")
+
+}
+
+func testUpdateCollectionNonExistent(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("implement me")
+
+}
+
+func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	t.Skip("implement me")
+
 }
 
 // TestHandleUpdateCollection tests that run the Handle wrapper around UpdateCollection

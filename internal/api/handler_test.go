@@ -304,7 +304,7 @@ func testCreateCollection(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
 
-	var responseDTO dto.CollectionResponse
+	var responseDTO dto.CollectionSummary
 	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
 
 	assert.Equal(t, collectionNodeID, responseDTO.NodeID)

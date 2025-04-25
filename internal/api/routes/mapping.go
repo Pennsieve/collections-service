@@ -9,7 +9,7 @@ import (
 
 func (p Params) StoreToDTOCollection(storeCollection store.GetCollectionResponse) (dto.GetCollectionResponse, error) {
 	response := dto.GetCollectionResponse{
-		CollectionResponse: dto.CollectionResponse{
+		CollectionSummary: dto.CollectionSummary{
 			NodeID:      storeCollection.NodeID,
 			Name:        storeCollection.Name,
 			Description: storeCollection.Description,
