@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
@@ -36,6 +37,13 @@ func NewExpectedCollection() *ExpectedCollection {
 func (c *ExpectedCollection) WithNodeID() *ExpectedCollection {
 	nodeID := uuid.NewString()
 	c.NodeID = &nodeID
+	return c
+}
+
+// WithMockID is meant for cases where this ExpectedCollection is not persisted to the test DB
+// but still needs an ID for the test.
+func (c *ExpectedCollection) WithMockID(mockID int64) *ExpectedCollection {
+	c.ID = &mockID
 	return c
 }
 
@@ -93,6 +101,7 @@ func (d ExpectedDOIs) Strings() []string {
 }
 
 func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetCollectionFunc {
+	test.Helper(t)
 	return func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
 		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
@@ -116,6 +125,57 @@ func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetColl
 		return store.GetCollectionResponse{
 			CollectionBase: collectionBase,
 			DOIs:           c.DOIs.Strings(),
+		}, nil
+	}
+}
+
+func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.UpdateCollectionFunc {
+	return func(ctx context.Context, userID int64, collectionID int64, update store.UpdateCollectionRequest) (store.GetCollectionResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.Equal(t, *c.ID, collectionID, "expected ID is %d; got %d", *c.ID, collectionID)
+		userIdx := slices.IndexFunc(c.Users, func(user ExpectedUser) bool {
+			return user.UserID == userID
+		})
+		require.NotEqual(t, -1, userIdx, "given user %d has no permission for collection %d", userID, collectionID)
+		user := c.Users[userIdx]
+
+		updatedName := c.Name
+		if update.Name != nil {
+			updatedName = *update.Name
+		}
+
+		updatedDescription := c.Description
+		if update.Description != nil {
+			updatedDescription = *update.Description
+		}
+
+		toDeleteSet := map[string]bool{}
+		for _, toDelete := range update.DOIs.Remove {
+			toDeleteSet[toDelete] = true
+		}
+
+		var updatedDOIs []string
+		for _, doi := range c.DOIs.Strings() {
+			if _, deleted := toDeleteSet[doi]; !deleted {
+				updatedDOIs = append(updatedDOIs, doi)
+			}
+		}
+
+		updatedDOIs = append(updatedDOIs, update.DOIs.Add...)
+
+		collectionBase := store.CollectionBase{
+			NodeID:      *c.NodeID,
+			ID:          *c.ID,
+			Name:        updatedName,
+			Description: updatedDescription,
+			Size:        len(updatedDOIs),
+			UserRole:    user.PermissionBit.ToRole(),
+		}
+		return store.GetCollectionResponse{
+			CollectionBase: collectionBase,
+			DOIs:           updatedDOIs,
 		}, nil
 	}
 }

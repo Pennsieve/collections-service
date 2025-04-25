@@ -222,7 +222,7 @@ func testCreateCollectionNoBody(t *testing.T) {
 	response, err := handler(context.Background(), req)
 	require.NoError(t, err)
 
-	assert.Contains(t, response.Body, "no request body")
+	assert.Contains(t, response.Body, "missing request body")
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 
 }
