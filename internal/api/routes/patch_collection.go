@@ -15,9 +15,9 @@ import (
 	"strings"
 )
 
-var UpdateCollectionRouteKey = fmt.Sprintf("PATCH /{%s}", NodeIDPathParamKey)
+var PatchCollectionRouteKey = fmt.Sprintf("PATCH /{%s}", NodeIDPathParamKey)
 
-func UpdateCollection(ctx context.Context, params Params) (dto.GetCollectionResponse, error) {
+func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionResponse, error) {
 	nodeID := params.Request.PathParameters[NodeIDPathParamKey]
 	if len(nodeID) == 0 {
 		return dto.GetCollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf(`missing %q path parameter`, NodeIDPathParamKey))
@@ -85,7 +85,7 @@ func UpdateCollection(ctx context.Context, params Params) (dto.GetCollectionResp
 
 func NewPatchCollectionRouteHandler() Handler[dto.GetCollectionResponse] {
 	return Handler[dto.GetCollectionResponse]{
-		HandleFunc:        UpdateCollection,
+		HandleFunc:        PatchCollection,
 		SuccessStatusCode: http.StatusOK,
 		Headers:           DefaultResponseHeaders(),
 	}

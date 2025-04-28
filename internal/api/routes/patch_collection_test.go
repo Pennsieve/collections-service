@@ -21,21 +21,21 @@ import (
 	"testing"
 )
 
-func TestUpdateCollection(t *testing.T) {
+func TestPatchCollection(t *testing.T) {
 	tests := []struct {
 		scenario string
 		tstFunc  func(t *testing.T, expectationDB *fixtures.ExpectationDB)
 	}{
-		{"update collection name", testUpdateCollectionName},
-		{"update collection description", testUpdateCollectionDescription},
-		{"update collection name and description", testUpdateCollectionNameAndDescription},
-		{"remove DOIs from collection", testUpdateCollectionRemoveDOIs},
-		{"add DOIs to collection", testUpdateCollectionAddDOIs},
-		{"update collection", testUpdateCollection},
-		{"update asking to remove a non-existent DOI should succeed", testUpdateCollectionRemoveNonExistentDOI},
-		{"update asking to add an already existing DOI should succeed", testUpdateCollectionAddExistingDOI},
-		{"update non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistent},
-		{"update DOIs on non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistentDOIUpdateOnly},
+		{"update collection name", testPatchCollectionName},
+		{"update collection description", testPatchCollectionDescription},
+		{"update collection name and description", testPatchCollectionNameAndDescription},
+		{"remove DOIs from collection", testPatchCollectionRemoveDOIs},
+		{"add DOIs to collection", testPatchCollectionAddDOIs},
+		{"update collection", testPatchCollection},
+		{"update asking to remove a non-existent DOI should succeed", testPatchCollectionRemoveNonExistentDOI},
+		{"update asking to add an already existing DOI should succeed", testPatchCollectionAddExistingDOI},
+		{"update non-existent collection should return ErrCollectionNotFound", testPatchCollectionNonExistent},
+		{"update DOIs on non-existent collection should return ErrCollectionNotFound", testPatchCollectionNonExistentDOIUpdateOnly},
 	}
 
 	ctx := context.Background()
@@ -55,7 +55,7 @@ func TestUpdateCollection(t *testing.T) {
 	}
 }
 
-func testUpdateCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -86,7 +86,7 @@ func testUpdateCollectionName(t *testing.T, expectationDB *fixtures.ExpectationD
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, update).
@@ -96,7 +96,7 @@ func testUpdateCollectionName(t *testing.T, expectationDB *fixtures.ExpectationD
 		Claims:    &claims,
 	}
 
-	updatedCollection, err := UpdateCollection(ctx, params)
+	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
 	expectedCollection.Name = newName
@@ -105,7 +105,7 @@ func testUpdateCollectionName(t *testing.T, expectationDB *fixtures.ExpectationD
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
-func testUpdateCollectionDescription(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionDescription(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -140,7 +140,7 @@ func testUpdateCollectionDescription(t *testing.T, expectationDB *fixtures.Expec
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, update).
@@ -150,7 +150,7 @@ func testUpdateCollectionDescription(t *testing.T, expectationDB *fixtures.Expec
 		Claims:    &claims,
 	}
 
-	updatedCollection, err := UpdateCollection(ctx, params)
+	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
 	expectedCollection.Description = newDescription
@@ -159,7 +159,7 @@ func testUpdateCollectionDescription(t *testing.T, expectationDB *fixtures.Expec
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
-func testUpdateCollectionNameAndDescription(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionNameAndDescription(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -195,7 +195,7 @@ func testUpdateCollectionNameAndDescription(t *testing.T, expectationDB *fixture
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, update).
@@ -205,7 +205,7 @@ func testUpdateCollectionNameAndDescription(t *testing.T, expectationDB *fixture
 		Claims:    &claims,
 	}
 
-	updatedCollection, err := UpdateCollection(ctx, params)
+	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
 	expectedCollection.Name = newName
@@ -215,7 +215,7 @@ func testUpdateCollectionNameAndDescription(t *testing.T, expectationDB *fixture
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
-func testUpdateCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -251,7 +251,7 @@ func testUpdateCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expect
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, update).
@@ -261,7 +261,7 @@ func testUpdateCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expect
 		Claims:    &claims,
 	}
 
-	updatedCollection, err := UpdateCollection(ctx, params)
+	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
 	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
@@ -270,7 +270,7 @@ func testUpdateCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expect
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
-func testUpdateCollectionAddDOIs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -306,7 +306,7 @@ func testUpdateCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectati
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, update).
@@ -316,7 +316,7 @@ func testUpdateCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectati
 		Claims:    &claims,
 	}
 
-	updatedCollection, err := UpdateCollection(ctx, params)
+	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
 	expectedCollection.SetDOIs(doi1, doi2, doiToAdd1, doiToAdd2)
@@ -325,7 +325,7 @@ func testUpdateCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectati
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
-func testUpdateCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -371,7 +371,7 @@ func testUpdateCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, update).
@@ -381,7 +381,7 @@ func testUpdateCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		Claims:    &claims,
 	}
 
-	updatedCollection, err := UpdateCollection(ctx, params)
+	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
 	expectedCollection.Name = newName
@@ -392,7 +392,7 @@ func testUpdateCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
-func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -431,7 +431,7 @@ func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtu
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, update).
@@ -441,7 +441,7 @@ func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtu
 		Claims:    &claims,
 	}
 
-	updatedCollection, err := UpdateCollection(ctx, params)
+	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
 	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
@@ -451,7 +451,7 @@ func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtu
 
 }
 
-func testUpdateCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -492,7 +492,7 @@ func testUpdateCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Ex
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, update).
@@ -502,7 +502,7 @@ func testUpdateCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Ex
 		Claims:    &claims,
 	}
 
-	updatedCollection, err := UpdateCollection(ctx, params)
+	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
 	expectedCollection.SetDOIs(doi1, doi2, doiToAdd1, doiToAdd2)
@@ -511,7 +511,7 @@ func testUpdateCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Ex
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
-func testUpdateCollectionNonExistent(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionNonExistent(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	user := apitest.NewTestUser()
@@ -533,7 +533,7 @@ func testUpdateCollectionNonExistent(t *testing.T, expectationDB *fixtures.Expec
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
 		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, nonExistentNodeID).
 			WithBody(t, update).
@@ -543,14 +543,14 @@ func testUpdateCollectionNonExistent(t *testing.T, expectationDB *fixtures.Expec
 		Claims:    &claims,
 	}
 
-	_, err := UpdateCollection(ctx, params)
+	_, err := PatchCollection(ctx, params)
 	var notFoundError *apierrors.Error
 	require.ErrorAs(t, err, &notFoundError)
 	assert.Equal(t, http.StatusNotFound, notFoundError.StatusCode)
 
 }
 
-func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPatchCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
 	user := apitest.NewTestUser()
@@ -572,7 +572,7 @@ func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *f
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
 		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, nonExistentNodeID).
 			WithBody(t, update).
@@ -582,7 +582,7 @@ func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *f
 		Claims:    &claims,
 	}
 
-	_, err := UpdateCollection(ctx, params)
+	_, err := PatchCollection(ctx, params)
 	var notFoundError *apierrors.Error
 	require.ErrorAs(t, err, &notFoundError)
 	assert.Equal(t, http.StatusNotFound, notFoundError.StatusCode)
@@ -609,43 +609,43 @@ func TestGetUpdateRequestAddDOIs(t *testing.T) {
 
 }
 
-// TestHandleUpdateCollection tests that run the Handle wrapper around UpdateCollection
-func TestHandleUpdateCollection(t *testing.T) {
+// TestHandlePatchCollection tests that run the Handle wrapper around PatchCollection
+func TestHandlePatchCollection(t *testing.T) {
 	tests := []struct {
 		name    string
 		tstFunc func(t *testing.T)
 	}{
 		{
 			"return empty datasets and collaborators arrays instead of null",
-			testHandleUpdateCollectionEmptyArrays,
+			testHandlePatchCollectionEmptyArrays,
 		},
 		{
 			"return empty arrays in PublicDatasets instead of nulls",
-			testHandleUpdateCollectionEmptyArraysInPublicDataset,
+			testHandlePatchCollectionEmptyArraysInPublicDataset,
 		},
 		{
 			"return Bad Request when given no body",
-			testHandleUpdateCollectionNoBody,
+			testHandlePatchCollectionNoBody,
 		},
 		{
 			"return Bad Request when given empty name",
-			testHandleUpdateCollectionEmptyName,
+			testHandlePatchCollectionEmptyName,
 		},
 		{
 			"return Bad Request when given a name that is too long",
-			testHandleUpdateCollectionNameTooLong,
+			testHandlePatchCollectionNameTooLong,
 		},
 		{
 			"return Bad Request when given a description that is too long",
-			testHandleUpdateCollectionDescriptionTooLong,
+			testHandlePatchCollectionDescriptionTooLong,
 		},
 		{
 			"return Not Found when given a non-existent collection",
-			testHandleUpdateCollectionNotFound,
+			testHandlePatchCollectionNotFound,
 		},
 		{
 			"forbid updates from users without the proper role on the collection",
-			testUpdateCollectionAuthz,
+			testHandlePatchCollectionAuthz,
 		},
 	}
 
@@ -656,7 +656,7 @@ func TestHandleUpdateCollection(t *testing.T) {
 	}
 }
 
-func testHandleUpdateCollectionEmptyArrays(t *testing.T) {
+func testHandlePatchCollectionEmptyArrays(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
@@ -669,7 +669,7 @@ func testHandleUpdateCollectionEmptyArrays(t *testing.T) {
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, dto.PatchCollectionRequest{}).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
@@ -694,7 +694,7 @@ func testHandleUpdateCollectionEmptyArrays(t *testing.T) {
 
 }
 
-func testHandleUpdateCollectionEmptyArraysInPublicDataset(t *testing.T) {
+func testHandlePatchCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
@@ -713,7 +713,7 @@ func testHandleUpdateCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, dto.PatchCollectionRequest{}).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
@@ -732,7 +732,7 @@ func testHandleUpdateCollectionEmptyArraysInPublicDataset(t *testing.T) {
 
 }
 
-func testHandleUpdateCollectionNoBody(t *testing.T) {
+func testHandlePatchCollectionNoBody(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
@@ -741,7 +741,7 @@ func testHandleUpdateCollectionNoBody(t *testing.T) {
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
 			Build(),
@@ -758,7 +758,7 @@ func testHandleUpdateCollectionNoBody(t *testing.T) {
 
 }
 
-func testHandleUpdateCollectionEmptyName(t *testing.T) {
+func testHandlePatchCollectionEmptyName(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
@@ -772,7 +772,7 @@ func testHandleUpdateCollectionEmptyName(t *testing.T) {
 	}
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, patchRequest).
 			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
@@ -790,7 +790,7 @@ func testHandleUpdateCollectionEmptyName(t *testing.T) {
 
 }
 
-func testHandleUpdateCollectionNameTooLong(t *testing.T) {
+func testHandlePatchCollectionNameTooLong(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
@@ -804,7 +804,7 @@ func testHandleUpdateCollectionNameTooLong(t *testing.T) {
 	}
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, patchRequest).
 			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
@@ -822,7 +822,7 @@ func testHandleUpdateCollectionNameTooLong(t *testing.T) {
 
 }
 
-func testHandleUpdateCollectionDescriptionTooLong(t *testing.T) {
+func testHandlePatchCollectionDescriptionTooLong(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
@@ -836,7 +836,7 @@ func testHandleUpdateCollectionDescriptionTooLong(t *testing.T) {
 	}
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, patchRequest).
 			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
@@ -854,7 +854,7 @@ func testHandleUpdateCollectionDescriptionTooLong(t *testing.T) {
 
 }
 
-func testHandleUpdateCollectionNotFound(t *testing.T) {
+func testHandlePatchCollectionNotFound(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
@@ -869,7 +869,7 @@ func testHandleUpdateCollectionNotFound(t *testing.T) {
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(UpdateCollectionRouteKey).
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, dto.PatchCollectionRequest{}).
 			WithPathParam(NodeIDPathParamKey, nonExistentNodeID).
@@ -888,7 +888,7 @@ func testHandleUpdateCollectionNotFound(t *testing.T) {
 
 }
 
-func testUpdateCollectionAuthz(t *testing.T) {
+func testHandlePatchCollectionAuthz(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 	claims := apitest.DefaultClaims(callingUser)

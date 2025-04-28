@@ -97,7 +97,7 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId}
+// CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses
 type CollectionSummary struct {
 	NodeID      string   `json:"nodeId"`
 	Name        string   `json:"name"`

@@ -506,7 +506,7 @@ func testUpdateCollection(t *testing.T) {
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build(),
 	)
-	req := apitest.NewAPIGatewayRequestBuilder(routes.UpdateCollectionRouteKey).
+	req := apitest.NewAPIGatewayRequestBuilder(routes.PatchCollectionRouteKey).
 		WithDefaultClaims(callingUser).
 		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
 		WithBody(t, update).
