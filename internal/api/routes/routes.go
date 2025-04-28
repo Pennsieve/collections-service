@@ -72,11 +72,11 @@ func APIErrorGatewayResponse(err *apierrors.Error) events.APIGatewayV2HTTPRespon
 
 func handleError(err error, logger *slog.Logger) (events.APIGatewayV2HTTPResponse, error) {
 	var apiError *apierrors.Error
-	if errors.As(err, &apiError) {
-		apiError.LogError(logger)
-	} else {
+	if !errors.As(err, &apiError) {
 		apiError = apierrors.NewInternalServerError("server error", err)
 	}
+	apiError.LogError(logger)
+
 	return APIErrorGatewayResponse(apiError), nil
 
 }

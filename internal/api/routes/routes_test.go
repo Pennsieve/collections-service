@@ -1,10 +1,19 @@
 package routes
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
+	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"log/slog"
+	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -40,5 +49,68 @@ func assertEqualExpectedGetCollectionResponse(t *testing.T, expected *apitest.Ex
 	// there should be no duplicates in the contributors since they contain UUIDs for any strings
 	// So it's ok to use results straight from ExpectedContributorsForDOIs
 	assert.Equal(t, expectedDatasets.ExpectedContributorsForDOIs(t, expected.DOIs.Strings()), actual.DerivedContributors)
+
+}
+
+func TestHandleError(t *testing.T) {
+	t.Run("apierror", func(t *testing.T) {
+		var logBuffer bytes.Buffer
+		h := slog.NewJSONHandler(&logBuffer, nil)
+		logger := slog.New(h)
+
+		nodeID := uuid.NewString()
+		notFound := apierrors.NewCollectionNotFoundError(nodeID)
+
+		resp, err := handleError(notFound, logger)
+		require.NoError(t, err)
+
+		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+		assert.Equal(t, DefaultErrorResponseHeaders(), resp.Headers)
+		assert.Contains(t, resp.Body, nodeID)
+		assert.Contains(t, resp.Body, fmt.Sprintf(`"errorId": %q`, notFound.ID))
+
+		// Check that there is exactly one log entry for the error.
+		// logger appends newline to each log entry
+		log := logBuffer.String()
+		errorLog, emptyString, found := strings.Cut(log, "\n")
+		assert.True(t, found)
+		assert.NotEmpty(t, errorLog)
+		assert.Empty(t, emptyString)
+
+		assert.Contains(t, errorLog, fmt.Sprintf(`"msg":"returning API error to caller"`))
+		assert.Contains(t, errorLog, fmt.Sprintf(`"id":%q`, notFound.ID))
+		assert.Contains(t, errorLog, fmt.Sprintf(`"userMessage":%q`, notFound.UserMessage))
+		assert.Contains(t, errorLog, `"cause":"none"`)
+
+	})
+
+	t.Run("not an apierror", func(t *testing.T) {
+		var logBuffer bytes.Buffer
+		h := slog.NewJSONHandler(&logBuffer, nil)
+		logger := slog.New(h)
+
+		nonAPIError := errors.New("unexpected non-apierror error")
+
+		resp, err := handleError(nonAPIError, logger)
+		require.NoError(t, err)
+
+		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		assert.Equal(t, DefaultErrorResponseHeaders(), resp.Headers)
+		assert.Contains(t, resp.Body, `"errorId"`)
+
+		// Check that there is exactly one log entry for the error.
+		// logger appends newline to each log entry
+		log := logBuffer.String()
+		errorLog, emptyString, found := strings.Cut(log, "\n")
+		assert.True(t, found)
+		assert.NotEmpty(t, errorLog)
+		assert.Empty(t, emptyString)
+
+		assert.Contains(t, errorLog, fmt.Sprintf(`"msg":"returning API error to caller"`))
+		assert.Contains(t, errorLog, `"id"`)
+		assert.Contains(t, errorLog, `"userMessage":"server error"`)
+		assert.Contains(t, errorLog, fmt.Sprintf(`"cause":%q`, nonAPIError.Error()))
+
+	})
 
 }
