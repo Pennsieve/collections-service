@@ -163,8 +163,12 @@ paths:
         '5XX':
           $ref: '#/components/responses/Error'
     patch:
+      x-amazon-apigateway-integration:
+        $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
+      operationId: patchCollection
       summary: Update a collection
-      description: Partially update a collection's name, description, or associated DOIs.
+      description: |
+        Update a collection's name, description, or associated DOIs.
       parameters:
         - name: nodeId
           in: path
@@ -178,6 +182,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PatchCollectionRequest'
+      security:
+        - token_auth: [ ]
+      tags:
+        - Collections Service
       responses:
         '200':
           description: Collection updated successfully
