@@ -42,8 +42,8 @@ func NewCreateCollectionResponse(size int, banners ...string) dto.CreateCollecti
 	return dto.CreateCollectionResponse(NewCollectionResponse(size, banners...))
 }
 
-func NewCollectionResponse(size int, banners ...string) dto.CollectionResponse {
-	return dto.CollectionResponse{
+func NewCollectionResponse(size int, banners ...string) dto.CollectionSummary {
+	return dto.CollectionSummary{
 		NodeID:      uuid.NewString(),
 		Name:        uuid.NewString(),
 		Description: uuid.NewString(),

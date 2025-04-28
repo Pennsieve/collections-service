@@ -18,7 +18,7 @@ const CreateCollectionRouteKey = "POST /"
 func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionResponse, error) {
 	requestBody := params.Request.Body
 	if len(requestBody) == 0 {
-		return dto.CreateCollectionResponse{}, apierrors.NewBadRequestError("no request body")
+		return dto.CreateCollectionResponse{}, apierrors.NewBadRequestError("missing request body")
 	}
 	logger := params.Container.Logger()
 	if logger.Enabled(ctx, slog.LevelDebug) {
@@ -92,7 +92,7 @@ type createCollectionParams struct {
 }
 
 // ValidateCreateRequest may alter the passed in request by trimming whitespace from request.Name and request.Description.
-func (p createCollectionParams) ValidateCreateRequest(request *dto.CreateCollectionRequest) *apierrors.Error {
+func (p createCollectionParams) ValidateCreateRequest(request *dto.CreateCollectionRequest) error {
 	request.Name = strings.TrimSpace(request.Name)
 	request.Description = strings.TrimSpace(request.Description)
 	if err := validate.CollectionName(request.Name); err != nil {

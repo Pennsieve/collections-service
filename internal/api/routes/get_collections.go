@@ -57,7 +57,7 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	}
 
 	for _, storeCollection := range storeResp.Collections {
-		collectionDTO := dto.CollectionResponse{
+		collectionDTO := dto.CollectionSummary{
 			NodeID:      storeCollection.NodeID,
 			Name:        storeCollection.Name,
 			Description: storeCollection.Description,

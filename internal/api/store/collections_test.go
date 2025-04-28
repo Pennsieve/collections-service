@@ -36,6 +36,18 @@ func TestStore(t *testing.T) {
 		{"get collection", testGetCollection},
 		{"delete collection", testDeleteCollection},
 		{"delete non-existent collection", testDeleteCollectionNonExistent},
+		{"update collection name", testUpdateCollectionName},
+		{"update collection description", testUpdateCollectionDescription},
+		{"update collection name and description", testUpdateCollectionNameAndDescription},
+		{"remove DOI from collection", testUpdateCollectionRemoveDOI},
+		{"remove DOIs from collection", testUpdateCollectionRemoveDOIs},
+		{"add DOI to collection", testUpdateCollectionAddDOI},
+		{"add DOIs to collection", testUpdateCollectionAddDOIs},
+		{"update collection", testUpdateCollection},
+		{"update asking to remove a non-existent DOI should succeed", testUpdateCollectionRemoveNonExistentDOI},
+		{"update asking to add an already existing DOI should succeed", testUpdateCollectionAddExistingDOI},
+		{"update non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistent},
+		{"update DOIs on non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistentDOIUpdateOnly},
 	} {
 
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -322,6 +334,329 @@ func testDeleteCollection(t *testing.T, store *store.PostgresCollectionsStore, e
 func testDeleteCollectionNonExistent(t *testing.T, collectionsStore *store.PostgresCollectionsStore, _ *fixtures.ExpectationDB) {
 	nonExistentCollectionID := int64(99999)
 	err := collectionsStore.DeleteCollection(context.Background(), nonExistentCollectionID)
+	require.ErrorIs(t, err, store.ErrCollectionNotFound)
+}
+
+func testUpdateCollectionName(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newName := uuid.NewString()
+	update := store.UpdateCollectionRequest{
+		Name: &newName,
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.Name = newName
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionDescription(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newDescription := uuid.NewString()
+	update := store.UpdateCollectionRequest{
+		Description: &newDescription,
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.Description = newDescription
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionNameAndDescription(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newName := uuid.NewString()
+	newDescription := uuid.NewString()
+	update := store.UpdateCollectionRequest{
+		Name:        &newName,
+		Description: &newDescription,
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.Name = newName
+	expectedCollection.Description = newDescription
+
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionRemoveDOI(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doiToKeep1 := apitest.NewPennsieveDOI()
+	doiToRemove := apitest.NewPennsieveDOI()
+	doiToKeep2 := apitest.NewPennsieveDOI()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doiToKeep1, doiToRemove, doiToKeep2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	update := store.UpdateCollectionRequest{
+		DOIs: store.DOIUpdate{
+			Remove: []string{doiToRemove},
+		},
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionRemoveDOIs(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doiToKeep1 := apitest.NewPennsieveDOI()
+	doiToRemove1 := apitest.NewPennsieveDOI()
+	doiToKeep2 := apitest.NewPennsieveDOI()
+	doiToRemove2 := apitest.NewPennsieveDOI()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doiToKeep1, doiToRemove1, doiToKeep2, doiToRemove2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	update := store.UpdateCollectionRequest{
+		DOIs: store.DOIUpdate{
+			Remove: []string{doiToRemove2, doiToRemove1},
+		},
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionAddDOI(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doi1 := apitest.NewPennsieveDOI()
+	doi2 := apitest.NewPennsieveDOI()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doi1, doi2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	doiToAdd := apitest.NewPennsieveDOI()
+	update := store.UpdateCollectionRequest{
+		DOIs: store.DOIUpdate{
+			Add: []string{doiToAdd},
+		},
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.SetDOIs(doi1, doi2, doiToAdd)
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionAddDOIs(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doi1 := apitest.NewPennsieveDOI()
+	doi2 := apitest.NewPennsieveDOI()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doi1, doi2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	doiToAdd1 := apitest.NewPennsieveDOI()
+	doiToAdd2 := apitest.NewPennsieveDOI()
+	update := store.UpdateCollectionRequest{
+		DOIs: store.DOIUpdate{
+			Add: []string{doiToAdd1, doiToAdd2},
+		},
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.SetDOIs(doi1, doi2, doiToAdd1, doiToAdd2)
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollection(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doiToKeep1 := apitest.NewPennsieveDOI()
+	doiToRemove1 := apitest.NewPennsieveDOI()
+	doiToKeep2 := apitest.NewPennsieveDOI()
+	doiToRemove2 := apitest.NewPennsieveDOI()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doiToRemove1, doiToKeep1, doiToKeep2, doiToRemove2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newName := uuid.NewString()
+	newDescription := uuid.NewString()
+	newDOI := apitest.NewPennsieveDOI()
+	update := store.UpdateCollectionRequest{
+		Name:        &newName,
+		Description: &newDescription,
+		DOIs: store.DOIUpdate{
+			Add:    []string{newDOI},
+			Remove: []string{doiToRemove1, doiToRemove2},
+		},
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.Name = newName
+	expectedCollection.Description = newDescription
+	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2, newDOI)
+
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doiToKeep1 := apitest.NewPennsieveDOI()
+	doiToRemove := apitest.NewPennsieveDOI()
+	doiToKeep2 := apitest.NewPennsieveDOI()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doiToKeep1, doiToRemove, doiToKeep2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	nonExistentDOI := apitest.NewPennsieveDOI()
+	update := store.UpdateCollectionRequest{
+		DOIs: store.DOIUpdate{
+			Remove: []string{doiToRemove, nonExistentDOI},
+		},
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionAddExistingDOI(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doi1 := apitest.NewPennsieveDOI()
+	doi2 := apitest.NewPennsieveDOI()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doi1, doi2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newDOI := apitest.NewPennsieveDOI()
+	update := store.UpdateCollectionRequest{
+		DOIs: store.DOIUpdate{
+			Add: []string{doi1, newDOI},
+		},
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.SetDOIs(doi1, doi2, newDOI)
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionNonExistent(t *testing.T, collectionsStore *store.PostgresCollectionsStore, _ *fixtures.ExpectationDB) {
+	nonExistentCollectionID := int64(99999)
+	newName := uuid.NewString()
+	update := store.UpdateCollectionRequest{
+		Name: &newName,
+	}
+	_, err := collectionsStore.UpdateCollection(context.Background(), apitest.SeedUser1.ID, nonExistentCollectionID, update)
+	require.ErrorIs(t, err, store.ErrCollectionNotFound)
+}
+
+func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, collectionsStore *store.PostgresCollectionsStore, _ *fixtures.ExpectationDB) {
+	nonExistentCollectionID := int64(99999)
+	update := store.UpdateCollectionRequest{
+		DOIs: store.DOIUpdate{
+			Remove: []string{apitest.NewPennsieveDOI()},
+		},
+	}
+	_, err := collectionsStore.UpdateCollection(context.Background(), apitest.SeedUser1.ID, nonExistentCollectionID, update)
 	require.ErrorIs(t, err, store.ErrCollectionNotFound)
 }
 

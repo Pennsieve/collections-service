@@ -22,14 +22,14 @@ func TestGetCollectionResponse_MarshalJSON(t *testing.T) {
 	}{
 		{"empty collection has empty arrays not null",
 			dto.GetCollectionResponse{
-				CollectionResponse: apitest.NewCollectionResponse(0),
+				CollectionSummary: apitest.NewCollectionResponse(0),
 			},
 			[]string{`"banners":[]`, `"derivedContributors":[]`, `"datasets":[]`},
 			[]string{`"banners":null`, `"derivedContributors":null`, `"datasets":null`},
 		},
 		{"collection contains contributor and dataset",
 			dto.GetCollectionResponse{
-				CollectionResponse:  apitest.NewCollectionResponse(1, *banner),
+				CollectionSummary:   apitest.NewCollectionResponse(1, *banner),
 				DerivedContributors: []dto.PublicContributor{contributor},
 				Datasets:            []dto.Dataset{{Source: dto.ExternalSource, Data: []byte(externalData)}},
 			},
@@ -81,7 +81,7 @@ func TestGetCollectionsResponse_MarshalJSON(t *testing.T) {
 				Limit:       10,
 				Offset:      0,
 				TotalCount:  1,
-				Collections: []dto.CollectionResponse{apitest.NewCollectionResponse(0)},
+				Collections: []dto.CollectionSummary{apitest.NewCollectionResponse(0)},
 			},
 			[]string{`"banners":[]`},
 			[]string{`"banners":null`},

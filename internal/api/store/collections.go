@@ -18,6 +18,7 @@ type CollectionsStore interface {
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
+	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
 }
 
 type PostgresCollectionsStore struct {
@@ -203,33 +204,31 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 	return response, nil
 }
 
-// GetCollection returns nil and no error if no collection with the given node id exists for the given user id.
-// Otherwise, returns a non-nil response if a collection is found or nil and an error if an error occurs.
-func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
-	args := pgx.NamedArgs{"user_id": userID, "node_id": nodeID}
-	sql := `SELECT c.id, c.name, c.description, u.role, d.doi
+// getCollectionByIDColumn returns the error ErrCollectionNotFound if no collection with the given idValue exists for the given user id.
+// idColumn should be either "id" or "node_id"
+func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, idColumn string, idValue any) (GetCollectionResponse, error) {
+	args := pgx.NamedArgs{"user_id": userID, idColumn: idValue}
+
+	idCondition := fmt.Sprintf("c.%s = @%s", idColumn, idColumn)
+
+	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, u.role, d.doi
 			FROM collections.collections c
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
 			WHERE u.user_id = @user_id
 			  AND u.permission_bit > 0
-  			  AND c.node_id = @node_id
-			ORDER BY d.id asc`
-
-	conn, err := s.db.Connect(ctx, s.databaseName)
-	if err != nil {
-		return GetCollectionResponse{}, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
-	}
-	defer s.closeConn(ctx, conn)
+  			  AND %s
+			ORDER BY d.id asc`, idCondition)
 
 	rows, _ := conn.Query(ctx, sql, args)
 
 	var response *GetCollectionResponse
 	var id int64
+	var nodeID string
 	var name, description string
 	var pgxRole PgxRole
 	var doiOpt *string
-	_, err = pgx.ForEachRow(rows, []any{&id, &name, &description, &pgxRole, &doiOpt}, func() error {
+	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &pgxRole, &doiOpt}, func() error {
 		if response == nil {
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
@@ -247,7 +246,7 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 		return nil
 	})
 	if err != nil {
-		return GetCollectionResponse{}, fmt.Errorf("GetCollection error querying for collection %s: %w", nodeID, err)
+		return GetCollectionResponse{}, err
 	}
 	if response == nil {
 		return GetCollectionResponse{}, ErrCollectionNotFound
@@ -255,6 +254,24 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 
 	response.Size = len(response.DOIs)
 	return *response, nil
+}
+
+func getCollectionByNodeID(ctx context.Context, conn *pgx.Conn, userID int64, nodeID string) (GetCollectionResponse, error) {
+	return getCollectionByIDColumn(ctx, conn, userID, "node_id", nodeID)
+}
+
+func getCollectionByID(ctx context.Context, conn *pgx.Conn, userID int64, collectionID int64) (GetCollectionResponse, error) {
+	return getCollectionByIDColumn(ctx, conn, userID, "id", collectionID)
+}
+
+// GetCollection returns the error ErrCollectionNotFound if no collection with the given node id exists for the given user id.
+func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+	return getCollectionByNodeID(ctx, conn, userID, nodeID)
 }
 
 func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collectionID int64) error {
@@ -276,6 +293,99 @@ func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collect
 		return ErrCollectionNotFound
 	}
 	return nil
+}
+
+func (s *PostgresCollectionsStore) UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error) {
+
+	// Create SQL for name and description update if necessary
+	var collectionUpdateSQL string
+	collectionUpdateArgs := pgx.NamedArgs{}
+	if update.Name != nil || update.Description != nil {
+		var sets []string
+		if update.Name != nil {
+			sets = append(sets, "name = @name")
+			collectionUpdateArgs["name"] = *update.Name
+		}
+		if update.Description != nil {
+			sets = append(sets, "description = @description")
+			collectionUpdateArgs["description"] = *update.Description
+		}
+		collectionUpdateArgs["collection_id"] = collectionID
+		collectionUpdateSQL = fmt.Sprintf(`UPDATE collections.collections
+                               SET %s
+                               WHERE id = @collection_id`,
+			strings.Join(sets, ","))
+	}
+
+	// Create SQL for DOI deletes if necessary
+	var doiDeleteSQL string
+	doiDeleteArgs := pgx.NamedArgs{}
+	if len(update.DOIs.Remove) > 0 {
+		var wheres []string
+		for i, doi := range update.DOIs.Remove {
+			doiVar := fmt.Sprintf("doi_%d", i)
+			wheres = append(wheres, fmt.Sprintf("(collection_id = @collection_id AND doi = @%s)", doiVar))
+			doiDeleteArgs[doiVar] = doi
+		}
+		doiDeleteArgs["collection_id"] = collectionID
+		doiDeleteSQL = fmt.Sprintf(`DELETE FROM collections.dois WHERE %s`, strings.Join(wheres, " OR "))
+	}
+
+	// Create SQL for DOI adds if necessary
+	var doiAddSQL string
+	doiAddArgs := pgx.NamedArgs{}
+	if len(update.DOIs.Add) > 0 {
+		var values []string
+		for i, doi := range update.DOIs.Add {
+			doiVar := fmt.Sprintf("doi_%d", i)
+			values = append(values, fmt.Sprintf("(@collection_id, @%s)", doiVar))
+			doiAddArgs[doiVar] = doi
+		}
+		doiAddArgs["collection_id"] = collectionID
+		doiAddSQL = fmt.Sprintf(`INSERT INTO collections.dois (collection_id, doi) VALUES %s ON CONFLICT (collection_id, doi) DO NOTHING`, strings.Join(values, ", "))
+	}
+
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("UpdateCollection error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+
+	// Run any updates in a transaction
+	if err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+		if len(collectionUpdateSQL) > 0 {
+			commandTag, err := tx.Exec(ctx, collectionUpdateSQL, collectionUpdateArgs)
+			if err != nil {
+				return fmt.Errorf("error updating collection %d name/description: %w", collectionID, err)
+			}
+			if commandTag.RowsAffected() == 0 {
+				return ErrCollectionNotFound
+			}
+		}
+		// We can't really detect CollectionNotFound with the DOI queries, but we will catch it below when looking up
+		// the updated collection to return. Plus the caller should have already tried to look up the collection for
+		// authz purposes.
+		if len(doiDeleteSQL) > 0 {
+			if _, err := tx.Exec(ctx, doiDeleteSQL, doiDeleteArgs); err != nil {
+				return fmt.Errorf("error deleting collection %d DOIs: %w", collectionID, err)
+			}
+		}
+
+		if len(doiAddSQL) > 0 {
+			if _, err := tx.Exec(ctx, doiAddSQL, doiAddArgs); err != nil {
+				return fmt.Errorf("error adding collection %d DOIs: %w", collectionID, err)
+			}
+		}
+		return nil
+	}); err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("UpdateCollection error updating collection %d: %w", collectionID, err)
+	}
+
+	updatedCollection, err := getCollectionByID(ctx, conn, userID, collectionID)
+	if err != nil {
+		return GetCollectionResponse{}, fmt.Errorf("UpdateCollection error getting updated collection %d: %w", collectionID, err)
+	}
+	return updatedCollection, nil
 }
 
 func (s *PostgresCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {

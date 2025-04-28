@@ -147,7 +147,7 @@ func testDeleteAuthz(t *testing.T) {
 	// not delete the collection itself
 	for _, tooLowPerm := range []pgdb.DbPermission{pgdb.Guest, pgdb.Read, pgdb.Write, pgdb.Delete} {
 		t.Run(tooLowPerm.String(), func(t *testing.T) {
-			expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
+			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
 
 			mockCollectionStore := mocks.NewMockCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
@@ -174,7 +174,7 @@ func testDeleteAuthz(t *testing.T) {
 
 	for _, okPerm := range []pgdb.DbPermission{pgdb.Administer, pgdb.Owner} {
 		t.Run(okPerm.String(), func(t *testing.T) {
-			expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, okPerm)
+			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm)
 
 			// we're not saving this to a real DB, so no ID is generated for us
 			mockCollectionID := int64(123)

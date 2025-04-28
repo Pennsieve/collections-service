@@ -19,22 +19,34 @@ type CreateCollectionRequest struct {
 }
 
 // CreateCollectionResponse represents the response body of POST /
-type CreateCollectionResponse CollectionResponse
+type CreateCollectionResponse CollectionSummary
+
+// PatchCollectionRequest represents the request body of PATCH /collections/{nodeId}
+type PatchCollectionRequest struct {
+	Name        *string    `json:"name,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	DOIs        *PatchDOIs `json:"dois,omitempty"`
+}
+
+type PatchDOIs struct {
+	Remove []string `json:"remove,omitempty"`
+	Add    []string `json:"add,omitempty"`
+}
 
 func (r CreateCollectionResponse) Marshal() (string, error) {
 	return defaultMarshalImpl(r)
 }
 
 func (r CreateCollectionResponse) MarshalJSON() ([]byte, error) {
-	return CollectionResponse(r).MarshalJSON()
+	return CollectionSummary(r).MarshalJSON()
 }
 
 // GetCollectionsResponse represents the response body of GET /
 type GetCollectionsResponse struct {
-	Limit       int                  `json:"limit"`
-	Offset      int                  `json:"offset"`
-	TotalCount  int                  `json:"totalCount"`
-	Collections []CollectionResponse `json:"collections"`
+	Limit       int                 `json:"limit"`
+	Offset      int                 `json:"offset"`
+	TotalCount  int                 `json:"totalCount"`
+	Collections []CollectionSummary `json:"collections"`
 }
 
 func (r GetCollectionsResponse) Marshal() (string, error) {
@@ -44,14 +56,14 @@ func (r GetCollectionsResponse) Marshal() (string, error) {
 func (r GetCollectionsResponse) MarshalJSON() ([]byte, error) {
 	type GetCollectionsResponseAlias GetCollectionsResponse
 	if r.Collections == nil {
-		r.Collections = []CollectionResponse{}
+		r.Collections = []CollectionSummary{}
 	}
 	return json.Marshal(GetCollectionsResponseAlias(r))
 }
 
 // GetCollectionResponse represents the response body of GET /{nodeId}
 type GetCollectionResponse struct {
-	CollectionResponse
+	CollectionSummary
 	DerivedContributors []PublicContributor `json:"derivedContributors"`
 	Datasets            []Dataset           `json:"datasets"`
 }
@@ -73,20 +85,20 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 	if r.Datasets == nil {
 		r.Datasets = []Dataset{}
 	}
-	type Alias CollectionResponse
+	type Alias CollectionSummary
 	return json.Marshal(struct {
 		Alias
 		DerivedContributors []PublicContributor `json:"derivedContributors"`
 		Datasets            []Dataset           `json:"datasets"`
 	}{
-		Alias(r.CollectionResponse),
+		Alias(r.CollectionSummary),
 		r.DerivedContributors,
 		r.Datasets,
 	})
 }
 
-// CollectionResponse is a base struct shared by POST /,  GET /, and GET /{nodeId}
-type CollectionResponse struct {
+// CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses
+type CollectionSummary struct {
 	NodeID      string   `json:"nodeId"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
@@ -95,13 +107,13 @@ type CollectionResponse struct {
 	UserRole    string   `json:"userRole"`
 }
 
-func (r CollectionResponse) MarshalJSON() ([]byte, error) {
+func (r CollectionSummary) MarshalJSON() ([]byte, error) {
 	// I think this is to avoid infinite recursion
-	type CollectionResponseAlias CollectionResponse
+	type CollectionSummaryAlias CollectionSummary
 	if r.Banners == nil {
 		r.Banners = []string{}
 	}
-	return json.Marshal(CollectionResponseAlias(r))
+	return json.Marshal(CollectionSummaryAlias(r))
 }
 
 type DOIInformationSource string

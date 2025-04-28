@@ -81,7 +81,7 @@ func handleError(err error, logger *slog.Logger) (events.APIGatewayV2HTTPRespons
 
 }
 
-func GetIntQueryParam(queryParams map[string]string, key string, requiredMin int, defaultValue int) (int, *apierrors.Error) {
+func GetIntQueryParam(queryParams map[string]string, key string, requiredMin int, defaultValue int) (int, error) {
 	if strVal, present := queryParams[key]; present {
 		value, err := strconv.Atoi(strVal)
 		if err != nil {
