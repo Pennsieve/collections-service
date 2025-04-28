@@ -123,8 +123,12 @@ paths:
                 $ref: '#/components/schemas/GetCollectionResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '4XX':
+        '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '5XX':
           $ref: '#/components/responses/Error'
     delete:
@@ -150,8 +154,45 @@ paths:
           description: The collection was deleted
         '400':
           $ref: '#/components/responses/BadRequest'
-        '4XX':
+        '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '5XX':
+          $ref: '#/components/responses/Error'
+    patch:
+      summary: Update a collection
+      description: Partially update a collection's name, description, or associated DOIs.
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the collection node to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchCollectionRequest'
+      responses:
+        '200':
+          description: Collection updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetCollectionsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '5XX':
           $ref: '#/components/responses/Error'
 
@@ -222,6 +263,17 @@ components:
                 type: string
               errorId:
                 type: string
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorId:
+                type: string
     Error:
       description: Server Error
       content:
@@ -249,6 +301,33 @@ components:
         - name
         - description
         - dois
+    PatchCollectionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: omit if name is not being changed
+        description:
+          type: string
+          description: omit if description is not being changed
+        dois:
+          $ref: '#/components/schemas/PatchDOIs'
+      additionalProperties: false
+
+    PatchDOIs:
+      type: object
+      properties:
+        remove:
+          type: array
+          items:
+            type: string
+          description: DOIs to be removed from the collection
+        add:
+          type: array
+          items:
+            type: string
+          description: DOIs to be added to the collection
+      additionalProperties: false
 
     GetCollectionsResponse:
       type: object
