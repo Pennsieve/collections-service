@@ -4,7 +4,7 @@ resource "aws_apigatewayv2_api" "collections_service_api" {
   description   = "API for the lambda-based Collections API"
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["*"]
+    allow_methods = ["OPTIONS", "GET", "POST", "PATCH"]
     allow_headers = ["*"]
     expose_headers = ["*"]
     max_age = 300
