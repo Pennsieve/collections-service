@@ -1,13 +1,14 @@
 resource "aws_apigatewayv2_api" "collections_service_api" {
-  name          = "Serverless Collections API"
+  name          = "Collections Serverless API"
   protocol_type = "HTTP"
   description   = "API for the lambda-based Collections API"
   cors_configuration {
-    allow_origins = ["*"]
+    allow_origins     = local.cors_allowed_origins
     allow_methods = ["OPTIONS", "GET", "POST", "PATCH"]
     allow_headers = ["*"]
+    allow_credentials = true
     expose_headers = ["*"]
-    max_age = 300
+    max_age           = 300
   }
   body = templatefile("${path.module}/collections-service.yml", {
     authorize_lambda_invoke_uri    = data.terraform_remote_state.api_gateway.outputs.authorizer_lambda_invoke_uri
