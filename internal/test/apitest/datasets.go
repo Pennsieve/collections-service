@@ -92,12 +92,16 @@ func (e *ExpectedPennsieveDatasets) GetDatasetsByDOIFunc(t require.TestingT) moc
 	}
 }
 
+// RequireAsPennsieveDataset will unmarshall actualDataset.Data into publicDataset if it can. If it cannot, it
+// will fail the test.
 func RequireAsPennsieveDataset(t require.TestingT, actualDataset dto.Dataset, publicDataset *dto.PublicDataset) {
 	require.Equal(t, dto.PennsieveSource, actualDataset.Source)
 	require.False(t, actualDataset.Problem)
 	require.NoError(t, json.Unmarshal(actualDataset.Data, publicDataset))
 }
 
+// RequireAsPennsieveTombstone will unmarshall actualDataset.Data into tombstone if it can. If it cannot, it
+// will fail the test.
 func RequireAsPennsieveTombstone(t require.TestingT, actualDataset dto.Dataset, tombstone *dto.Tombstone) {
 	require.Equal(t, dto.PennsieveSource, actualDataset.Source)
 	require.True(t, actualDataset.Problem)
