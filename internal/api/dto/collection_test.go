@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestGetCollectionResponse_MarshalJSON(t *testing.T) {
@@ -129,4 +130,52 @@ func TestCreateCollectionResponse_MarshalJSON(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPublicDataset_EmbargoReleaseDate(t *testing.T) {
+	//embargoReleaseDate has no time component, so requires special marshalling/unmarshalling
+	t.Run("has embargo release date", func(t *testing.T) {
+
+		embargoReleaseDate := "2025-05-08"
+		expectedEmbargoReleaseTime, err := time.Parse(time.DateOnly, embargoReleaseDate)
+		require.NoError(t, err)
+
+		t.Run("unmarshal", func(t *testing.T) {
+			embargoedPublicDataset := fmt.Sprintf(`{"embargoReleaseDate": %q}`, embargoReleaseDate)
+			var publicDataset dto.PublicDataset
+			require.NoError(t, json.Unmarshal([]byte(embargoedPublicDataset), &publicDataset))
+
+			assert.NotNil(t, publicDataset.EmbargoReleaseDate)
+			assert.True(t, expectedEmbargoReleaseTime.Equal(time.Time(*publicDataset.EmbargoReleaseDate)))
+		})
+
+		t.Run("marshal", func(t *testing.T) {
+			asDate := dto.Date(expectedEmbargoReleaseTime)
+			embargoedPublicDataset := dto.PublicDataset{EmbargoReleaseDate: &asDate}
+			bytes, err := json.Marshal(embargoedPublicDataset)
+			require.NoError(t, err)
+
+			assert.Contains(t, string(bytes), fmt.Sprintf(`"embargoReleaseDate":%q`, embargoReleaseDate))
+		})
+
+	})
+
+	t.Run("no embargo release date", func(t *testing.T) {
+		t.Run("unmarshal", func(t *testing.T) {
+			notEmbargoedPublicDataset := `{}`
+			var publicDataset dto.PublicDataset
+			require.NoError(t, json.Unmarshal([]byte(notEmbargoedPublicDataset), &publicDataset))
+
+			assert.Nil(t, publicDataset.EmbargoReleaseDate)
+		})
+
+		t.Run("marshal", func(t *testing.T) {
+			notEmbargoedPublicDataset := dto.PublicDataset{}
+			bytes, err := json.Marshal(notEmbargoedPublicDataset)
+			require.NoError(t, err)
+			assert.NotContains(t, string(bytes), `"embargoReleaseDate"`)
+		})
+
+	})
+
 }
