@@ -4,7 +4,7 @@ resource "aws_apigatewayv2_api" "collections_service_api" {
   description   = "API for the lambda-based Collections API"
   cors_configuration {
     allow_origins     = local.cors_allowed_origins
-    allow_methods = ["OPTIONS", "GET", "POST", "PATCH"]
+    allow_methods = ["OPTIONS", "GET", "POST", "PATCH", "DELETE"]
     allow_headers = ["*"]
     allow_credentials = true
     expose_headers = ["*"]
