@@ -56,12 +56,8 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 			return dto.CreateCollectionResponse{}, apierrors.NewInternalServerError("error looking up DOIs in Discover", err)
 		}
 
-		if len(datasetResults.Unpublished) > 0 {
-			var details []string
-			for _, unpublished := range datasetResults.Unpublished {
-				details = append(details, fmt.Sprintf("%s status is %s", unpublished.DOI, unpublished.Status))
-			}
-			return dto.CreateCollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf("request contains unpublished DOIs: %s", strings.Join(details, ", ")))
+		if err := CheckForUnpublished(datasetResults); err != nil {
+			return dto.CreateCollectionResponse{}, err
 		}
 
 		response.Banners = collectBanners(pennsieveDOIs, datasetResults.Published)

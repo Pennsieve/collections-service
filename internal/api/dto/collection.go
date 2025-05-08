@@ -155,6 +155,24 @@ func NewTombstoneDataset(tombstone Tombstone) (Dataset, error) {
 	}, nil
 }
 
+// Date is a time.Time for JSON that only looks at date portion of value. Needed for
+// embargo release date which has no time info when we get it from Discover.
+type Date time.Time
+
+func (d Date) MarshalText() (text []byte, err error) {
+	dateOnly := time.Time(d).Format(time.DateOnly)
+	return []byte(dateOnly), nil
+}
+
+func (d *Date) UnmarshalText(data []byte) error {
+	parsed, err := time.Parse(time.DateOnly, string(data))
+	if err != nil {
+		return fmt.Errorf("error parsing Date %s: %w", string(data), err)
+	}
+	*d = Date(parsed)
+	return nil
+}
+
 // PublicDataset and it's child DTOs are taken from the Discover service so that
 // our responses match those of Discover.
 type PublicDataset struct {
@@ -189,7 +207,7 @@ type PublicDataset struct {
 	Sponsorship            *Sponsorship                `json:"sponsorship,omitempty"`
 	PennsieveSchemaVersion *string                     `json:"pennsieveSchemaVersion,omitempty"`
 	Embargo                *bool                       `json:"embargo,omitempty"`
-	EmbargoReleaseDate     *time.Time                  `json:"embargoReleaseDate,omitempty"`
+	EmbargoReleaseDate     *Date                       `json:"embargoReleaseDate,omitempty"`
 	EmbargoAccess          *string                     `json:"embargoAccess,omitempty"`
 	DatasetType            *string                     `json:"datasetType,omitempty"`
 	Release                *ReleaseInfo                `json:"release,omitempty"`
