@@ -71,6 +71,19 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 		return dto.GetCollectionResponse{}, err
 	}
 
+	// Check that we haven't been asked to add unpublished DOIs.
+	if toAdd := updateCollectionRequest.DOIs.Add; len(toAdd) > 0 {
+		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(toAdd)
+		if err != nil {
+			return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
+				"error querying Discover for DOIs to add during update",
+				err)
+		}
+		if err := CheckForUnpublished(discoverResp); err != nil {
+			return dto.GetCollectionResponse{}, err
+		}
+	}
+
 	updateCollectionResponse, err := params.Container.CollectionsStore().UpdateCollection(ctx, userClaim.Id, currentState.ID, updateCollectionRequest)
 	if err != nil {
 		if errors.Is(err, store.ErrCollectionNotFound) {
@@ -111,6 +124,8 @@ func ValidatePatchRequest(request *dto.PatchCollectionRequest) error {
 
 }
 
+// GetUpdateRequest constructs the update request for the CollectionsStore. It returns an error if any DOIs are not Pennsieve, and removes any
+// duplicates as well as any "adds" that already exist in the collection and any "removes" that do not exist in the collection.
 func GetUpdateRequest(pennsieveDOIPrefix string, patchRequest dto.PatchCollectionRequest, currentState store.GetCollectionResponse) (store.UpdateCollectionRequest, error) {
 	storeRequest := store.UpdateCollectionRequest{}
 	if patchRequest.Name != nil && *patchRequest.Name != currentState.Name {
@@ -135,7 +150,7 @@ func GetUpdateRequest(pennsieveDOIPrefix string, patchRequest dto.PatchCollectio
 		}
 	}
 
-	_, externalDOIs := CategorizeDOIs(pennsieveDOIPrefix, patchRequest.DOIs.Add)
+	pennsieveDOIs, externalDOIs := CategorizeDOIs(pennsieveDOIPrefix, patchRequest.DOIs.Add)
 	if len(externalDOIs) > 0 {
 		// We may later allow non-Pennsieve DOIs, but for now, this is an error
 		return store.UpdateCollectionRequest{}, apierrors.NewBadRequestError(
@@ -143,7 +158,7 @@ func GetUpdateRequest(pennsieveDOIPrefix string, patchRequest dto.PatchCollectio
 	}
 
 	// Iterate over all the DOIs to Add to maintain the same order
-	for _, toAdd := range patchRequest.DOIs.Add {
+	for _, toAdd := range pennsieveDOIs {
 		if _, exists := existingDOIs[toAdd]; !exists {
 			storeRequest.DOIs.Add = append(storeRequest.DOIs.Add, toAdd)
 		}

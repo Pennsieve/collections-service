@@ -2,6 +2,8 @@ package routes
 
 import (
 	"fmt"
+	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/service"
 	"strings"
 )
 
@@ -24,4 +26,15 @@ func CategorizeDOIs(pennsieveDOIPrefix string, dois []string) (pennsieveDOIs []s
 		}
 	}
 	return
+}
+
+func CheckForUnpublished(datasetResults service.DatasetsByDOIResponse) error {
+	if len(datasetResults.Unpublished) > 0 {
+		var details []string
+		for _, unpublished := range datasetResults.Unpublished {
+			details = append(details, fmt.Sprintf("%s status is %s", unpublished.DOI, unpublished.Status))
+		}
+		return apierrors.NewBadRequestError(fmt.Sprintf("request contains unpublished DOIs: %s", strings.Join(details, ", ")))
+	}
+	return nil
 }
