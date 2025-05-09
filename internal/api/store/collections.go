@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"log/slog"
@@ -14,7 +15,7 @@ import (
 const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
 
 type CollectionsStore interface {
-	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error)
+	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
@@ -35,7 +36,7 @@ func NewPostgresCollectionsStore(db postgres.DB, collectionsDatabaseName string,
 	}
 }
 
-func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []string) (CreateCollectionResponse, error) {
+func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return CreateCollectionResponse{}, fmt.Errorf("CreateCollection error connecting to database %s: %w", s.databaseName, err)
@@ -64,14 +65,16 @@ func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID 
 	if len(dois) > 0 {
 		var values []string
 		for i, doi := range dois {
-			key := fmt.Sprintf("doi_%d", i)
-			values = append(values, fmt.Sprintf("(@%s)", key))
-			insertCollectionArgs[key] = doi
+			doiKey := fmt.Sprintf("doi_%d", i)
+			datasourceKey := fmt.Sprintf("datasource_%d", i)
+			values = append(values, fmt.Sprintf("(@%s, @%s)", doiKey, datasourceKey))
+			insertCollectionArgs[doiKey] = doi.Value
+			insertCollectionArgs[datasourceKey] = doi.Datasource
 		}
 		insertDOISQLFormat := `, t AS (
-                          INSERT INTO collections.dois (collection_id, doi)
-                          SELECT new_collection.id, doi
-                          FROM new_collection, (VALUES %s) AS new_dois(doi)
+                          INSERT INTO collections.dois (collection_id, doi, datasource)
+                          SELECT new_collection.id, doi, datasource
+                          FROM new_collection, (VALUES %s) AS new_dois(doi, datasource)
                        )`
 		insertDOISQL = fmt.Sprintf(insertDOISQLFormat, strings.Join(values, ", "))
 	}
@@ -154,13 +157,15 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 		return GetCollectionsResponse{}, fmt.Errorf("GetCollections: error querying for collections: %w", err)
 	}
 
+	// We may have gotten no collections because limit == 0 or offset it too large,
+	// but we still want to return a correct total count, so recount with no limit or offset.
 	if len(collections) == 0 {
 		var totalCount int
 		if err := conn.QueryRow(ctx, `SELECT count(*)
-                                FROM collections.collections c
-         			            	JOIN collections.collection_user u ON c.id = u.collection_id
-			                    WHERE u.user_id = @user_id
-  				                	and u.permission_bit > 0`, getCollectionsArgs).Scan(&totalCount); err != nil {
+	                                FROM collections.collections c
+	         			            	JOIN collections.collection_user u ON c.id = u.collection_id
+				                    WHERE u.user_id = @user_id
+	  				                	and u.permission_bit > 0`, getCollectionsArgs).Scan(&totalCount); err != nil {
 			return GetCollectionsResponse{}, fmt.Errorf("GetCollections: error counting total collections: %w", err)
 		}
 		response.TotalCount = totalCount
@@ -211,7 +216,7 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 
 	idCondition := fmt.Sprintf("c.%s = @%s", idColumn, idColumn)
 
-	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, u.role, d.doi
+	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, u.role, d.doi, d.datasource
 			FROM collections.collections c
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
@@ -228,7 +233,8 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 	var name, description string
 	var pgxRole PgxRole
 	var doiOpt *string
-	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &pgxRole, &doiOpt}, func() error {
+	var datasourceOpt *datasource.DOIDatasource
+	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &pgxRole, &doiOpt, &datasourceOpt}, func() error {
 		if response == nil {
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
@@ -241,7 +247,10 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 			}
 		}
 		if doiOpt != nil {
-			response.DOIs = append(response.DOIs, *doiOpt)
+			response.DOIs = append(response.DOIs, DOI{
+				Value:      *doiOpt,
+				Datasource: *datasourceOpt,
+			})
 		}
 		return nil
 	})
@@ -338,11 +347,13 @@ func (s *PostgresCollectionsStore) UpdateCollection(ctx context.Context, userID,
 		var values []string
 		for i, doi := range update.DOIs.Add {
 			doiVar := fmt.Sprintf("doi_%d", i)
-			values = append(values, fmt.Sprintf("(@collection_id, @%s)", doiVar))
-			doiAddArgs[doiVar] = doi
+			datasourceVar := fmt.Sprintf("datasource_%d", i)
+			values = append(values, fmt.Sprintf("(@collection_id, @%s, @%s)", doiVar, datasourceVar))
+			doiAddArgs[doiVar] = doi.Value
+			doiAddArgs[datasourceVar] = doi.Datasource
 		}
 		doiAddArgs["collection_id"] = collectionID
-		doiAddSQL = fmt.Sprintf(`INSERT INTO collections.dois (collection_id, doi) VALUES %s ON CONFLICT (collection_id, doi) DO NOTHING`, strings.Join(values, ", "))
+		doiAddSQL = fmt.Sprintf(`INSERT INTO collections.dois (collection_id, doi, datasource) VALUES %s ON CONFLICT (collection_id, doi) DO NOTHING`, strings.Join(values, ", "))
 	}
 
 	conn, err := s.db.Connect(ctx, s.databaseName)

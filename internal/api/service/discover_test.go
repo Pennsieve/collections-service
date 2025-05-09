@@ -14,9 +14,9 @@ import (
 
 func TestHTTPDiscover_GetDatasetsByDOI(t *testing.T) {
 	publishedDOI := apitest.NewPennsieveDOI()
-	publishedDTO := apitest.NewPublicDataset(publishedDOI, apitest.NewBanner())
+	publishedDTO := apitest.NewPublicDataset(publishedDOI.Value, apitest.NewBanner())
 	expectedResponse := service.DatasetsByDOIResponse{
-		Published:   map[string]dto.PublicDataset{publishedDOI: publishedDTO},
+		Published:   map[string]dto.PublicDataset{publishedDOI.Value: publishedDTO},
 		Unpublished: nil,
 	}
 	discoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, func(dois []string) (service.DatasetsByDOIResponse, error) {
@@ -26,7 +26,7 @@ func TestHTTPDiscover_GetDatasetsByDOI(t *testing.T) {
 
 	discover := service.NewHTTPDiscover(discoverServer.URL, logging.Default)
 
-	response, err := discover.GetDatasetsByDOI([]string{publishedDOI})
+	response, err := discover.GetDatasetsByDOI([]string{publishedDOI.Value})
 	require.NoError(t, err)
 	assert.Equal(t, expectedResponse, response)
 

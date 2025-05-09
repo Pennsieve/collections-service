@@ -3,6 +3,8 @@ package apitest
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
@@ -67,33 +69,60 @@ func (c *ExpectedCollection) WithUser(userID int64, permission pgdb.DbPermission
 }
 
 type ExpectedDOI struct {
-	DOI string
+	DOI        string
+	Datasource datasource.DOIDatasource
 }
 
 // WithDOIs adds to the current ExpectedDOI slice
-func (c *ExpectedCollection) WithDOIs(dois ...string) *ExpectedCollection {
+func (c *ExpectedCollection) WithDOIs(dois ...store.DOI) *ExpectedCollection {
 	for _, doi := range dois {
-		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: doi})
+		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: doi.Value, Datasource: doi.Datasource})
 	}
 	return c
 }
 
 // SetDOIs replaces the current ExpectedDOI slice with the given DOIs
-func (c *ExpectedCollection) SetDOIs(dois ...string) *ExpectedCollection {
+func (c *ExpectedCollection) SetDOIs(dois ...store.DOI) *ExpectedCollection {
 	var newDOIs []ExpectedDOI
 	for _, doi := range dois {
-		newDOIs = append(newDOIs, ExpectedDOI{DOI: doi})
+		newDOIs = append(newDOIs, ExpectedDOI{DOI: doi.Value, Datasource: doi.Datasource})
 	}
 	c.DOIs = newDOIs
 	return c
 }
 
 func (c *ExpectedCollection) WithNPennsieveDOIs(n int) *ExpectedCollection {
-	var dois []string
+	var dois []store.DOI
 	for i := 0; i < n; i++ {
 		dois = append(dois, NewPennsieveDOI())
 	}
 	return c.WithDOIs(dois...)
+}
+
+// WithPublicDatasets appends the DOIs of the given publicDatasets to the ExpectedDOIs
+func (c *ExpectedCollection) WithPublicDatasets(publicDatasets ...dto.PublicDataset) *ExpectedCollection {
+	for _, publicDataset := range publicDatasets {
+		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: publicDataset.DOI, Datasource: datasource.Pennsieve})
+	}
+	return c
+}
+
+// WithTombstones appends the DOIs of the given tombstones to the ExpectedDOIs
+func (c *ExpectedCollection) WithTombstones(tombstones ...dto.Tombstone) *ExpectedCollection {
+	for _, tombstone := range tombstones {
+		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: tombstone.DOI, Datasource: datasource.Pennsieve})
+	}
+	return c
+}
+
+// SetPublicDatasets replaces the current ExpectedDOI slice with the DOIs of the given publicDatasets
+func (c *ExpectedCollection) SetPublicDatasets(publicDatasets ...dto.PublicDataset) *ExpectedCollection {
+	var newDOIs []ExpectedDOI
+	for _, publicDataset := range publicDatasets {
+		newDOIs = append(newDOIs, ExpectedDOI{DOI: publicDataset.DOI, Datasource: datasource.Pennsieve})
+	}
+	c.DOIs = newDOIs
+	return c
 }
 
 type ExpectedDOIs []ExpectedDOI
@@ -105,6 +134,20 @@ func (d ExpectedDOIs) Strings() []string {
 	strs := make([]string, len(d))
 	for i, doi := range d {
 		strs[i] = doi.DOI
+	}
+	return strs
+}
+
+func (d ExpectedDOIs) AsDOIs() []store.DOI {
+	if len(d) == 0 {
+		return nil
+	}
+	strs := make([]store.DOI, len(d))
+	for i, doi := range d {
+		strs[i] = store.DOI{
+			Value:      doi.DOI,
+			Datasource: doi.Datasource,
+		}
 	}
 	return strs
 }
@@ -128,7 +171,7 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 	}
 	return store.GetCollectionResponse{
 		CollectionBase: collectionBase,
-		DOIs:           c.DOIs.Strings(),
+		DOIs:           c.DOIs.AsDOIs(),
 	}
 }
 
@@ -167,9 +210,9 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 			toDeleteSet[toDelete] = true
 		}
 
-		var updatedDOIs []string
-		for _, doi := range c.DOIs.Strings() {
-			if _, deleted := toDeleteSet[doi]; !deleted {
+		var updatedDOIs []store.DOI
+		for _, doi := range c.DOIs.AsDOIs() {
+			if _, deleted := toDeleteSet[doi.Value]; !deleted {
 				updatedDOIs = append(updatedDOIs, doi)
 			}
 		}

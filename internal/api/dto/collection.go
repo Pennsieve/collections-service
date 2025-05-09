@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"time"
 )
 
@@ -116,17 +117,12 @@ func (r CollectionSummary) MarshalJSON() ([]byte, error) {
 	return json.Marshal(CollectionSummaryAlias(r))
 }
 
-type DOIInformationSource string
-
-const PennsieveSource DOIInformationSource = "Pennsieve"
-const ExternalSource DOIInformationSource = "External"
-
 type Dataset struct {
-	Source  DOIInformationSource `json:"source"`
-	Problem bool                 `json:"problem"`
+	Source  datasource.DOIDatasource `json:"source"`
+	Problem bool                     `json:"problem"`
 	// Data is the info we got from looking up the DOI.
-	// If Source == PennsieveSource AND Problem == false, then Data is a PublicDataset.
-	// If Source == PennsieveSource AND Problem == true, then Data is a Tombstone.
+	// If Source == Pennsieve AND Problem == false, then Data is a PublicDataset.
+	// If Source == Pennsieve AND Problem == true, then Data is a Tombstone.
 	Data json.RawMessage `json:"data"`
 }
 
@@ -137,7 +133,7 @@ func NewPennsieveDataset(publicDataset PublicDataset) (Dataset, error) {
 			publicDataset.ID, publicDataset.Version, err)
 	}
 	return Dataset{
-		Source: PennsieveSource,
+		Source: datasource.Pennsieve,
 		Data:   pennsieveBytes,
 	}, nil
 }
@@ -149,7 +145,7 @@ func NewTombstoneDataset(tombstone Tombstone) (Dataset, error) {
 			tombstone.ID, tombstone.Version, err)
 	}
 	return Dataset{
-		Source:  PennsieveSource,
+		Source:  datasource.Pennsieve,
 		Problem: true,
 		Data:    tombstoneBytes,
 	}, nil

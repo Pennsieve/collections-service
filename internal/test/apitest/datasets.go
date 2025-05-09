@@ -3,6 +3,7 @@ package apitest
 import (
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -26,19 +27,44 @@ func NewExpectedPennsieveDatasets() *ExpectedPennsieveDatasets {
 	}
 }
 
-func (e *ExpectedPennsieveDatasets) NewPublished(contributors ...dto.PublicContributor) dto.PublicDataset {
+type PublicDatasetOption func(publicDataset *dto.PublicDataset)
+
+func WithNilBanner() PublicDatasetOption {
+	return func(publicDataset *dto.PublicDataset) {
+		publicDataset.Banner = nil
+	}
+}
+
+func WithPublicContributors(contributors ...dto.PublicContributor) PublicDatasetOption {
+	return func(publicDataset *dto.PublicDataset) {
+		publicDataset.Contributors = append(publicDataset.Contributors, contributors...)
+	}
+}
+
+func (e *ExpectedPennsieveDatasets) NewPublishedWithOptions(opts ...PublicDatasetOption) dto.PublicDataset {
 	doi := NewPennsieveDOI()
 	banner := NewBanner()
-	published := NewPublicDataset(doi, banner, contributors...)
-	e.DOIToPublicDataset[doi] = published
-	return published
+	publicDataset := NewPublicDataset(doi.Value, banner)
+	for _, opt := range opts {
+		opt(&publicDataset)
+	}
+	e.DOIToPublicDataset[doi.Value] = publicDataset
+	return publicDataset
+}
+
+func (e *ExpectedPennsieveDatasets) NewPublished(contributors ...dto.PublicContributor) dto.PublicDataset {
+	return e.NewPublishedWithOptions(WithPublicContributors(contributors...))
+}
+
+func (e *ExpectedPennsieveDatasets) NewPublishedWithNilBanner(contributors ...dto.PublicContributor) dto.PublicDataset {
+	return e.NewPublishedWithOptions(WithNilBanner(), WithPublicContributors(contributors...))
 }
 
 func (e *ExpectedPennsieveDatasets) NewUnpublished() dto.Tombstone {
 	doi := NewPennsieveDOI()
 	status := uuid.NewString()
-	tombstone := NewTombstone(doi, status)
-	e.DOIToTombstone[doi] = tombstone
+	tombstone := NewTombstone(doi.Value, status)
+	e.DOIToTombstone[doi.Value] = tombstone
 	return tombstone
 }
 
@@ -102,7 +128,7 @@ func (e *ExpectedPennsieveDatasets) GetDatasetsByDOIFunc(t require.TestingT) moc
 // will fail the test.
 func RequireAsPennsieveDataset(t require.TestingT, actualDataset dto.Dataset, publicDataset *dto.PublicDataset) {
 	test.Helper(t)
-	require.Equal(t, dto.PennsieveSource, actualDataset.Source)
+	require.Equal(t, datasource.Pennsieve, actualDataset.Source)
 	require.False(t, actualDataset.Problem)
 	require.NoError(t, json.Unmarshal(actualDataset.Data, publicDataset))
 }
@@ -111,7 +137,7 @@ func RequireAsPennsieveDataset(t require.TestingT, actualDataset dto.Dataset, pu
 // will fail the test.
 func RequireAsPennsieveTombstone(t require.TestingT, actualDataset dto.Dataset, tombstone *dto.Tombstone) {
 	test.Helper(t)
-	require.Equal(t, dto.PennsieveSource, actualDataset.Source)
+	require.Equal(t, datasource.Pennsieve, actualDataset.Source)
 	require.True(t, actualDataset.Problem)
 	require.NoError(t, json.Unmarshal(actualDataset.Data, tombstone))
 }

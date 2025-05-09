@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/api/validate"
@@ -72,8 +73,10 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 	}
 
 	// Check that we haven't been asked to add unpublished DOIs.
-	if toAdd := updateCollectionRequest.DOIs.Add; len(toAdd) > 0 {
-		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(toAdd)
+	// For now, no external DOIs, so we ignore that part of the return value
+	// GetUpdateRequest will have failed if there were any external DOIs
+	if pennsieveToAdd, _ := GroupByDatasource(updateCollectionRequest.DOIs.Add); len(pennsieveToAdd) > 0 {
+		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(pennsieveToAdd)
 		if err != nil {
 			return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
 				"error querying Discover for DOIs to add during update",
@@ -141,7 +144,7 @@ func GetUpdateRequest(pennsieveDOIPrefix string, patchRequest dto.PatchCollectio
 
 	existingDOIs := map[string]bool{}
 	for _, doi := range currentState.DOIs {
-		existingDOIs[doi] = true
+		existingDOIs[doi.Value] = true
 	}
 
 	for _, toDelete := range patchRequest.DOIs.Remove {
@@ -160,7 +163,10 @@ func GetUpdateRequest(pennsieveDOIPrefix string, patchRequest dto.PatchCollectio
 	// Iterate over all the DOIs to Add to maintain the same order
 	for _, toAdd := range pennsieveDOIs {
 		if _, exists := existingDOIs[toAdd]; !exists {
-			storeRequest.DOIs.Add = append(storeRequest.DOIs.Add, toAdd)
+			storeRequest.DOIs.Add = append(storeRequest.DOIs.Add, store.DOI{
+				Value:      toAdd,
+				Datasource: datasource.Pennsieve,
+			})
 		}
 	}
 	return storeRequest, nil

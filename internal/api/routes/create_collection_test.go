@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -96,15 +95,13 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 
 	callingUser := apitest.SeedUser1
 
-	publishedDOI1 := apitest.NewPennsieveDOI()
-	banner1 := apitest.NewBanner()
-
-	publishedDOI2 := apitest.NewPennsieveDOI()
-	banner2 := apitest.NewBanner()
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	published1 := expectedDatasets.NewPublished()
+	published2 := expectedDatasets.NewPublished()
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
-		WithDOIs(publishedDOI1, publishedDOI2)
+		WithPublicDatasets(published1, published2)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        expectedCollection.Name,
@@ -112,15 +109,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 		DOIs:        expectedCollection.DOIs.Strings(),
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, func(dois []string) (service.DatasetsByDOIResponse, error) {
-		t.Helper()
-		require.Equal(t, []string{publishedDOI1, publishedDOI2}, dois)
-		return service.DatasetsByDOIResponse{
-			Published: map[string]dto.PublicDataset{
-				publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
-				publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2)},
-		}, nil
-	}))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -152,7 +141,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	assert.Equal(t, createCollectionRequest.Name, response.Name)
 	assert.Equal(t, createCollectionRequest.Description, response.Description)
 	assert.Equal(t, len(createCollectionRequest.DOIs), response.Size)
-	assert.Equal(t, []string{*banner1, *banner2}, response.Banners)
+	assert.Equal(t, []string{*published1.Banner, *published2.Banner}, response.Banners)
 	assert.Equal(t, role.Owner.String(), response.UserRole)
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
@@ -163,24 +152,16 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 
 	callingUser := apitest.SeedUser1
 
-	publishedDOI1 := apitest.NewPennsieveDOI()
-	banner1 := apitest.NewBanner()
-
-	publishedDOI2 := apitest.NewPennsieveDOI()
-	banner2 := apitest.NewBanner()
-
-	publishedDOI3 := apitest.NewPennsieveDOI()
-	banner3 := apitest.NewBanner()
-
-	publishedDTO4 := apitest.NewPennsieveDOI()
-	banner4 := apitest.NewBanner()
-
-	publishedDTO5 := apitest.NewPennsieveDOI()
-	banner5 := apitest.NewBanner()
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	published1 := expectedDatasets.NewPublished()
+	published2 := expectedDatasets.NewPublished()
+	published3 := expectedDatasets.NewPublished()
+	published4 := expectedDatasets.NewPublished()
+	published5 := expectedDatasets.NewPublished()
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
-		WithDOIs(publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5)
+		WithPublicDatasets(published1, published2, published3, published4, published5)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        expectedCollection.Name,
@@ -188,19 +169,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 		DOIs:        expectedCollection.DOIs.Strings(),
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, func(dois []string) (service.DatasetsByDOIResponse, error) {
-		t.Helper()
-		require.Equal(t, []string{publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5}, dois)
-		return service.DatasetsByDOIResponse{
-			Published: map[string]dto.PublicDataset{
-				publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
-				publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2),
-				publishedDOI3: apitest.NewPublicDataset(publishedDOI3, banner3),
-				publishedDTO4: apitest.NewPublicDataset(publishedDTO4, banner4),
-				publishedDTO5: apitest.NewPublicDataset(publishedDTO5, banner5),
-			},
-		}, nil
-	}))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -232,7 +201,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	assert.Equal(t, createCollectionRequest.Name, response.Name)
 	assert.Equal(t, createCollectionRequest.Description, response.Description)
 	assert.Equal(t, len(createCollectionRequest.DOIs), response.Size)
-	assert.Equal(t, []string{*banner1, *banner2, *banner3, *banner4}, response.Banners)
+	assert.Equal(t, []string{*published1.Banner, *published2.Banner, *published3.Banner, *published4.Banner}, response.Banners)
 	assert.Equal(t, role.Owner.String(), response.UserRole)
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
@@ -244,24 +213,20 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 
 	callingUser := apitest.SeedUser1
 
-	publishedDOI1 := apitest.NewPennsieveDOI()
-	var banner1 *string = nil
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	published1 := expectedDatasets.NewPublishedWithNilBanner()
 
-	publishedDOI2 := apitest.NewPennsieveDOI()
-	banner2 := apitest.NewBanner()
+	published2 := expectedDatasets.NewPublished()
 
-	publishedDOI3 := apitest.NewPennsieveDOI()
-	var banner3 *string = nil
+	published3 := expectedDatasets.NewPublishedWithNilBanner()
 
-	publishedDTO4 := apitest.NewPennsieveDOI()
-	banner4 := apitest.NewBanner()
+	published4 := expectedDatasets.NewPublished()
 
-	publishedDTO5 := apitest.NewPennsieveDOI()
-	var banner5 *string = nil
+	published5 := expectedDatasets.NewPublishedWithNilBanner()
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
-		WithDOIs(publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5)
+		WithPublicDatasets(published1, published2, published3, published4, published5)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        expectedCollection.Name,
@@ -269,19 +234,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 		DOIs:        expectedCollection.DOIs.Strings(),
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, func(dois []string) (service.DatasetsByDOIResponse, error) {
-		t.Helper()
-		require.Equal(t, []string{publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5}, dois)
-		return service.DatasetsByDOIResponse{
-			Published: map[string]dto.PublicDataset{
-				publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
-				publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2),
-				publishedDOI3: apitest.NewPublicDataset(publishedDOI3, banner3),
-				publishedDTO4: apitest.NewPublicDataset(publishedDTO4, banner4),
-				publishedDTO5: apitest.NewPublicDataset(publishedDTO5, banner5),
-			},
-		}, nil
-	}))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -313,7 +266,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	assert.Equal(t, createCollectionRequest.Name, response.Name)
 	assert.Equal(t, createCollectionRequest.Description, response.Description)
 	assert.Equal(t, len(createCollectionRequest.DOIs), response.Size)
-	assert.Equal(t, []string{"", *banner2, "", *banner4}, response.Banners)
+	assert.Equal(t, []string{"", *published2.Banner, "", *published4.Banner}, response.Banners)
 	assert.Equal(t, role.Owner.String(), response.UserRole)
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
@@ -325,33 +278,29 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 
 	callingUser := apitest.SeedUser1
 
-	publishedDOI1 := apitest.NewPennsieveDOI()
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	published1 := expectedDatasets.NewPublished()
+	published2 := expectedDatasets.NewPublished()
+
+	/*publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
 
 	publishedDOI2 := apitest.NewPennsieveDOI()
-	banner2 := apitest.NewBanner()
+	banner2 := apitest.NewBanner()*/
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
-		WithDOIs(publishedDOI1, publishedDOI2)
+		WithPublicDatasets(published1, published2)
 
 	// Add some whitespace to vales in the create request.
 	// Server should trim it off before creation and return the trimmed values.
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        fmt.Sprintf("   %s ", expectedCollection.Name),
 		Description: fmt.Sprintf("%s  ", expectedCollection.Description),
-		DOIs:        []string{fmt.Sprintf(" %s", publishedDOI1), fmt.Sprintf("%s ", publishedDOI2)},
+		DOIs:        []string{fmt.Sprintf(" %s", published1.DOI), fmt.Sprintf("%s ", published2.DOI)},
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, func(dois []string) (service.DatasetsByDOIResponse, error) {
-		t.Helper()
-		require.Equal(t, []string{publishedDOI1, publishedDOI2}, dois)
-		return service.DatasetsByDOIResponse{
-			Published: map[string]dto.PublicDataset{
-				publishedDOI1: apitest.NewPublicDataset(publishedDOI1, banner1),
-				publishedDOI2: apitest.NewPublicDataset(publishedDOI2, banner2)},
-		}, nil
-	}))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -383,7 +332,7 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 	assert.Equal(t, expectedCollection.Name, response.Name)
 	assert.Equal(t, expectedCollection.Description, response.Description)
 	assert.Equal(t, len(expectedCollection.DOIs), response.Size)
-	assert.Equal(t, []string{*banner1, *banner2}, response.Banners)
+	assert.Equal(t, []string{*published1.Banner, *published2.Banner}, response.Banners)
 	assert.Equal(t, role.Owner.String(), response.UserRole)
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
@@ -429,7 +378,7 @@ func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewMockCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []string) (store.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewMockCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []store.DOI) (store.CreateCollectionResponse, error) {
 		t.Helper()
 		collectionNodeID = nodeID
 		return store.CreateCollectionResponse{

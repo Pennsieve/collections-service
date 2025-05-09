@@ -3,7 +3,9 @@ package routes
 import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/api/store"
 	"strings"
 )
 
@@ -23,6 +25,17 @@ func CategorizeDOIs(pennsieveDOIPrefix string, dois []string) (pennsieveDOIs []s
 			} else {
 				externalDOIs = append(externalDOIs, doi)
 			}
+		}
+	}
+	return
+}
+
+func GroupByDatasource(dois []store.DOI) (pennsieveDOIs []string, externalDOIs []string) {
+	for _, doi := range dois {
+		if doi.Datasource == datasource.Pennsieve {
+			pennsieveDOIs = append(pennsieveDOIs, doi.Value)
+		} else {
+			externalDOIs = append(externalDOIs, doi.Value)
 		}
 	}
 	return
