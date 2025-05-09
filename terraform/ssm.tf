@@ -21,8 +21,8 @@ resource "aws_ssm_parameter" "postgres_password" {
   }
 }
 
-resource "aws_ssm_parameter" "postgres_collections_database" {
-  name  = "/${var.environment_name}/${var.dbmigrate_service_name}/postgres-collections-database"
+resource "aws_ssm_parameter" "postgres_database" {
+  name  = "/${var.environment_name}/${var.dbmigrate_service_name}/postgres-database"
   type  = "String"
   value = var.pennsieve_postgres_database
 }

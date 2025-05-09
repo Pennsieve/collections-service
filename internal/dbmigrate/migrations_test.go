@@ -4,10 +4,11 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/pennsieve/collections-service/internal/dbmigrate"
+	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/dbmigratetest"
+	"github.com/pennsieve/dbmigrate-go/pkg/dbmigrate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -21,7 +22,7 @@ import (
 func TestCollectionsMigrator(t *testing.T) {
 	tests := []struct {
 		scenario string
-		tstFunc  func(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn)
+		tstFunc  func(t *testing.T, migrator *dbmigrate.DatabaseMigrator, verificationConn *pgx.Conn)
 	}{
 		{"test up and collections created_at and updated_at", testUp},
 		{"Down runs without error", testDown},
@@ -67,11 +68,15 @@ func TestCollectionsMigrator(t *testing.T) {
 		t.Run(tt.scenario, func(t *testing.T) {
 			// make a migrator for each test and pass it into the function so that
 			// we can take care of cleaning it up here
-			migrator, err := dbmigrate.NewLocalCollectionsMigrator(ctx, migrateConfig)
+			migrationSource, err := collectionsconfig.MigrationsSource()
+			require.NoError(t, err)
+			migrator, err := dbmigrate.NewLocalMigrator(ctx, migrateConfig, migrationSource)
 			require.NoError(t, err)
 
 			// also pass in a plain pgx.Conn to let the test function run any verifications on the migrated schema
-			verificationConn, err := test.NewPostgresDBFromConfig(t, migrateConfig.PostgresDB).Connect(ctx, migrateConfig.PostgresDB.CollectionsDatabase)
+			verificationConn, err := test.NewPostgresDBFromConfig(t,
+				dbmigratetest.ToSharedPostgresDBConfig(migrateConfig.PostgresDB),
+			).Connect(ctx, migrateConfig.PostgresDB.Database)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
@@ -85,7 +90,7 @@ func TestCollectionsMigrator(t *testing.T) {
 	}
 }
 
-func testUp(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
+func testUp(t *testing.T, migrator *dbmigrate.DatabaseMigrator, verificationConn *pgx.Conn) {
 
 	require.NoError(t, migrator.Up())
 
@@ -121,14 +126,14 @@ func testUp(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationC
 // We don't really use the Down() method for real. Test is here so that
 // if we do write 'down' files something checks that they at least run
 // without error.
-func testDown(t *testing.T, migrator *dbmigrate.CollectionsMigrator, _ *pgx.Conn) {
+func testDown(t *testing.T, migrator *dbmigrate.DatabaseMigrator, _ *pgx.Conn) {
 
 	require.NoError(t, migrator.Up())
 
 	require.NoError(t, migrator.Down())
 }
 
-func testPreventEmptyName(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
+func testPreventEmptyName(t *testing.T, migrator *dbmigrate.DatabaseMigrator, verificationConn *pgx.Conn) {
 	require.NoError(t, migrator.Up())
 
 	ctx := context.Background()
@@ -151,7 +156,7 @@ func testPreventEmptyName(t *testing.T, migrator *dbmigrate.CollectionsMigrator,
 
 }
 
-func testPreventWhiteSpaceName(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
+func testPreventWhiteSpaceName(t *testing.T, migrator *dbmigrate.DatabaseMigrator, verificationConn *pgx.Conn) {
 	require.NoError(t, migrator.Up())
 
 	ctx := context.Background()
@@ -176,7 +181,7 @@ func testPreventWhiteSpaceName(t *testing.T, migrator *dbmigrate.CollectionsMigr
 
 }
 
-func testPreventEmptyDOI(t *testing.T, migrator *dbmigrate.CollectionsMigrator, verificationConn *pgx.Conn) {
+func testPreventEmptyDOI(t *testing.T, migrator *dbmigrate.DatabaseMigrator, verificationConn *pgx.Conn) {
 	require.NoError(t, migrator.Up())
 
 	ctx := context.Background()

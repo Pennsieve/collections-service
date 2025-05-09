@@ -1,29 +1,24 @@
 package dbmigrate
 
 import (
+	"embed"
 	"fmt"
-	"github.com/pennsieve/collections-service/internal/shared/config"
-	"strconv"
+	"github.com/golang-migrate/migrate/v4/source"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/pennsieve/dbmigrate-go/pkg/shared/config"
 )
 
-const VerboseLoggingKey = "VERBOSE_LOGGING"
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
-type Config struct {
-	PostgresDB     config.PostgresDBConfig
-	VerboseLogging bool
+func ConfigDefaults() config.DefaultSettings {
+	return config.DefaultSettings{"POSTGRES_SCHEMA": "collections"}
 }
 
-func LoadConfig() (Config, error) {
-	verboseStr := config.GetEnvOrDefault(VerboseLoggingKey, "false")
-	isVerbose, err := strconv.ParseBool(verboseStr)
+func MigrationsSource() (source.Driver, error) {
+	migrationSource, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
-		return Config{}, fmt.Errorf("error converting %q value %s to bool: %w",
-			VerboseLoggingKey, verboseStr, err)
+		return nil, fmt.Errorf("error creating migration iofs source.Driver: %w", err)
 	}
-	return Config{
-		PostgresDB:     config.LoadPostgresDBConfig(),
-		VerboseLogging: isVerbose,
-	}, nil
+	return migrationSource, nil
 }
-
-const CollectionsSchemaName = "collections"

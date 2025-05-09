@@ -5,6 +5,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/stretchr/testify/require"
 )
@@ -42,6 +43,7 @@ func (e *ExpectedPennsieveDatasets) NewUnpublished() dto.Tombstone {
 }
 
 func (e *ExpectedPennsieveDatasets) ExpectedBannersForDOIs(t require.TestingT, expectedDOIs []string) []string {
+	test.Helper(t)
 	var expectedBanners []string
 	for _, doi := range expectedDOIs {
 		if _, published := e.DOIToPublicDataset[doi]; published {
@@ -52,6 +54,7 @@ func (e *ExpectedPennsieveDatasets) ExpectedBannersForDOIs(t require.TestingT, e
 }
 
 func (e *ExpectedPennsieveDatasets) ExpectedBannerForDOI(t require.TestingT, expectedDOI string) string {
+	test.Helper(t)
 	require.Contains(t, e.DOIToPublicDataset, expectedDOI, "no expected published dataset has DOI %s", expectedDOI)
 	if bannerOpt := e.DOIToPublicDataset[expectedDOI].Banner; bannerOpt != nil {
 		return *bannerOpt
@@ -60,12 +63,14 @@ func (e *ExpectedPennsieveDatasets) ExpectedBannerForDOI(t require.TestingT, exp
 }
 
 func (e *ExpectedPennsieveDatasets) ExpectedContributorsForDOI(t require.TestingT, expectedDOI string) []dto.PublicContributor {
+	test.Helper(t)
 	require.Contains(t, e.DOIToPublicDataset, expectedDOI, "no expected published dataset has DOI %s", expectedDOI)
 	return e.DOIToPublicDataset[expectedDOI].Contributors
 }
 
 // ExpectedContributorsForDOIs does NOT de-deduplicate the contributors!
 func (e *ExpectedPennsieveDatasets) ExpectedContributorsForDOIs(t require.TestingT, expectedDOIs []string) []dto.PublicContributor {
+	test.Helper(t)
 	var expectedContributors []dto.PublicContributor
 	for _, doi := range expectedDOIs {
 		expectedContributors = append(expectedContributors, e.ExpectedContributorsForDOI(t, doi)...)
@@ -75,6 +80,7 @@ func (e *ExpectedPennsieveDatasets) ExpectedContributorsForDOIs(t require.Testin
 
 func (e *ExpectedPennsieveDatasets) GetDatasetsByDOIFunc(t require.TestingT) mocks.GetDatasetsByDOIFunc {
 	return func(dois []string) (service.DatasetsByDOIResponse, error) {
+		test.Helper(t)
 		response := service.DatasetsByDOIResponse{
 			Published:   map[string]dto.PublicDataset{},
 			Unpublished: map[string]dto.Tombstone{},
@@ -92,13 +98,19 @@ func (e *ExpectedPennsieveDatasets) GetDatasetsByDOIFunc(t require.TestingT) moc
 	}
 }
 
+// RequireAsPennsieveDataset will unmarshall actualDataset.Data into publicDataset if it can. If it cannot, it
+// will fail the test.
 func RequireAsPennsieveDataset(t require.TestingT, actualDataset dto.Dataset, publicDataset *dto.PublicDataset) {
+	test.Helper(t)
 	require.Equal(t, dto.PennsieveSource, actualDataset.Source)
 	require.False(t, actualDataset.Problem)
 	require.NoError(t, json.Unmarshal(actualDataset.Data, publicDataset))
 }
 
+// RequireAsPennsieveTombstone will unmarshall actualDataset.Data into tombstone if it can. If it cannot, it
+// will fail the test.
 func RequireAsPennsieveTombstone(t require.TestingT, actualDataset dto.Dataset, tombstone *dto.Tombstone) {
+	test.Helper(t)
 	require.Equal(t, dto.PennsieveSource, actualDataset.Source)
 	require.True(t, actualDataset.Problem)
 	require.NoError(t, json.Unmarshal(actualDataset.Data, tombstone))

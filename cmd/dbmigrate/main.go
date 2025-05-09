@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
-	"github.com/pennsieve/collections-service/internal/dbmigrate"
+	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
+	"github.com/pennsieve/dbmigrate-go/pkg/dbmigrate"
+	dbmigrateconfig "github.com/pennsieve/dbmigrate-go/pkg/shared/config"
 	"log/slog"
 	"os"
 )
@@ -11,11 +13,13 @@ var logger = slog.Default()
 
 func main() {
 	ctx := context.Background()
-	migrateConfig, err := dbmigrate.LoadConfig()
+
+	migrateConfig, err := dbmigrateconfig.LoadConfig(collectionsconfig.ConfigDefaults())
 	if err != nil {
 		logger.Error("error loading config", slog.Any("error", err))
 		os.Exit(1)
 	}
+
 	if migrateConfig.PostgresDB.Password == nil {
 		logger.Error("password must be specified; cannot currently use RDS proxy for migrates since no Postgres role with the appropriate grants has credentials in the proxy")
 		os.Exit(1)
@@ -26,10 +30,17 @@ func main() {
 				slog.String("host", migrateConfig.PostgresDB.Host),
 				slog.Int("port", migrateConfig.PostgresDB.Port),
 				slog.String("username", migrateConfig.PostgresDB.User),
-				slog.String("database", migrateConfig.PostgresDB.CollectionsDatabase),
+				slog.String("database", migrateConfig.PostgresDB.Database),
 			)).
 		Info("collections DB schema migration started")
-	m, err := dbmigrate.NewLocalCollectionsMigrator(ctx, migrateConfig)
+
+	migrationsSource, err := collectionsconfig.MigrationsSource()
+	if err != nil {
+		logger.Error("error creating collections MigrationSource", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	m, err := dbmigrate.NewLocalMigrator(ctx, migrateConfig, migrationsSource)
 	if err != nil {
 		logger.Error("error creating CollectionsMigrator", slog.Any("error", err))
 		os.Exit(1)
