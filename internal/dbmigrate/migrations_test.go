@@ -5,8 +5,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
+	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/test"
-	"github.com/pennsieve/collections-service/internal/test/dbmigratetest"
+	"github.com/pennsieve/collections-service/internal/test/configtest"
+	"github.com/pennsieve/dbmigrate-go/pkg/config"
 	"github.com/pennsieve/dbmigrate-go/pkg/dbmigrate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,7 +60,7 @@ func TestCollectionsMigrator(t *testing.T) {
 	port, err := strconv.Atoi(portStr)
 	require.NoError(t, err)
 
-	migrateConfig := dbmigratetest.Config(t,
+	migrateConfig := newConfig(t,
 		host,
 		port,
 	)
@@ -74,13 +76,13 @@ func TestCollectionsMigrator(t *testing.T) {
 
 			// also pass in a plain pgx.Conn to let the test function run any verifications on the migrated schema
 			verificationConn, err := test.NewPostgresDBFromConfig(t,
-				dbmigratetest.ToSharedPostgresDBConfig(migrateConfig.PostgresDB),
+				toSharedPostgresDBConfig(migrateConfig.PostgresDB),
 			).Connect(ctx, migrateConfig.PostgresDB.Database)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
 				require.NoError(t, migrator.Drop())
-				dbmigratetest.Close(t, migrator)
+				closeMigrator(t, migrator)
 				test.CloseConnection(ctx, t, verificationConn)
 			})
 
@@ -210,4 +212,39 @@ func testPreventEmptyDOI(t *testing.T, migrator *dbmigrate.DatabaseMigrator, ver
 	require.NoError(t, err)
 	assert.Empty(t, emptyDOIIDs)
 
+}
+
+func newConfig(t *testing.T, host string, port int) config.Config {
+	t.Helper()
+	defaults := collectionsconfig.ConfigDefaults()
+	localconfig := configtest.PostgresDBConfig(t, sharedconfig.WithHost(host), sharedconfig.WithPort(port))
+	postgresConfig := config.PostgresDBConfig{
+		Host:     localconfig.Host,
+		Port:     localconfig.Port,
+		User:     localconfig.User,
+		Password: localconfig.Password,
+		Database: localconfig.CollectionsDatabase,
+		Schema:   defaults[config.PostgresSchemaKey],
+	}
+	return config.Config{
+		PostgresDB:     postgresConfig,
+		VerboseLogging: true,
+	}
+}
+
+func closeMigrator(t *testing.T, migrator *dbmigrate.DatabaseMigrator) {
+	t.Helper()
+	srcErr, dbErr := migrator.Close()
+	require.NoError(t, srcErr)
+	require.NoError(t, dbErr)
+}
+
+func toSharedPostgresDBConfig(config config.PostgresDBConfig) sharedconfig.PostgresDBConfig {
+	return sharedconfig.PostgresDBConfig{
+		Host:                config.Host,
+		Port:                config.Port,
+		User:                config.User,
+		Password:            config.Password,
+		CollectionsDatabase: config.Database,
+	}
 }

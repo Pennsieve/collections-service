@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	config2 "github.com/pennsieve/collections-service/internal/shared/config"
 	"strings"
 )
 
@@ -35,7 +36,7 @@ func WithDOIPrefix(doiPrefix string) PennsieveOption {
 func LoadPennsieveConfig(options ...PennsieveOption) (PennsieveConfig, error) {
 	pennsieveConfig := NewPennsieveConfig(options...)
 	if len(pennsieveConfig.DiscoverServiceURL) == 0 {
-		url, err := GetEnv("DISCOVER_SERVICE_HOST")
+		url, err := config2.GetEnv("DISCOVER_SERVICE_HOST")
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
@@ -45,7 +46,7 @@ func LoadPennsieveConfig(options ...PennsieveOption) (PennsieveConfig, error) {
 		pennsieveConfig.DiscoverServiceURL = url
 	}
 	if len(pennsieveConfig.DOIPrefix) == 0 {
-		prefix, err := GetEnv("PENNSIEVE_DOI_PREFIX")
+		prefix, err := config2.GetEnv("PENNSIEVE_DOI_PREFIX")
 		if err != nil {
 			return PennsieveConfig{}, err
 		}

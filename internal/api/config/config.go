@@ -1,16 +1,19 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	config2 "github.com/pennsieve/collections-service/internal/shared/config"
+)
 
 const MaxBannersPerCollection = 4
 
 type Config struct {
-	PostgresDB      PostgresDBConfig
+	PostgresDB      config2.PostgresDBConfig
 	PennsieveConfig PennsieveConfig
 }
 
 func LoadConfig() (Config, error) {
-	postgresConfig, err := LoadPostgresDBConfig()
+	postgresConfig, err := config2.NewPostgresDBConfig().Load()
 	if err != nil {
 		return Config{}, fmt.Errorf("error loading PostgresDB config: %w", err)
 	}

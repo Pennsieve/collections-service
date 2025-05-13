@@ -2,6 +2,7 @@ package apitest
 
 import (
 	"github.com/pennsieve/collections-service/internal/api/config"
+	config2 "github.com/pennsieve/collections-service/internal/shared/config"
 )
 
 type ConfigBuilder struct {
@@ -12,7 +13,7 @@ func NewConfigBuilder() *ConfigBuilder {
 	return &ConfigBuilder{c: &config.Config{}}
 }
 
-func (b *ConfigBuilder) WithPostgresDBConfig(postgresDBConfig config.PostgresDBConfig) *ConfigBuilder {
+func (b *ConfigBuilder) WithPostgresDBConfig(postgresDBConfig config2.PostgresDBConfig) *ConfigBuilder {
 	b.c.PostgresDB = postgresDBConfig
 	return b
 }

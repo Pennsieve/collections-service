@@ -3,10 +3,9 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/collections-service/internal/api/config"
-	"github.com/stretchr/testify/require"
-
 	"github.com/jackc/pgx/v5"
+	"github.com/pennsieve/collections-service/internal/shared/config"
+	"github.com/stretchr/testify/require"
 )
 
 type PostgresDB struct {
