@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	"github.com/pennsieve/dbmigrate-go/pkg/shared/config"
+	"github.com/pennsieve/dbmigrate-go/pkg/config"
 )
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
 func ConfigDefaults() config.DefaultSettings {
-	return config.DefaultSettings{"POSTGRES_SCHEMA": "collections"}
+	return config.DefaultSettings{config.PostgresSchemaKey: "collections"}
 }
 
 func MigrationsSource() (source.Driver, error) {

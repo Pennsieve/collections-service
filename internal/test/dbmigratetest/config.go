@@ -4,7 +4,7 @@ import (
 	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
 	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/test/configtest"
-	"github.com/pennsieve/dbmigrate-go/pkg/shared/config"
+	"github.com/pennsieve/dbmigrate-go/pkg/config"
 )
 
 // Config returns a [config.Config] suitable for use against
@@ -28,7 +28,7 @@ func DBMigratePostgresDBConfig(pgOptions ...configtest.PostgresOption) config.Po
 		User:     localconfig.User,
 		Password: localconfig.Password,
 		Database: localconfig.CollectionsDatabase,
-		Schema:   defaults["POSTGRES_SCHEMA"],
+		Schema:   defaults[config.PostgresSchemaKey],
 	}
 }
 

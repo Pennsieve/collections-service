@@ -64,6 +64,8 @@ func TestCollectionsMigrator(t *testing.T) {
 		configtest.WithPort(port),
 	)
 
+	t.Log(migrateConfig)
+
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
 			// make a migrator for each test and pass it into the function so that
