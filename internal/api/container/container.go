@@ -32,7 +32,10 @@ type Container struct {
 }
 
 func NewContainer() (*Container, error) {
-	containerConfig := config.LoadConfig()
+	containerConfig, err := config.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
 
 	awsCfg, err := awsConfig.LoadDefaultConfig(context.Background())
 	if err != nil {

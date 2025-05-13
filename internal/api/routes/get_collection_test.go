@@ -30,7 +30,7 @@ func TestGetCollection(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	postgresDBConfig := configtest.PostgresDBConfig()
+	postgresDBConfig := configtest.PostgresDBConfig(t)
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -62,7 +62,7 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 	claims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -126,7 +126,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user2Claims := apitest.DefaultClaims(user2)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -214,7 +214,7 @@ func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.Expectatio
 	userClaims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 

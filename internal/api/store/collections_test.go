@@ -18,7 +18,7 @@ import (
 
 func TestStore(t *testing.T) {
 	ctx := context.Background()
-	config := configtest.PostgresDBConfig()
+	config := configtest.PostgresDBConfig(t)
 
 	for _, tt := range []struct {
 		scenario string

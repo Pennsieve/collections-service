@@ -23,7 +23,7 @@ import (
 
 func TestCreateCollection(t *testing.T) {
 	ctx := context.Background()
-	config := configtest.PostgresDBConfig()
+	config := configtest.PostgresDBConfig(t)
 
 	for scenario, tstFunc := range map[string]func(t *testing.T, expectationDB *fixtures.ExpectationDB){
 		"create collection; no DTOs":              testCreateCollectionNoDTOs,
@@ -62,7 +62,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -126,7 +126,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -206,7 +206,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -287,7 +287,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -357,7 +357,7 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 

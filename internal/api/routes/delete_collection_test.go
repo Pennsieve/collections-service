@@ -26,7 +26,7 @@ func TestDeleteCollection(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	postgresDBConfig := configtest.PostgresDBConfig()
+	postgresDBConfig := configtest.PostgresDBConfig(t)
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -49,7 +49,7 @@ func testDeleteCollectionNonExistent(t *testing.T, _ *fixtures.ExpectationDB) {
 	claims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -96,7 +96,7 @@ func testDeleteCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	claims := apitest.DefaultClaims(user1)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().

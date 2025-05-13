@@ -1,10 +1,11 @@
 package dbmigratetest
 
 import (
+	sharedconfig "github.com/pennsieve/collections-service/internal/api/config"
 	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
-	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/dbmigrate-go/pkg/config"
+	"github.com/stretchr/testify/require"
 )
 
 // Config returns a [config.Config] suitable for use against
@@ -12,16 +13,16 @@ import (
 // calling [config.LoadConfig] because that method
 // will not create the correct configs if the tests are running locally instead
 // of in the Docker test container.
-func Config(pgOptions ...configtest.PostgresOption) config.Config {
+func Config(t require.TestingT, host string, port int) config.Config {
 	return config.Config{
-		PostgresDB:     DBMigratePostgresDBConfig(pgOptions...),
+		PostgresDB:     DBMigratePostgresDBConfig(t, host, port),
 		VerboseLogging: true,
 	}
 }
 
-func DBMigratePostgresDBConfig(pgOptions ...configtest.PostgresOption) config.PostgresDBConfig {
+func DBMigratePostgresDBConfig(t require.TestingT, host string, port int) config.PostgresDBConfig {
 	defaults := collectionsconfig.ConfigDefaults()
-	localconfig := configtest.PostgresDBConfig(pgOptions...)
+	localconfig := configtest.PostgresDBConfig(t, sharedconfig.WithHost(host), sharedconfig.WithPort(port))
 	return config.PostgresDBConfig{
 		Host:     localconfig.Host,
 		Port:     localconfig.Port,

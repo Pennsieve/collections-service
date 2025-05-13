@@ -6,7 +6,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
 	"github.com/pennsieve/collections-service/internal/test"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/dbmigratetest"
 	"github.com/pennsieve/dbmigrate-go/pkg/dbmigrate"
 	"github.com/stretchr/testify/assert"
@@ -59,12 +58,10 @@ func TestCollectionsMigrator(t *testing.T) {
 	port, err := strconv.Atoi(portStr)
 	require.NoError(t, err)
 
-	migrateConfig := dbmigratetest.Config(
-		configtest.WithHost(host),
-		configtest.WithPort(port),
+	migrateConfig := dbmigratetest.Config(t,
+		host,
+		port,
 	)
-
-	t.Log(migrateConfig)
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
