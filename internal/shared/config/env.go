@@ -1,43 +1,64 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 )
 
-func GetEnv(key string) string {
-	value, exists := os.LookupEnv(key)
+// EnvironmentSetting represents a setting that comes from an environment variable (Key)
+// with an optional default value *Default
+type EnvironmentSetting struct {
+	Key     string
+	Default *string
+}
 
+// NewEnvironmentSetting returns an EnvironmentSetting for env var 'key' with no default value.
+func NewEnvironmentSetting(key string) EnvironmentSetting {
+	return EnvironmentSetting{Key: key}
+}
+
+// NewEnvironmentSettingWithDefault returns an EnvironmentSetting for env var 'key' with a default value of 'defaultValue'.
+func NewEnvironmentSettingWithDefault(key string, defaultValue string) EnvironmentSetting {
+	return EnvironmentSetting{
+		Key:     key,
+		Default: &defaultValue,
+	}
+}
+
+// Get returns the value of the environment variable Key if it is set.
+// If Key is not set, Get will return *Default if Default != nil.
+// Otherwise, returns an error.
+func (e EnvironmentSetting) Get() (string, error) {
+	value, exists := os.LookupEnv(e.Key)
 	if !exists {
-		log.Fatalf("Failed to load '%s' from environment", key)
+		if e.Default != nil {
+			return *e.Default, nil
+		}
+		return "", fmt.Errorf("environment variable '%s' is not set and has no default", e.Key)
 	}
-
-	return value
+	return value, nil
 }
 
-func GetEnvOrDefault(key string, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	} else {
-		return defaultValue
+// GetNillable returns the value of the environment variable Key if it is set.
+// If Key is not set, Get will return *Default.
+func (e EnvironmentSetting) GetNillable() *string {
+	value, exists := os.LookupEnv(e.Key)
+	if !exists {
+		return e.Default
 	}
+	return &value
 }
 
-func GetEnvOrNil(key string) *string {
-	if value, exists := os.LookupEnv(key); exists {
-		return &value
-	} else {
-		return nil
-	}
-}
-
-func Atoi(value string) int {
-	i, err := strconv.Atoi(value)
-
+// GetInt returns a value in the same way as Get, but converted from string to int.
+func (e EnvironmentSetting) GetInt() (int, error) {
+	valueStr, err := e.Get()
 	if err != nil {
-		log.Fatalf("Failed to convert '%s' integer", value)
+		return 0, err
 	}
-
-	return i
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return 0, fmt.Errorf("error converting '%s' value '%s' to int: %w", e.Key, valueStr, err)
+	}
+	return value, nil
 }

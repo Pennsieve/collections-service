@@ -29,8 +29,8 @@ func (b *APIGatewayRequestBuilder) WithClaims(claims authorizer.Claims) *APIGate
 	return b
 }
 
-func (b *APIGatewayRequestBuilder) WithDefaultClaims(seedUser SeedUser) *APIGatewayRequestBuilder {
-	return b.WithClaims(DefaultClaims(seedUser))
+func (b *APIGatewayRequestBuilder) WithDefaultClaims(testUser User) *APIGatewayRequestBuilder {
+	return b.WithClaims(DefaultClaims(testUser))
 }
 
 func (b *APIGatewayRequestBuilder) WithBody(t require.TestingT, bodyStruct any) *APIGatewayRequestBuilder {

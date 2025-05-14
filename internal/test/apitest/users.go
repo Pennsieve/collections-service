@@ -29,7 +29,8 @@ func (s SeedUser) GetIsSuperAdmin() bool {
 	return s.IsSuperAdmin
 }
 
-// These users are already present in the Pennsieve seed DB Docker container used for tests
+// These users are already present in the Pennsieve seed DB Docker container used for tests.
+// Don't use them when creating collections or other objects to eventually allow parallel tests.
 
 var SeedUser1 = SeedUser{
 	ID:           1,

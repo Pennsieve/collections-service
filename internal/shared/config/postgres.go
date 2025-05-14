@@ -8,53 +8,67 @@ type PostgresDBConfig struct {
 	CollectionsDatabase string
 }
 
-func LoadPostgresDBConfig() PostgresDBConfig {
-	return NewPostgresDBConfigBuilder().Build()
-}
+type PostgresDBOption func(postgresDBConfig *PostgresDBConfig)
 
-type PostgresDBConfigBuilder struct {
-	c *PostgresDBConfig
-}
-
-func NewPostgresDBConfigBuilder() *PostgresDBConfigBuilder {
-	return &PostgresDBConfigBuilder{c: &PostgresDBConfig{}}
-}
-
-func (b *PostgresDBConfigBuilder) WithPostgresUser(postgresUser string) *PostgresDBConfigBuilder {
-	b.c.User = postgresUser
-	return b
-}
-
-func (b *PostgresDBConfigBuilder) WithPostgresPassword(postgresPassword string) *PostgresDBConfigBuilder {
-	b.c.Password = &postgresPassword
-	return b
-}
-
-func (b *PostgresDBConfigBuilder) WithHost(host string) *PostgresDBConfigBuilder {
-	b.c.Host = host
-	return b
-}
-
-func (b *PostgresDBConfigBuilder) WithPort(port int) *PostgresDBConfigBuilder {
-	b.c.Port = port
-	return b
-}
-
-func (b *PostgresDBConfigBuilder) Build() PostgresDBConfig {
-	if len(b.c.Host) == 0 {
-		b.c.Host = GetEnvOrDefault("POSTGRES_HOST", "localhost")
+func NewPostgresDBConfig(options ...PostgresDBOption) PostgresDBConfig {
+	postgresConfig := PostgresDBConfig{}
+	for _, option := range options {
+		option(&postgresConfig)
 	}
-	if b.c.Port == 0 {
-		b.c.Port = Atoi(GetEnvOrDefault("POSTGRES_PORT", "5432"))
+	return postgresConfig
+}
+
+func WithHost(host string) PostgresDBOption {
+	return func(postgresDBConfig *PostgresDBConfig) {
+		postgresDBConfig.Host = host
 	}
-	if len(b.c.User) == 0 {
-		b.c.User = GetEnv("POSTGRES_USER")
+}
+
+func WithPort(port int) PostgresDBOption {
+	return func(postgresDBConfig *PostgresDBConfig) {
+		postgresDBConfig.Port = port
 	}
-	if b.c.Password == nil {
-		b.c.Password = GetEnvOrNil("POSTGRES_PASSWORD")
+}
+
+// LoadWithEnvSettings returns a copy of this PostgresDBConfig where any missing fields are populated by the
+// given PostgresDBEnvironmentSettings.
+func (c PostgresDBConfig) LoadWithEnvSettings(environmentSettings PostgresDBEnvironmentSettings) (PostgresDBConfig, error) {
+	if len(c.Host) == 0 {
+		host, err := environmentSettings.Host.Get()
+		if err != nil {
+			return PostgresDBConfig{}, err
+		}
+		c.Host = host
 	}
-	if len(b.c.CollectionsDatabase) == 0 {
-		b.c.CollectionsDatabase = GetEnvOrDefault("POSTGRES_COLLECTIONS_DATABASE", "postgres")
+	if c.Port == 0 {
+		port, err := environmentSettings.Port.GetInt()
+		if err != nil {
+			return PostgresDBConfig{}, err
+		}
+		c.Port = port
 	}
-	return *b.c
+	if len(c.User) == 0 {
+		user, err := environmentSettings.User.Get()
+		if err != nil {
+			return PostgresDBConfig{}, err
+		}
+		c.User = user
+	}
+	if c.Password == nil {
+		c.Password = environmentSettings.Password.GetNillable()
+	}
+	if len(c.CollectionsDatabase) == 0 {
+		databaseName, err := environmentSettings.CollectionsDatabase.Get()
+		if err != nil {
+			return PostgresDBConfig{}, err
+		}
+		c.CollectionsDatabase = databaseName
+	}
+	return c, nil
+}
+
+// Load returns a copy of this PostgresDBConfig where any missing fields are populated by the
+// given DeployedPostgresDBEnvironmentSettings.
+func (c PostgresDBConfig) Load() (PostgresDBConfig, error) {
+	return c.LoadWithEnvSettings(DeployedPostgresDBEnvironmentSettings)
 }

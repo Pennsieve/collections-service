@@ -8,7 +8,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -30,7 +29,7 @@ func TestGetCollection(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	postgresDBConfig := configtest.PostgresDBConfig()
+	postgresDBConfig := test.PostgresDBConfig(t)
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -46,23 +45,18 @@ func TestGetCollection(t *testing.T) {
 	}
 }
 
-func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testGetCollectionNone(t *testing.T, _ *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	// Set up using the ExpectationDB
-
-	user2ExpectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(apitest.SeedUser2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
-	expectationDB.CreateCollection(ctx, t, user2ExpectedCollection)
-
 	// Test route
-	// use a different user with no collections
+	// use a user with no collections
 	callingUser := apitest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
 	claims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -92,20 +86,22 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user1 := apitest.SeedUser1
-	user2 := apitest.SeedUser2
+	user1 := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user1)
+	user2 := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user2)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	// Set up using the ExpectationDB
-	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
-	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
 		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
 
-	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(user1.ID, pgdb.Owner).
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
 		WithPublicDatasets(
 			expectedDatasets.NewPublished(apitest.NewPublicContributor()),
 			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()), apitest.NewPublicContributor(apitest.WithOrcid())),
@@ -115,7 +111,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
-	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(user2.ID, pgdb.Owner).
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user2.ID, pgdb.Owner).
 		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()), expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial(), apitest.WithDegree(), apitest.WithOrcid())))
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
@@ -126,7 +122,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user2Claims := apitest.DefaultClaims(user2)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -199,13 +195,14 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	expectedPublicDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithDegree()), apitest.NewPublicContributor())
 	expectedTombstone := expectedDatasets.NewUnpublished()
 
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedPublicDataset).WithTombstones(expectedTombstone)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedPublicDataset).WithTombstones(expectedTombstone)
 	expectationDB.CreateCollection(ctx, t, expectedCollection)
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
@@ -214,7 +211,7 @@ func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.Expectatio
 	userClaims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
