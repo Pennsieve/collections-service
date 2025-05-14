@@ -3,10 +3,9 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/stretchr/testify/require"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type PostgresDB struct {
@@ -42,4 +41,27 @@ func (db *PostgresDB) Connect(ctx context.Context, databaseName string) (*pgx.Co
 func CloseConnection(ctx context.Context, t require.TestingT, conn *pgx.Conn) {
 	Helper(t)
 	require.NoError(t, conn.Close(ctx))
+}
+
+// PostgresDBConfig returns a [config.PostgresDBConfig] suitable for use against
+// the pennseivedb instance started by Docker Compose for testing. This config
+// will work in both the CI case where tests are run in Docker and the local
+// case where go test is run directly.
+func PostgresDBConfig(t require.TestingT, options ...config.PostgresDBOption) config.PostgresDBConfig {
+	Helper(t)
+	postgresConfig, err := config.NewPostgresDBConfig(options...).LoadWithEnvSettings(PostgresDBEnvironmentSettings)
+	require.NoError(t, err)
+	return postgresConfig
+}
+
+// PostgresDBEnvironmentSettings are the env settings useful for tests. They are defined
+// so that when this value is passed to [config.PostgresDBConfig.LoadWithEnvSettings] in tests, the returned [config.PostgresDBConfig]
+// will work whether the test is running in Docker (where the env vars are set) or running locally (where the env vars are not set).
+// In particular, takes care of the fact that the Postgres host value will be different in CI vs local.
+var PostgresDBEnvironmentSettings = config.PostgresDBEnvironmentSettings{
+	Host:                config.NewEnvironmentSettingWithDefault(config.PostgresHostKey, "localhost"),
+	Port:                config.NewEnvironmentSettingWithDefault(config.PostgresPortKey, config.DefaultPostgresPort),
+	User:                config.NewEnvironmentSettingWithDefault(config.PostgresUserKey, "postgres"),
+	Password:            config.NewEnvironmentSettingWithDefault(config.PostgresPasswordKey, "password"),
+	CollectionsDatabase: config.NewEnvironmentSettingWithDefault(config.PostgresCollectionsDatabaseKey, "postgres"),
 }

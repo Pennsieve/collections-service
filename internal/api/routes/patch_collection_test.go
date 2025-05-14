@@ -9,7 +9,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -40,7 +39,7 @@ func TestPatchCollection(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	postgresDBConfig := configtest.PostgresDBConfig()
+	postgresDBConfig := test.PostgresDBConfig(t)
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -77,7 +76,7 @@ func testPatchCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -131,7 +130,7 @@ func testPatchCollectionDescription(t *testing.T, expectationDB *fixtures.Expect
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -186,7 +185,7 @@ func testPatchCollectionNameAndDescription(t *testing.T, expectationDB *fixtures
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -242,7 +241,7 @@ func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expecta
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -297,7 +296,7 @@ func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectatio
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -362,7 +361,7 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -419,7 +418,7 @@ func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.Exp
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -481,7 +480,7 @@ func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtur
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -542,7 +541,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -585,7 +584,7 @@ func testPatchCollectionNonExistent(t *testing.T, expectationDB *fixtures.Expect
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 		Build()
 
@@ -624,7 +623,7 @@ func testPatchCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *fi
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 		Build()
 

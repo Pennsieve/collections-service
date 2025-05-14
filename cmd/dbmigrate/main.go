@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
+	dbmigrateconfig "github.com/pennsieve/dbmigrate-go/pkg/config"
 	"github.com/pennsieve/dbmigrate-go/pkg/dbmigrate"
-	dbmigrateconfig "github.com/pennsieve/dbmigrate-go/pkg/shared/config"
 	"log/slog"
 	"os"
 )

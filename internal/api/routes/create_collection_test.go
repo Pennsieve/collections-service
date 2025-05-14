@@ -9,7 +9,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -23,7 +22,7 @@ import (
 
 func TestCreateCollection(t *testing.T) {
 	ctx := context.Background()
-	config := configtest.PostgresDBConfig()
+	config := test.PostgresDBConfig(t)
 
 	for scenario, tstFunc := range map[string]func(t *testing.T, expectationDB *fixtures.ExpectationDB){
 		"create collection; no DTOs":              testCreateCollectionNoDTOs,
@@ -49,10 +48,11 @@ func TestCreateCollection(t *testing.T) {
 func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedCollection := apitest.NewExpectedCollection().
-		WithUser(callingUser.ID, pgdb.Owner)
+		WithUser(*callingUser.ID, pgdb.Owner)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        expectedCollection.Name,
@@ -62,7 +62,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -94,7 +94,8 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
@@ -103,7 +104,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	banner2 := apitest.NewBanner()
 
 	expectedCollection := apitest.NewExpectedCollection().
-		WithUser(callingUser.ID, pgdb.Owner).
+		WithUser(*callingUser.ID, pgdb.Owner).
 		WithDOIs(publishedDOI1, publishedDOI2)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
@@ -126,7 +127,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -161,7 +162,8 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
@@ -179,7 +181,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	banner5 := apitest.NewBanner()
 
 	expectedCollection := apitest.NewExpectedCollection().
-		WithUser(callingUser.ID, pgdb.Owner).
+		WithUser(*callingUser.ID, pgdb.Owner).
 		WithDOIs(publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
@@ -206,7 +208,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -242,7 +244,8 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	publishedDOI1 := apitest.NewPennsieveDOI()
 	var banner1 *string = nil
@@ -260,7 +263,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	var banner5 *string = nil
 
 	expectedCollection := apitest.NewExpectedCollection().
-		WithUser(callingUser.ID, pgdb.Owner).
+		WithUser(*callingUser.ID, pgdb.Owner).
 		WithDOIs(publishedDOI1, publishedDOI2, publishedDOI3, publishedDTO4, publishedDTO5)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
@@ -287,7 +290,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -323,7 +326,8 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	publishedDOI1 := apitest.NewPennsieveDOI()
 	banner1 := apitest.NewBanner()
@@ -332,7 +336,7 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 	banner2 := apitest.NewBanner()
 
 	expectedCollection := apitest.NewExpectedCollection().
-		WithUser(callingUser.ID, pgdb.Owner).
+		WithUser(*callingUser.ID, pgdb.Owner).
 		WithDOIs(publishedDOI1, publishedDOI2)
 
 	// Add some whitespace to vales in the create request.
@@ -357,7 +361,7 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithDockerPostgresDBConfig().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
