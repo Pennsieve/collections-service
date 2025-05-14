@@ -6,7 +6,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -26,7 +25,7 @@ func TestDeleteCollection(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	postgresDBConfig := configtest.PostgresDBConfig(t)
+	postgresDBConfig := test.PostgresDBConfig(t)
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -49,7 +48,7 @@ func testDeleteCollectionNonExistent(t *testing.T, _ *fixtures.ExpectationDB) {
 	claims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -96,7 +95,7 @@ func testDeleteCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	claims := apitest.DefaultClaims(user1)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().

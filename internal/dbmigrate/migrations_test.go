@@ -7,7 +7,6 @@ import (
 	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
 	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
 	"github.com/pennsieve/collections-service/internal/test"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/dbmigrate-go/pkg/config"
 	"github.com/pennsieve/dbmigrate-go/pkg/dbmigrate"
 	"github.com/stretchr/testify/assert"
@@ -217,7 +216,7 @@ func testPreventEmptyDOI(t *testing.T, migrator *dbmigrate.DatabaseMigrator, ver
 func newConfig(t *testing.T, host string, port int) config.Config {
 	t.Helper()
 	defaults := collectionsconfig.ConfigDefaults()
-	localconfig := configtest.PostgresDBConfig(t, sharedconfig.WithHost(host), sharedconfig.WithPort(port))
+	localconfig := test.PostgresDBConfig(t, sharedconfig.WithHost(host), sharedconfig.WithPort(port))
 	postgresConfig := config.PostgresDBConfig{
 		Host:     localconfig.Host,
 		Port:     localconfig.Port,

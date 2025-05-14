@@ -6,15 +6,19 @@ import (
 	"strconv"
 )
 
+// EnvironmentSetting represents a setting that comes from an environment variable (Key)
+// with an optional default value *Default
 type EnvironmentSetting struct {
 	Key     string
 	Default *string
 }
 
+// NewEnvironmentSetting returns an EnvironmentSetting for env var 'key' with no default value.
 func NewEnvironmentSetting(key string) EnvironmentSetting {
 	return EnvironmentSetting{Key: key}
 }
 
+// NewEnvironmentSettingWithDefault returns an EnvironmentSetting for env var 'key' with a default value of 'defaultValue'.
 func NewEnvironmentSettingWithDefault(key string, defaultValue string) EnvironmentSetting {
 	return EnvironmentSetting{
 		Key:     key,
@@ -22,6 +26,9 @@ func NewEnvironmentSettingWithDefault(key string, defaultValue string) Environme
 	}
 }
 
+// Get returns the value of the environment variable Key if it is set.
+// If Key is not set, Get will return *Default if Default != nil.
+// Otherwise, returns an error.
 func (e EnvironmentSetting) Get() (string, error) {
 	value, exists := os.LookupEnv(e.Key)
 	if !exists {
@@ -33,6 +40,8 @@ func (e EnvironmentSetting) Get() (string, error) {
 	return value, nil
 }
 
+// GetNillable returns the value of the environment variable Key if it is set.
+// If Key is not set, Get will return *Default.
 func (e EnvironmentSetting) GetNillable() *string {
 	value, exists := os.LookupEnv(e.Key)
 	if !exists {
@@ -41,6 +50,7 @@ func (e EnvironmentSetting) GetNillable() *string {
 	return &value
 }
 
+// GetInt returns a value in the same way as Get, but converted from string to int.
 func (e EnvironmentSetting) GetInt() (int, error) {
 	valueStr, err := e.Get()
 	if err != nil {
@@ -51,39 +61,4 @@ func (e EnvironmentSetting) GetInt() (int, error) {
 		return 0, fmt.Errorf("error converting '%s' value '%s' to int: %w", e.Key, valueStr, err)
 	}
 	return value, nil
-}
-
-func GetEnv(key string) (string, error) {
-	value, exists := os.LookupEnv(key)
-
-	if !exists {
-		return "", fmt.Errorf("failed to load '%s' from environment", key)
-	}
-
-	return value, nil
-}
-
-func GetEnvOrDefault(key string, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	} else {
-		return defaultValue
-	}
-}
-
-func GetIntEnvOrDefault(key string, defaultValue string) (int, error) {
-	valueStr := GetEnvOrDefault(key, defaultValue)
-	value, err := strconv.Atoi(valueStr)
-	if err != nil {
-		return 0, fmt.Errorf("failed to convert '%s' value '%s' to int: %w", key, valueStr, err)
-	}
-	return value, nil
-}
-
-func GetEnvOrNil(key string) *string {
-	if value, exists := os.LookupEnv(key); exists {
-		return &value
-	} else {
-		return nil
-	}
 }

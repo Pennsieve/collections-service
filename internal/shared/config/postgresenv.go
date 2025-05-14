@@ -16,6 +16,8 @@ type PostgresDBEnvironmentSettings struct {
 
 var DefaultPostgresPort = "5432"
 
+// DeployedPostgresDBEnvironmentSettings are the settings used for actual deployments (as opposed to tests).
+// The only default value the Postgres port 5432.
 var DeployedPostgresDBEnvironmentSettings = PostgresDBEnvironmentSettings{
 	Host:                NewEnvironmentSetting(PostgresHostKey),
 	Port:                NewEnvironmentSettingWithDefault(PostgresPortKey, DefaultPostgresPort),

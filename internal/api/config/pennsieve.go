@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	config2 "github.com/pennsieve/collections-service/internal/shared/config"
 	"strings"
 )
 
@@ -33,24 +32,31 @@ func WithDOIPrefix(doiPrefix string) PennsieveOption {
 	}
 }
 
-func LoadPennsieveConfig(options ...PennsieveOption) (PennsieveConfig, error) {
-	pennsieveConfig := NewPennsieveConfig(options...)
-	if len(pennsieveConfig.DiscoverServiceURL) == 0 {
-		url, err := config2.GetEnv("DISCOVER_SERVICE_HOST")
+// LoadWithEnvSettings returns a copy of this PennsieveConfig where any missing fields are populated by the
+// given PennsieveEnvironmentSettings.
+func (c PennsieveConfig) LoadWithEnvSettings(environmentSettings PennsieveEnvironmentSettings) (PennsieveConfig, error) {
+	if len(c.DiscoverServiceURL) == 0 {
+		url, err := environmentSettings.DiscoverServiceHost.Get()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
 		if !strings.HasPrefix(url, "http") {
 			url = fmt.Sprintf("https://%s", url)
 		}
-		pennsieveConfig.DiscoverServiceURL = url
+		c.DiscoverServiceURL = url
 	}
-	if len(pennsieveConfig.DOIPrefix) == 0 {
-		prefix, err := config2.GetEnv("PENNSIEVE_DOI_PREFIX")
+	if len(c.DOIPrefix) == 0 {
+		prefix, err := environmentSettings.DOIPrefix.Get()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
-		pennsieveConfig.DOIPrefix = prefix
+		c.DOIPrefix = prefix
 	}
-	return pennsieveConfig, nil
+	return c, nil
+}
+
+// Load returns a copy of this PennsieveConfig where any missing fields are populated by the
+// given DeployedPennsieveEnvironmentSettings.
+func (c PennsieveConfig) Load() (PennsieveConfig, error) {
+	return c.LoadWithEnvSettings(DeployedPennsieveEnvironmentSettings)
 }

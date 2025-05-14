@@ -30,6 +30,8 @@ func WithPort(port int) PostgresDBOption {
 	}
 }
 
+// LoadWithEnvSettings returns a copy of this PostgresDBConfig where any missing fields are populated by the
+// given PostgresDBEnvironmentSettings.
 func (c PostgresDBConfig) LoadWithEnvSettings(environmentSettings PostgresDBEnvironmentSettings) (PostgresDBConfig, error) {
 	if len(c.Host) == 0 {
 		host, err := environmentSettings.Host.Get()
@@ -65,6 +67,8 @@ func (c PostgresDBConfig) LoadWithEnvSettings(environmentSettings PostgresDBEnvi
 	return c, nil
 }
 
+// Load returns a copy of this PostgresDBConfig where any missing fields are populated by the
+// given DeployedPostgresDBEnvironmentSettings.
 func (c PostgresDBConfig) Load() (PostgresDBConfig, error) {
 	return c.LoadWithEnvSettings(DeployedPostgresDBEnvironmentSettings)
 }

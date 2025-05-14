@@ -9,7 +9,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -23,7 +22,7 @@ import (
 
 func TestCreateCollection(t *testing.T) {
 	ctx := context.Background()
-	config := configtest.PostgresDBConfig(t)
+	config := test.PostgresDBConfig(t)
 
 	for scenario, tstFunc := range map[string]func(t *testing.T, expectationDB *fixtures.ExpectationDB){
 		"create collection; no DTOs":              testCreateCollectionNoDTOs,
@@ -62,7 +61,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -126,7 +125,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -206,7 +205,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -287,7 +286,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -357,7 +356,7 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 	claims := apitest.DefaultClaims(callingUser)
 
 	config := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 

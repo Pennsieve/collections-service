@@ -7,7 +7,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
@@ -18,7 +17,7 @@ import (
 
 func TestStore(t *testing.T) {
 	ctx := context.Background()
-	config := configtest.PostgresDBConfig(t)
+	config := test.PostgresDBConfig(t)
 
 	for _, tt := range []struct {
 		scenario string

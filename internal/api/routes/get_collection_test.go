@@ -8,7 +8,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
-	"github.com/pennsieve/collections-service/internal/test/configtest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -30,7 +29,7 @@ func TestGetCollection(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	postgresDBConfig := configtest.PostgresDBConfig(t)
+	postgresDBConfig := test.PostgresDBConfig(t)
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -62,7 +61,7 @@ func testGetCollectionNone(t *testing.T, expectationDB *fixtures.ExpectationDB) 
 	claims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -126,7 +125,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user2Claims := apitest.DefaultClaims(user2)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
@@ -214,7 +213,7 @@ func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.Expectatio
 	userClaims := apitest.DefaultClaims(callingUser)
 
 	apiConfig := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(configtest.PostgresDBConfig(t)).
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
 		Build()
 
