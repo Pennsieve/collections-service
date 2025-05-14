@@ -55,8 +55,9 @@ func PostgresDBConfig(t require.TestingT, options ...config.PostgresDBOption) co
 }
 
 // PostgresDBEnvironmentSettings are the env settings useful for tests. They are defined
-// so that when [config.PostgresDBConfig.LoadWithEnvSettings] is called in tests, the returned [config.PostgresDBConfig]
-// will work whether the test is running in Docker (where the env vars are set) or running locally (where the env vars are not set)
+// so that when this value is passed to [config.PostgresDBConfig.LoadWithEnvSettings] in tests, the returned [config.PostgresDBConfig]
+// will work whether the test is running in Docker (where the env vars are set) or running locally (where the env vars are not set).
+// In particular, takes care of the fact that the Postgres host value will be different in CI vs local.
 var PostgresDBEnvironmentSettings = config.PostgresDBEnvironmentSettings{
 	Host:                config.NewEnvironmentSettingWithDefault(config.PostgresHostKey, "localhost"),
 	Port:                config.NewEnvironmentSettingWithDefault(config.PostgresPortKey, config.DefaultPostgresPort),
