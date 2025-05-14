@@ -97,7 +97,7 @@ func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, tes
 		"INSERT INTO pennsieve.users (id, email, node_id, is_super_admin) VALUES (@id, @email, @node_id, @is_super_admin) RETURNING id",
 		pgx.NamedArgs{"id": userID, "email": testUser.Email, "node_id": testUser.NodeID, "is_super_admin": testUser.IsSuperAdmin}).
 		Scan(&returnedID)
-	require.NoError(t, err, "error creating user from TestUser %v", testUser)
+	require.NoError(t, err, "error creating user %d from TestUser %v", userID, testUser)
 	require.Equal(t, userID, returnedID)
 	testUser.ID = &userID
 }
