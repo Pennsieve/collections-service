@@ -98,21 +98,21 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
 	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
-		WithDOIs(expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI)
+		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
 
 	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
-		WithDOIs(
-			expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI,
-			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()), apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
-			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
-			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()), apitest.NewPublicContributor(apitest.WithOrcid(), apitest.WithDegree())).DOI,
-			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
+		WithPublicDatasets(
+			expectedDatasets.NewPublished(apitest.NewPublicContributor()),
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()), apitest.NewPublicContributor(apitest.WithOrcid())),
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())),
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()), apitest.NewPublicContributor(apitest.WithOrcid(), apitest.WithDegree())),
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())),
 		)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
 	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user2.ID, pgdb.Owner).
-		WithDOIs(expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI, expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial(), apitest.WithDegree(), apitest.WithOrcid())).DOI)
+		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()), expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial(), apitest.WithDegree(), apitest.WithOrcid())))
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
@@ -202,7 +202,7 @@ func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.Expectatio
 	expectedPublicDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithDegree()), apitest.NewPublicContributor())
 	expectedTombstone := expectedDatasets.NewUnpublished()
 
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithDOIs(expectedPublicDataset.DOI, expectedTombstone.DOI)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedPublicDataset).WithTombstones(expectedTombstone)
 	expectationDB.CreateCollection(ctx, t, expectedCollection)
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
@@ -319,7 +319,7 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 
 	mockDiscover := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
 		return service.DatasetsByDOIResponse{Published: map[string]dto.PublicDataset{
-			expectedDOI: apitest.NewPublicDataset(expectedDOI, apitest.NewBanner(), apitest.NewPublicContributor()),
+			expectedDOI.Value: apitest.NewPublicDataset(expectedDOI.Value, apitest.NewBanner(), apitest.NewPublicContributor()),
 		}}, nil
 	})
 	claims := apitest.DefaultClaims(callingUser)

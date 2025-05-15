@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/api/validate"
 	"log/slog"
 	"net/http"
@@ -50,6 +52,7 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 		Description: createRequest.Description,
 		Size:        len(pennsieveDOIs),
 	}
+	var doisToAdd []store.DOI
 	if len(pennsieveDOIs) > 0 {
 		datasetResults, err := ccParams.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
 		if err != nil {
@@ -62,10 +65,16 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 
 		response.Banners = collectBanners(pennsieveDOIs, datasetResults.Published)
 
+		for _, pennsieveDOI := range pennsieveDOIs {
+			doisToAdd = append(doisToAdd, store.DOI{
+				Value:      pennsieveDOI,
+				Datasource: datasource.Pennsieve,
+			})
+		}
 	}
 	collectionsStore := ccParams.Container.CollectionsStore()
 
-	storeResp, err := collectionsStore.CreateCollection(ctx, params.Claims.UserClaim.Id, nodeID, createRequest.Name, createRequest.Description, pennsieveDOIs)
+	storeResp, err := collectionsStore.CreateCollection(ctx, params.Claims.UserClaim.Id, nodeID, createRequest.Name, createRequest.Description, doisToAdd)
 	if err != nil {
 		return dto.CreateCollectionResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error creating collection %s", createRequest.Name), err)
 	}

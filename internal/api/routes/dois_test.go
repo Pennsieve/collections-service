@@ -7,12 +7,12 @@ import (
 )
 
 func TestCategorizeDOIs(t *testing.T) {
-	pennsieveDOI1 := apitest.NewPennsieveDOI()
-	pennsieveDOI2 := apitest.NewPennsieveDOI()
-	pennsieveDOI3 := apitest.NewPennsieveDOI()
+	pennsieveDOI1 := apitest.NewPennsieveDOI().Value
+	pennsieveDOI2 := apitest.NewPennsieveDOI().Value
+	pennsieveDOI3 := apitest.NewPennsieveDOI().Value
 
-	externalDOI1 := apitest.NewExternalDOI()
-	externalDOI2 := apitest.NewExternalDOI()
+	externalDOI1 := apitest.NewExternalDOI().Value
+	externalDOI2 := apitest.NewExternalDOI().Value
 
 	type args struct {
 		inputDOIs             []string

@@ -63,7 +63,7 @@ func testPatchCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB
 	user := apitest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
 
@@ -114,9 +114,9 @@ func testPatchCollectionDescription(t *testing.T, expectationDB *fixtures.Expect
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
-		WithDOIs(
-			expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI,
-			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
+		WithPublicDatasets(
+			expectedDatasets.NewPublished(apitest.NewPublicContributor()),
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())),
 		)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
@@ -168,9 +168,9 @@ func testPatchCollectionNameAndDescription(t *testing.T, expectationDB *fixtures
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
-		WithDOIs(
-			expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI,
-			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI,
+		WithPublicDatasets(
+			expectedDatasets.NewPublished(apitest.NewPublicContributor()),
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())),
 		)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
@@ -223,17 +223,17 @@ func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expecta
 	user := apitest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
-	doiToRemove1 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
-	doiToKeep1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial())).DOI
-	doiToRemove2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI
-	doiToKeep2 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
+	datasetToRemove1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+	datasetToKeep1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()))
+	datasetToRemove2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()))
+	datasetToKeep2 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
-		WithDOIs(doiToRemove1, doiToKeep1, doiToRemove2, doiToKeep2)
+		WithPublicDatasets(datasetToRemove1, datasetToKeep1, datasetToRemove2, datasetToKeep2)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
 
-	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Remove: []string{doiToRemove2, doiToRemove1}}}
+	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Remove: []string{datasetToRemove2.DOI, datasetToRemove1.DOI}}}
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
@@ -264,7 +264,7 @@ func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expecta
 	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
-	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
+	expectedCollection.SetPublicDatasets(datasetToKeep1, datasetToKeep2)
 	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
@@ -278,17 +278,17 @@ func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectatio
 	user := apitest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
-	doiToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
-	doi1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial())).DOI
-	doiToAdd2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI
-	doi2 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
+	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+	dataset1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()))
+	datasetToAdd2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()))
+	dataset2 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
 
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*user.ID, pgdb.Owner).
-		WithDOIs(doi1, doi2)
+		WithPublicDatasets(dataset1, dataset2)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
 
-	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{doiToAdd1, doiToAdd2}}}
+	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{datasetToAdd1.DOI, datasetToAdd2.DOI}}}
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
@@ -319,7 +319,7 @@ func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectatio
 	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
-	expectedCollection.SetDOIs(doi1, doi2, doiToAdd1, doiToAdd2)
+	expectedCollection.SetPublicDatasets(dataset1, dataset2, datasetToAdd1, datasetToAdd2)
 	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
@@ -333,14 +333,14 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user := apitest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
-	doiToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
-	doi1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial())).DOI
-	doiToAdd2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI
-	doi2 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
-	doiToRemove := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI
+	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+	dataset1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()))
+	datasetToAdd2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()))
+	dataset2 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+	datasetToRemove := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()))
 
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*user.ID, pgdb.Owner).
-		WithDOIs(doi1, doi2, doiToRemove)
+		WithPublicDatasets(dataset1, dataset2, datasetToRemove)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
 
@@ -350,8 +350,8 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		Name:        &newName,
 		Description: &newDescription,
 		DOIs: &dto.PatchDOIs{
-			Remove: []string{doiToRemove},
-			Add:    []string{doiToAdd1, doiToAdd2},
+			Remove: []string{datasetToRemove.DOI},
+			Add:    []string{datasetToAdd1.DOI, datasetToAdd2.DOI},
 		},
 	}
 
@@ -386,7 +386,7 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	expectedCollection.Name = newName
 	expectedCollection.Description = newDescription
-	expectedCollection.SetDOIs(doi1, doi2, doiToAdd1, doiToAdd2)
+	expectedCollection.SetPublicDatasets(dataset1, dataset2, datasetToAdd1, datasetToAdd2)
 	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
@@ -400,17 +400,17 @@ func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.Exp
 	user := apitest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
-	goodDOIToAdd := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
-	doi1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial())).DOI
-	unpublishedDataset := expectedDatasets.NewUnpublished()
-	doi2 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
+	publishedToAdd := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+	published1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()))
+	unpublishedToAdd := expectedDatasets.NewUnpublished()
+	published2 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
 
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*user.ID, pgdb.Owner).
-		WithDOIs(doi1, doi2)
+		WithPublicDatasets(published1, published2)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
 
-	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{goodDOIToAdd, unpublishedDataset.DOI}}}
+	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{publishedToAdd.DOI, unpublishedToAdd.DOI}}}
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
@@ -444,8 +444,8 @@ func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.Exp
 	var badRequest *apierrors.Error
 	require.ErrorAs(t, err, &badRequest)
 	assert.Equal(t, http.StatusBadRequest, badRequest.StatusCode)
-	assert.Contains(t, badRequest.UserMessage, unpublishedDataset.DOI)
-	assert.Contains(t, badRequest.UserMessage, unpublishedDataset.Status)
+	assert.Contains(t, badRequest.UserMessage, unpublishedToAdd.DOI)
+	assert.Contains(t, badRequest.UserMessage, unpublishedToAdd.Status)
 
 	// collection should be unchanged
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
@@ -459,19 +459,19 @@ func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtur
 	user := apitest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
-	doiToRemove1 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
-	doiToKeep1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial())).DOI
-	doiToRemove2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI
-	doiToKeep2 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
+	datasetToRemove1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+	datasetToKeep1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()))
+	datasetToRemove2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()))
+	datasetToKeep2 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
-		WithDOIs(doiToRemove1, doiToKeep1, doiToRemove2, doiToKeep2)
+		WithPublicDatasets(datasetToRemove1, datasetToKeep1, datasetToRemove2, datasetToKeep2)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
 
 	update := dto.PatchCollectionRequest{
 		// include a third DOI that is not part of the collection
-		DOIs: &dto.PatchDOIs{Remove: []string{doiToRemove2, doiToRemove1, uuid.NewString()}},
+		DOIs: &dto.PatchDOIs{Remove: []string{datasetToRemove2.DOI, datasetToRemove1.DOI, uuid.NewString()}},
 	}
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
@@ -503,7 +503,7 @@ func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtur
 	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
-	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
+	expectedCollection.SetPublicDatasets(datasetToKeep1, datasetToKeep2)
 	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
@@ -518,20 +518,20 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 	user := apitest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
-	doiToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
-	doi1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial())).DOI
-	doiToAdd2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())).DOI
-	doi2 := expectedDatasets.NewPublished(apitest.NewPublicContributor()).DOI
+	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+	dataset1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()))
+	datasetToAdd2 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()))
+	dataset2 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
 
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*user.ID, pgdb.Owner).
-		WithDOIs(doi1, doi2)
+		WithPublicDatasets(dataset1, dataset2)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
 
 	update := dto.PatchCollectionRequest{
 		DOIs: &dto.PatchDOIs{
 			// include one of the DOIs that are already in the collection
-			Add: []string{doiToAdd1, doi1, doiToAdd2},
+			Add: []string{datasetToAdd1.DOI, dataset1.DOI, datasetToAdd2.DOI},
 		},
 	}
 
@@ -564,7 +564,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 	updatedCollection, err := PatchCollection(ctx, params)
 	require.NoError(t, err)
 
-	expectedCollection.SetDOIs(doi1, doi2, doiToAdd1, doiToAdd2)
+	expectedCollection.SetPublicDatasets(dataset1, dataset2, datasetToAdd1, datasetToAdd2)
 	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
@@ -656,7 +656,7 @@ func TestGetUpdateRequestAddDOIs(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(apitest.SeedUser1.ID, pgdb.Owner).
 		WithDOIs(doi1, doi2)
 
-	patchCollectionRequest := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{doiToAdd1, doiToAdd2}}}
+	patchCollectionRequest := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{doiToAdd1.Value, doiToAdd2.Value}}}
 
 	updateRequest, err := GetUpdateRequest(apitest.PennsieveDOIPrefix, patchCollectionRequest, expectedCollection.ToGetCollectionResponse(t, apitest.SeedUser1.ID))
 	require.NoError(t, err)
@@ -664,7 +664,7 @@ func TestGetUpdateRequestAddDOIs(t *testing.T) {
 	assert.Nil(t, updateRequest.Name)
 	assert.Nil(t, updateRequest.Description)
 	assert.Empty(t, updateRequest.DOIs.Remove)
-	assert.Equal(t, []string{doiToAdd1, doiToAdd2}, updateRequest.DOIs.Add)
+	assert.Equal(t, []store.DOI{doiToAdd1, doiToAdd2}, updateRequest.DOIs.Add)
 
 }
 
@@ -766,7 +766,7 @@ func testHandlePatchCollectionEmptyArraysInPublicDataset(t *testing.T) {
 
 	mockDiscover := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
 		return service.DatasetsByDOIResponse{Published: map[string]dto.PublicDataset{
-			expectedDOI: apitest.NewPublicDataset(expectedDOI, apitest.NewBanner(), apitest.NewPublicContributor()),
+			expectedDOI.Value: apitest.NewPublicDataset(expectedDOI.Value, apitest.NewBanner(), apitest.NewPublicContributor()),
 		}}, nil
 	})
 	claims := apitest.DefaultClaims(callingUser)

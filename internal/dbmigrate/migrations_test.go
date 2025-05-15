@@ -2,6 +2,7 @@ package dbmigrate_test
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	collectionsconfig "github.com/pennsieve/collections-service/internal/dbmigrate"
@@ -29,6 +30,7 @@ func TestCollectionsMigrator(t *testing.T) {
 		{"prevent empty name", testPreventEmptyName},
 		{"prevent all white space name", testPreventWhiteSpaceName},
 		{"prevent empty DOI", testPreventEmptyDOI},
+		{"test populate datasource", testPopulateDatasource},
 	}
 
 	// Set up testcontainer that will be used by all tests.
@@ -211,6 +213,53 @@ func testPreventEmptyDOI(t *testing.T, migrator *dbmigrate.DatabaseMigrator, ver
 	require.NoError(t, err)
 	assert.Empty(t, emptyDOIIDs)
 
+}
+
+func testPopulateDatasource(t *testing.T, migrator *dbmigrate.DatabaseMigrator, verificationConn *pgx.Conn) {
+	// run migrations prior to add_datasource_column
+	require.NoError(t, migrator.Migrate(20250422101951))
+
+	ctx := context.Background()
+
+	var collectionID int64
+	err := verificationConn.QueryRow(ctx,
+		"INSERT INTO collections.collections (name, description, node_id) VALUES (@name, @description, @node_id) RETURNING id",
+		pgx.NamedArgs{
+			"name":        uuid.NewString(),
+			"description": uuid.NewString(),
+			"node_id":     uuid.NewString()},
+	).Scan(&collectionID)
+	require.NoError(t, err)
+
+	pennsieveDOI1 := fmt.Sprintf("10.26275/%s", uuid.NewString())
+	pennsieveDOI2 := fmt.Sprintf("10.21397/%s", uuid.NewString())
+	externalDOI := fmt.Sprintf("10.00001/%s", uuid.NewString())
+
+	_, err = verificationConn.Exec(ctx,
+		`INSERT INTO collections.dois (collection_id, doi) VALUES (@collection_id, @doi_1), (@collection_id, @doi_2), (@collection_id, @doi_3)`,
+		pgx.NamedArgs{
+			"collection_id": collectionID,
+			"doi_1":         pennsieveDOI1,
+			"doi_2":         pennsieveDOI2,
+			"doi_3":         externalDOI,
+		},
+	)
+	require.NoError(t, err)
+
+	// now run the remaining migrations
+	require.NoError(t, migrator.Up())
+
+	datasourceQuery := `SELECT datasource FROM collections.dois WHERE doi = @doi`
+
+	var datasource string
+	require.NoError(t, verificationConn.QueryRow(ctx, datasourceQuery, pgx.NamedArgs{"doi": pennsieveDOI1}).Scan(&datasource))
+	assert.Equal(t, "Pennsieve", datasource)
+
+	require.NoError(t, verificationConn.QueryRow(ctx, datasourceQuery, pgx.NamedArgs{"doi": pennsieveDOI2}).Scan(&datasource))
+	assert.Equal(t, "Pennsieve", datasource)
+
+	require.NoError(t, verificationConn.QueryRow(ctx, datasourceQuery, pgx.NamedArgs{"doi": externalDOI}).Scan(&datasource))
+	assert.Equal(t, "External", datasource)
 }
 
 func newConfig(t *testing.T, host string, port int) config.Config {

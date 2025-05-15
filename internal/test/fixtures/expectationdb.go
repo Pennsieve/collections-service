@@ -87,7 +87,7 @@ func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT
 	require.Equal(t, pgdb.Owner, user.PermissionBit, "ExpectationDB.CreateCollection can only be called with one expected user: an owner")
 	require.NotNil(t, expected.NodeID, "ExpectationDB.CreateCollection can only be called with a non-nil node id; call WithNodeID() on ExpectedCollection")
 
-	response, err := e.collectionsStore().CreateCollection(ctx, user.UserID, *expected.NodeID, expected.Name, expected.Description, expected.DOIs.Strings())
+	response, err := e.collectionsStore().CreateCollection(ctx, user.UserID, *expected.NodeID, expected.Name, expected.Description, expected.DOIs.AsDOIs())
 	require.NoError(t, err)
 	expected.ID = &response.ID
 	e.knownCollectionIDs[response.ID] = true
@@ -161,6 +161,7 @@ func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, 
 		require.Contains(t, actualDOIs, expectedDOI.DOI)
 		actualDOI := actualDOIs[expectedDOI.DOI]
 		require.Equal(t, expectedDOI.DOI, actualDOI.DOI)
+		require.Equal(t, expectedDOI.Datasource, actualDOI.Datasource)
 		require.NotZero(t, actualDOI.CreatedAt)
 		require.NotZero(t, actualDOI.UpdatedAt)
 	}

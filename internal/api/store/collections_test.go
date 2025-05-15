@@ -77,14 +77,14 @@ func testCreateCollectionNilDOIs(t *testing.T, store *store.PostgresCollectionsS
 	expectationDB.RequireCollection(ctx, t, expectedCollection, resp.ID)
 }
 
-func testCreateCollectionEmptyDOIs(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+func testCreateCollectionEmptyDOIs(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 	expectedOwner := apitest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner)
 
-	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []string{})
+	resp, err := collectionsStore.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []store.DOI{})
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -98,7 +98,7 @@ func testCreateCollectionOneDOI(t *testing.T, store *store.PostgresCollectionsSt
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
 
-	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
+	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.AsDOIs())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -113,7 +113,7 @@ func testCreateCollectionManyDOIs(t *testing.T, store *store.PostgresCollections
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 
-	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
+	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.AsDOIs())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -129,7 +129,7 @@ func testCreateCollectionEmptyDescription(t *testing.T, store *store.PostgresCol
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectedCollection.Description = ""
 
-	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.Strings())
+	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.AsDOIs())
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -297,21 +297,21 @@ func testGetCollection(t *testing.T, store *store.PostgresCollectionsStore, expe
 	assert.NoError(t, err)
 	assert.NotNil(t, user1CollectionOneDOI)
 	assertExpectedEqualCollectionBase(t, user1CollectionOneDOI, user1OneDOIResp.CollectionBase)
-	assert.Equal(t, user1CollectionOneDOI.DOIs.Strings(), user1OneDOIResp.DOIs)
+	assert.Equal(t, user1CollectionOneDOI.DOIs.AsDOIs(), user1OneDOIResp.DOIs)
 
 	// user1FiveDOI
 	user1FiveDOIResp, err := store.GetCollection(ctx, *user1.ID, *user1CollectionFiveDOI.NodeID)
 	assert.NoError(t, err)
 	assert.NotNil(t, user1CollectionFiveDOI)
 	assertExpectedEqualCollectionBase(t, user1CollectionFiveDOI, user1FiveDOIResp.CollectionBase)
-	assert.Equal(t, user1CollectionFiveDOI.DOIs.Strings(), user1FiveDOIResp.DOIs)
+	assert.Equal(t, user1CollectionFiveDOI.DOIs.AsDOIs(), user1FiveDOIResp.DOIs)
 
 	// try user2's collections
 	user2CollectionResp, err := store.GetCollection(ctx, *user2.ID, *user2Collection.NodeID)
 	require.NoError(t, err)
 	assert.NotNil(t, user2CollectionResp)
 	assertExpectedEqualCollectionBase(t, user2Collection, user2CollectionResp.CollectionBase)
-	assert.Equal(t, user2Collection.DOIs.Strings(), user2CollectionResp.DOIs)
+	assert.Equal(t, user2Collection.DOIs.AsDOIs(), user2CollectionResp.DOIs)
 
 }
 
@@ -365,7 +365,7 @@ func testUpdateCollectionName(t *testing.T, collectionsStore *store.PostgresColl
 
 	expectedCollection.Name = newName
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -390,7 +390,7 @@ func testUpdateCollectionDescription(t *testing.T, collectionsStore *store.Postg
 
 	expectedCollection.Description = newDescription
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -419,7 +419,7 @@ func testUpdateCollectionNameAndDescription(t *testing.T, collectionsStore *stor
 	expectedCollection.Description = newDescription
 
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -441,7 +441,7 @@ func testUpdateCollectionRemoveDOI(t *testing.T, collectionsStore *store.Postgre
 
 	update := store.UpdateCollectionRequest{
 		DOIs: store.DOIUpdate{
-			Remove: []string{doiToRemove},
+			Remove: []string{doiToRemove.Value},
 		},
 	}
 	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
@@ -449,7 +449,7 @@ func testUpdateCollectionRemoveDOI(t *testing.T, collectionsStore *store.Postgre
 
 	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -472,7 +472,7 @@ func testUpdateCollectionRemoveDOIs(t *testing.T, collectionsStore *store.Postgr
 
 	update := store.UpdateCollectionRequest{
 		DOIs: store.DOIUpdate{
-			Remove: []string{doiToRemove2, doiToRemove1},
+			Remove: []string{doiToRemove2.Value, doiToRemove1.Value},
 		},
 	}
 	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
@@ -480,7 +480,7 @@ func testUpdateCollectionRemoveDOIs(t *testing.T, collectionsStore *store.Postgr
 
 	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -502,7 +502,7 @@ func testUpdateCollectionAddDOI(t *testing.T, collectionsStore *store.PostgresCo
 	doiToAdd := apitest.NewPennsieveDOI()
 	update := store.UpdateCollectionRequest{
 		DOIs: store.DOIUpdate{
-			Add: []string{doiToAdd},
+			Add: []store.DOI{doiToAdd},
 		},
 	}
 	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
@@ -510,7 +510,7 @@ func testUpdateCollectionAddDOI(t *testing.T, collectionsStore *store.PostgresCo
 
 	expectedCollection.SetDOIs(doi1, doi2, doiToAdd)
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -533,7 +533,7 @@ func testUpdateCollectionAddDOIs(t *testing.T, collectionsStore *store.PostgresC
 	doiToAdd2 := apitest.NewPennsieveDOI()
 	update := store.UpdateCollectionRequest{
 		DOIs: store.DOIUpdate{
-			Add: []string{doiToAdd1, doiToAdd2},
+			Add: []store.DOI{doiToAdd1, doiToAdd2},
 		},
 	}
 	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
@@ -541,7 +541,7 @@ func testUpdateCollectionAddDOIs(t *testing.T, collectionsStore *store.PostgresC
 
 	expectedCollection.SetDOIs(doi1, doi2, doiToAdd1, doiToAdd2)
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -569,8 +569,8 @@ func testUpdateCollection(t *testing.T, collectionsStore *store.PostgresCollecti
 		Name:        &newName,
 		Description: &newDescription,
 		DOIs: store.DOIUpdate{
-			Add:    []string{newDOI},
-			Remove: []string{doiToRemove1, doiToRemove2},
+			Add:    []store.DOI{newDOI},
+			Remove: []string{doiToRemove1.Value, doiToRemove2.Value},
 		},
 	}
 	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
@@ -581,7 +581,7 @@ func testUpdateCollection(t *testing.T, collectionsStore *store.PostgresCollecti
 	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2, newDOI)
 
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -604,7 +604,7 @@ func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, collectionsStore *st
 	nonExistentDOI := apitest.NewPennsieveDOI()
 	update := store.UpdateCollectionRequest{
 		DOIs: store.DOIUpdate{
-			Remove: []string{doiToRemove, nonExistentDOI},
+			Remove: []string{doiToRemove.Value, nonExistentDOI.Value},
 		},
 	}
 	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
@@ -612,7 +612,7 @@ func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, collectionsStore *st
 
 	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2)
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -634,7 +634,7 @@ func testUpdateCollectionAddExistingDOI(t *testing.T, collectionsStore *store.Po
 	newDOI := apitest.NewPennsieveDOI()
 	update := store.UpdateCollectionRequest{
 		DOIs: store.DOIUpdate{
-			Add: []string{doi1, newDOI},
+			Add: []store.DOI{doi1, newDOI},
 		},
 	}
 	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
@@ -642,7 +642,7 @@ func testUpdateCollectionAddExistingDOI(t *testing.T, collectionsStore *store.Po
 
 	expectedCollection.SetDOIs(doi1, doi2, newDOI)
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
-	assert.Equal(t, expectedCollection.DOIs.Strings(), updatedCollection.DOIs)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
@@ -662,7 +662,7 @@ func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, collectionsStore
 	nonExistentCollectionID := int64(99999)
 	update := store.UpdateCollectionRequest{
 		DOIs: store.DOIUpdate{
-			Remove: []string{apitest.NewPennsieveDOI()},
+			Remove: []string{apitest.NewPennsieveDOI().Value},
 		},
 	}
 	_, err := collectionsStore.UpdateCollection(context.Background(), apitest.SeedUser1.ID, nonExistentCollectionID, update)

@@ -20,7 +20,7 @@ func (p Params) StoreToDTOCollection(storeCollection store.GetCollectionResponse
 
 	mergedContributors := MergedContributors{}
 
-	pennsieveDOIs, _ := CategorizeDOIs(p.Config.PennsieveConfig.DOIPrefix, storeCollection.DOIs)
+	pennsieveDOIs, _ := GroupByDatasource(storeCollection.DOIs)
 	if len(pennsieveDOIs) > 0 {
 		discoverResp, err := p.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
 		if err != nil {

@@ -13,12 +13,12 @@ func Test_collectBanners(t *testing.T) {
 		datasetsByDOI map[string]dto.PublicDataset
 	}
 
-	dataset1 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI(), Banner: apitest.NewBanner()}
-	dataset2 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI(), Banner: apitest.NewBanner()}
-	dataset3 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI(), Banner: apitest.NewBanner()}
-	dataset4 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI(), Banner: apitest.NewBanner()}
-	dataset5 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI(), Banner: apitest.NewBanner()}
-	datasetWithoutBanner := dto.PublicDataset{DOI: apitest.NewPennsieveDOI()}
+	dataset1 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI().Value, Banner: apitest.NewBanner()}
+	dataset2 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI().Value, Banner: apitest.NewBanner()}
+	dataset3 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI().Value, Banner: apitest.NewBanner()}
+	dataset4 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI().Value, Banner: apitest.NewBanner()}
+	dataset5 := dto.PublicDataset{DOI: apitest.NewPennsieveDOI().Value, Banner: apitest.NewBanner()}
+	datasetWithoutBanner := dto.PublicDataset{DOI: apitest.NewPennsieveDOI().Value}
 
 	tests := []struct {
 		name     string
@@ -32,12 +32,12 @@ func Test_collectBanners(t *testing.T) {
 		},
 		{
 			"map empty",
-			args{[]string{apitest.NewExternalDOI(), apitest.NewExternalDOI(), apitest.NewExternalDOI()}, nil},
+			args{[]string{apitest.NewExternalDOI().Value, apitest.NewExternalDOI().Value, apitest.NewExternalDOI().Value}, nil},
 			nil,
 		},
 		{
 			"less than 4",
-			args{[]string{apitest.NewExternalDOI(), dataset1.DOI, apitest.NewExternalDOI()},
+			args{[]string{apitest.NewExternalDOI().Value, dataset1.DOI, apitest.NewExternalDOI().Value},
 				groupByDOI(dataset1)},
 			[]string{*dataset1.Banner},
 		},
@@ -55,7 +55,7 @@ func Test_collectBanners(t *testing.T) {
 		},
 		{
 			"a lot of external DOIs",
-			args{[]string{apitest.NewExternalDOI(), apitest.NewExternalDOI(), apitest.NewExternalDOI(), apitest.NewExternalDOI(), apitest.NewExternalDOI(), dataset1.DOI},
+			args{[]string{apitest.NewExternalDOI().Value, apitest.NewExternalDOI().Value, apitest.NewExternalDOI().Value, apitest.NewExternalDOI().Value, apitest.NewExternalDOI().Value, dataset1.DOI},
 				groupByDOI(dataset1)},
 			[]string{*dataset1.Banner},
 		},

@@ -1,6 +1,9 @@
 package store
 
-import "github.com/pennsieve/pennsieve-go-core/pkg/models/role"
+import (
+	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
+)
 
 type CreateCollectionResponse struct {
 	ID          int64
@@ -28,13 +31,18 @@ type GetCollectionsResponse struct {
 	TotalCount  int
 }
 
+type DOI struct {
+	Value      string
+	Datasource datasource.DOIDatasource
+}
+
 type GetCollectionResponse struct {
 	CollectionBase
-	DOIs []string
+	DOIs []DOI
 }
 
 type DOIUpdate struct {
-	Add    []string
+	Add    []DOI
 	Remove []string
 }
 

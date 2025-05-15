@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"time"
@@ -53,9 +54,10 @@ func (r *PgxRole) AsRole() role.Role {
 }
 
 type CollectionDOI struct {
-	ID           int64     `db:"id"`
-	CollectionID int64     `db:"collection_id"`
-	DOI          string    `db:"doi"`
-	UpdatedAt    time.Time `db:"updated_at"`
-	CreatedAt    time.Time `db:"created_at"`
+	ID           int64                    `db:"id"`
+	CollectionID int64                    `db:"collection_id"`
+	DOI          string                   `db:"doi"`
+	Datasource   datasource.DOIDatasource `db:"datasource"`
+	UpdatedAt    time.Time                `db:"updated_at"`
+	CreatedAt    time.Time                `db:"created_at"`
 }

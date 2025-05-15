@@ -3,6 +3,7 @@ package dto_test
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
@@ -32,12 +33,12 @@ func TestGetCollectionResponse_MarshalJSON(t *testing.T) {
 			dto.GetCollectionResponse{
 				CollectionSummary:   apitest.NewCollectionResponse(1, *banner),
 				DerivedContributors: []dto.PublicContributor{contributor},
-				Datasets:            []dto.Dataset{{Source: dto.ExternalSource, Data: []byte(externalData)}},
+				Datasets:            []dto.Dataset{{Source: datasource.External, Data: []byte(externalData)}},
 			},
 			[]string{
 				fmt.Sprintf(`"banners":[%q]`, *banner),
 				`"derivedContributors":[{`,
-				fmt.Sprintf(`"source":%q`, dto.ExternalSource),
+				fmt.Sprintf(`"source":%q`, datasource.External),
 				fmt.Sprintf(`"data":%s`, externalData),
 			},
 			nil,
