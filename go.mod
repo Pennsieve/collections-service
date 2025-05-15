@@ -12,8 +12,8 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.4
-	github.com/pennsieve/dbmigrate-go v1.1.1-0.20250515171928-53d15eb6955b
-	github.com/pennsieve/pennsieve-go-core v1.13.3
+	github.com/pennsieve/dbmigrate-go v1.1.1
+	github.com/pennsieve/pennsieve-go-core v1.13.5
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
 )

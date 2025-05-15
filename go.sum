@@ -130,10 +130,10 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
-github.com/pennsieve/dbmigrate-go v1.1.1-0.20250515171928-53d15eb6955b h1:7Wx9GJcjdWF1cWOH++6g+oTyT2gwFgzDQvquQgGY1iQ=
-github.com/pennsieve/dbmigrate-go v1.1.1-0.20250515171928-53d15eb6955b/go.mod h1:q1DUCrXZkoGhBaRtTSkQSr8nu22xIB5IqSH7sOa5+f0=
-github.com/pennsieve/pennsieve-go-core v1.13.3 h1:bdk07K6KnHuphDswWjSSxqvTyRDHbFfFIXGglFQeBHw=
-github.com/pennsieve/pennsieve-go-core v1.13.3/go.mod h1:MeMDPuGOXkY8q+opOES8r7ib3EAt5dveB+PMjgtLNKM=
+github.com/pennsieve/dbmigrate-go v1.1.1 h1:2ioD6WXfzbMLp0f6cSgksc34Zkp7FzPgG6EFLsRbZ/0=
+github.com/pennsieve/dbmigrate-go v1.1.1/go.mod h1:q1DUCrXZkoGhBaRtTSkQSr8nu22xIB5IqSH7sOa5+f0=
+github.com/pennsieve/pennsieve-go-core v1.13.5 h1:sLNA4cXCoIWIkkjk8m4iYc9LqOK/C0CEWeVJjzOp1Ts=
+github.com/pennsieve/pennsieve-go-core v1.13.5/go.mod h1:MeMDPuGOXkY8q+opOES8r7ib3EAt5dveB+PMjgtLNKM=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
