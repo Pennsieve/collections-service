@@ -106,19 +106,12 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 		"offset":  offset,
 	}
 	// using ORDER BY c.id asc as a proxy for getting in order of creation, oldest first
-	getCollectionsSQL := `SELECT c.*, u.role, count(*) OVER () AS total_count
+	getCollectionsSQL := `SELECT c.id, c.name, c.description, c.node_id, u.role, count(*) OVER () AS total_count
 			FROM collections.collections c
          			JOIN collections.collection_user u ON c.id = u.collection_id
 			WHERE u.user_id = @user_id
-  				and u.permission_bit > 0
 			ORDER BY c.id asc
 			LIMIT @limit OFFSET @offset`
-
-	type CollectionUserJoin struct {
-		Collection
-		Role       PgxRole `db:"role"`
-		TotalCount int     `db:"total_count"`
-	}
 
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
@@ -132,24 +125,27 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 	response := GetCollectionsResponse{Limit: limit, Offset: offset}
 
 	var collectionIDs []int64
-
 	collections, err := pgx.CollectRows(collectionUserJoinRows, func(row pgx.CollectableRow) (CollectionSummary, error) {
-		join, err := pgx.RowToStructByName[CollectionUserJoin](row)
+		var id int64
+		var name, description, nodeID string
+		var role PgxRole
+		var totalCount int
+		err := row.Scan(&id, &name, &description, &nodeID, &role, &totalCount)
 		if err != nil {
 			return CollectionSummary{}, err
 		}
-		//redundant
-		response.TotalCount = join.TotalCount
+		//redundant after the first
+		response.TotalCount = totalCount
 
-		collectionIDs = append(collectionIDs, join.ID)
+		collectionIDs = append(collectionIDs, id)
 
 		return CollectionSummary{
 			CollectionBase: CollectionBase{
-				ID:          join.ID,
-				NodeID:      join.NodeID,
-				Name:        join.Name,
-				Description: join.Description,
-				UserRole:    join.Role.AsRole(),
+				ID:          id,
+				NodeID:      nodeID,
+				Name:        name,
+				Description: description,
+				UserRole:    role.AsRole(),
 			}}, nil
 
 	})
@@ -164,8 +160,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 		if err := conn.QueryRow(ctx, `SELECT count(*)
 	                                FROM collections.collections c
 	         			            	JOIN collections.collection_user u ON c.id = u.collection_id
-				                    WHERE u.user_id = @user_id
-	  				                	and u.permission_bit > 0`, getCollectionsArgs).Scan(&totalCount); err != nil {
+				                    WHERE u.user_id = @user_id`, getCollectionsArgs).Scan(&totalCount); err != nil {
 			return GetCollectionsResponse{}, fmt.Errorf("GetCollections: error counting total collections: %w", err)
 		}
 		response.TotalCount = totalCount
@@ -221,7 +216,6 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
 			WHERE u.user_id = @user_id
-			  AND u.permission_bit > 0
   			  AND %s
 			ORDER BY d.id asc`, idCondition)
 
