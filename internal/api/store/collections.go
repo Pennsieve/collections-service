@@ -16,7 +16,9 @@ const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
 
 type CollectionsStore interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
+	// GetCollections returns a paginated list of collection summaries that the given user has at least guest permission on.
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
+	// GetCollection returns a the given collection if it exists and if the given user has at least guest permission on it.
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
 	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
@@ -101,24 +103,18 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 
 	}
 	getCollectionsArgs := pgx.NamedArgs{
-		"user_id": userID,
-		"limit":   limit,
-		"offset":  offset,
+		"user_id":  userID,
+		"limit":    limit,
+		"offset":   offset,
+		"min_perm": pgdb.Guest,
 	}
 	// using ORDER BY c.id asc as a proxy for getting in order of creation, oldest first
-	getCollectionsSQL := `SELECT c.*, u.role, count(*) OVER () AS total_count
+	getCollectionsSQL := `SELECT c.id, c.name, c.description, c.node_id, u.role, count(*) OVER () AS total_count
 			FROM collections.collections c
          			JOIN collections.collection_user u ON c.id = u.collection_id
-			WHERE u.user_id = @user_id
-  				and u.permission_bit > 0
+			WHERE u.user_id = @user_id AND u.permission_bit >= @min_perm
 			ORDER BY c.id asc
 			LIMIT @limit OFFSET @offset`
-
-	type CollectionUserJoin struct {
-		Collection
-		Role       PgxRole `db:"role"`
-		TotalCount int     `db:"total_count"`
-	}
 
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
@@ -131,25 +127,29 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 
 	response := GetCollectionsResponse{Limit: limit, Offset: offset}
 
-	var collectionIDs []int64
-
+	// limit may be zero
+	collectionIDs := make([]int64, 0, limit+1)
 	collections, err := pgx.CollectRows(collectionUserJoinRows, func(row pgx.CollectableRow) (CollectionSummary, error) {
-		join, err := pgx.RowToStructByName[CollectionUserJoin](row)
+		var id int64
+		var name, description, nodeID string
+		var role PgxRole
+		var totalCount int
+		err := row.Scan(&id, &name, &description, &nodeID, &role, &totalCount)
 		if err != nil {
 			return CollectionSummary{}, err
 		}
-		//redundant
-		response.TotalCount = join.TotalCount
+		//redundant after the first
+		response.TotalCount = totalCount
 
-		collectionIDs = append(collectionIDs, join.ID)
+		collectionIDs = append(collectionIDs, id)
 
 		return CollectionSummary{
 			CollectionBase: CollectionBase{
-				ID:          join.ID,
-				NodeID:      join.NodeID,
-				Name:        join.Name,
-				Description: join.Description,
-				UserRole:    join.Role.AsRole(),
+				ID:          id,
+				NodeID:      nodeID,
+				Name:        name,
+				Description: description,
+				UserRole:    role.AsRole(),
 			}}, nil
 
 	})
@@ -164,8 +164,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 		if err := conn.QueryRow(ctx, `SELECT count(*)
 	                                FROM collections.collections c
 	         			            	JOIN collections.collection_user u ON c.id = u.collection_id
-				                    WHERE u.user_id = @user_id
-	  				                	and u.permission_bit > 0`, getCollectionsArgs).Scan(&totalCount); err != nil {
+				                    WHERE u.user_id = @user_id AND u.permission_bit >= @min_perm`, getCollectionsArgs).Scan(&totalCount); err != nil {
 			return GetCollectionsResponse{}, fmt.Errorf("GetCollections: error counting total collections: %w", err)
 		}
 		response.TotalCount = totalCount
@@ -212,7 +211,7 @@ func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID in
 // getCollectionByIDColumn returns the error ErrCollectionNotFound if no collection with the given idValue exists for the given user id.
 // idColumn should be either "id" or "node_id"
 func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, idColumn string, idValue any) (GetCollectionResponse, error) {
-	args := pgx.NamedArgs{"user_id": userID, idColumn: idValue}
+	args := pgx.NamedArgs{"user_id": userID, idColumn: idValue, "min_perm": pgdb.Guest}
 
 	idCondition := fmt.Sprintf("c.%s = @%s", idColumn, idColumn)
 
@@ -220,8 +219,7 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 			FROM collections.collections c
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
-			WHERE u.user_id = @user_id
-			  AND u.permission_bit > 0
+			WHERE u.user_id = @user_id AND u.permission_bit >= @min_perm
   			  AND %s
 			ORDER BY d.id asc`, idCondition)
 

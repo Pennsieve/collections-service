@@ -30,9 +30,12 @@ func TestStore(t *testing.T) {
 		{"create collection, empty description", testCreateCollectionEmptyDescription},
 		{"get collections, none", testGetCollectionsNone},
 		{"get collections", testGetCollections},
+		{"get collections, user with no permission on the collection should not see it", testGetCollectionsNoPerms},
 		{"get collections, limit and offset", testGetCollectionsLimitOffset},
 		{"get collection, none", testGetCollectionNone},
 		{"get collection", testGetCollection},
+		{"get collection, user with no permission on the collection should not see it", testGetCollectionNoPerms},
+
 		{"delete collection", testDeleteCollection},
 		{"delete non-existent collection", testDeleteCollectionNonExistent},
 		{"update collection name", testUpdateCollectionName},
@@ -208,6 +211,74 @@ func testGetCollections(t *testing.T, store *store.PostgresCollectionsStore, exp
 
 }
 
+func testGetCollectionsNoPerms(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	// We will probably only end up with collection users that have pgdb.NoPermission if there is a bug,
+	// but it is a possibility and we coded against it, so here is a test
+
+	// Set up using the ExpectationDB
+	user1 := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user1)
+	user2 := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user2)
+
+	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner)
+	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
+
+	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithDOIs(apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
+
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithUser(*user2.ID, pgdb.NoPermission).
+		WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
+
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().
+		WithUser(*user2.ID, pgdb.Owner).
+		WithUser(*user1.ID, pgdb.NoPermission).
+		WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user2Collection)
+
+	// Test with store
+	limit, offset := 10, 0
+	response, err := store.GetCollections(ctx, *user1.ID, limit, offset)
+	require.NoError(t, err)
+
+	assert.Equal(t, limit, response.Limit)
+	assert.Equal(t, offset, response.Offset)
+	assert.Equal(t, 3, response.TotalCount)
+
+	assert.Len(t, response.Collections, 3)
+
+	// They should be returned in oldest first order
+	actualCollection1 := response.Collections[0]
+	assertExpectedEqualCollectionSummary(t, user1CollectionNoDOI, actualCollection1)
+
+	actualCollection2 := response.Collections[1]
+	assertExpectedEqualCollectionSummary(t, user1CollectionOneDOI, actualCollection2)
+
+	actualCollection3 := response.Collections[2]
+	assertExpectedEqualCollectionSummary(t, user1CollectionFiveDOI, actualCollection3)
+
+	// try user2's collections
+	user2CollectionResp, err := store.GetCollections(ctx, *user2.ID, limit, offset)
+	require.NoError(t, err)
+
+	assert.Equal(t, limit, user2CollectionResp.Limit)
+	assert.Equal(t, offset, user2CollectionResp.Offset)
+	assert.Equal(t, 1, user2CollectionResp.TotalCount)
+	assert.Len(t, user2CollectionResp.Collections, 1)
+
+	actualUser2Collection := user2CollectionResp.Collections[0]
+	assertExpectedEqualCollectionSummary(t, user2Collection, actualUser2Collection)
+
+}
+
 func testGetCollectionsLimitOffset(t *testing.T, store *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
@@ -312,6 +383,39 @@ func testGetCollection(t *testing.T, store *store.PostgresCollectionsStore, expe
 	assert.NotNil(t, user2CollectionResp)
 	assertExpectedEqualCollectionBase(t, user2Collection, user2CollectionResp.CollectionBase)
 	assert.Equal(t, user2Collection.DOIs.AsDOIs(), user2CollectionResp.DOIs)
+
+}
+
+func testGetCollectionNoPerms(t *testing.T, collectionsStore *store.PostgresCollectionsStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	// Set up using the ExpectationDB
+	user1 := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user1)
+	user2 := apitest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user2)
+
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithUser(*user2.ID, pgdb.NoPermission).
+		WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
+
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().
+		WithUser(*user2.ID, pgdb.Owner).
+		WithUser(*user1.ID, pgdb.NoPermission).
+		WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, user2Collection)
+
+	// Test with collectionsStore
+
+	// user1FiveDOI
+	_, err := collectionsStore.GetCollection(ctx, *user2.ID, *user1CollectionFiveDOI.NodeID)
+	assert.ErrorIs(t, err, store.ErrCollectionNotFound)
+
+	// try user2's collections
+	_, err = collectionsStore.GetCollection(ctx, *user1.ID, *user2Collection.NodeID)
+	assert.ErrorIs(t, err, store.ErrCollectionNotFound)
 
 }
 
@@ -675,7 +779,7 @@ func assertExpectedEqualCollectionBase(t *testing.T, expected *apitest.ExpectedC
 	assert.Equal(t, expected.Name, actual.Name)
 	assert.Equal(t, expected.Description, actual.Description)
 	assert.Equal(t, expected.Users[0].PermissionBit.ToRole(), actual.UserRole)
-	assert.Len(t, expected.DOIs, actual.Size)
+	assert.Equal(t, len(expected.DOIs), actual.Size)
 }
 
 func assertExpectedEqualCollectionSummary(t *testing.T, expected *apitest.ExpectedCollection, actual store.CollectionSummary) {
