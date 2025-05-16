@@ -3,11 +3,14 @@ package fixtures
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
+	"strings"
 )
 
 func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) store.Collection {
@@ -57,6 +60,46 @@ func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn,
 		userIDToCollectionUser[collectionUser.UserID] = collectionUser
 	}
 	return
+}
+
+func AddCollectionUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64, userID int64, permission pgdb.DbPermission) {
+	test.Helper(t)
+	args := pgx.NamedArgs{
+		"collection_id":  collectionID,
+		"user_id":        userID,
+		"permission_bit": permission,
+		"role":           store.PgxRole(permission.ToRole()),
+	}
+	tag, err := conn.Exec(ctx,
+		`INSERT INTO collections.collection_user (collection_id, user_id, permission_bit, role) 
+											  VALUES (@collection_id, @user_id, @permission_bit, @role)`,
+		args)
+	require.NoError(t, err, "error adding user %d to collection %d", collectionID, userID)
+	require.Equal(t, int64(1), tag.RowsAffected())
+}
+
+func AddCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64, userIDToPermission map[int64]pgdb.DbPermission) {
+	test.Helper(t)
+	require.NotEmpty(t, userIDToPermission)
+	collectionKey := "collection_id"
+	args := pgx.NamedArgs{collectionKey: collectionID}
+	var values []string
+	for userID, permission := range userIDToPermission {
+		i := len(values)
+		userKey := fmt.Sprintf("user_id_%d", i)
+		permKey := fmt.Sprintf("permission_bit_%d", i)
+		roleKey := fmt.Sprintf("role_%d", i)
+		values = append(values, fmt.Sprintf("(@%s, @%s, @%s, @%s)", collectionKey, userKey, permKey, roleKey))
+		args[userKey] = userID
+		args[permKey] = permission
+		args[roleKey] = store.PgxRole(permission.ToRole())
+	}
+
+	tag, err := conn.Exec(ctx,
+		fmt.Sprintf(`INSERT INTO collections.collection_user (collection_id, user_id, permission_bit, role) VALUES %s`, strings.Join(values, ",")),
+		args)
+	require.NoError(t, err, "error adding users to collection %d", collectionID)
+	require.Equal(t, int64(len(userIDToPermission)), tag.RowsAffected(), "expected to add %d users, but added %d", len(userIDToPermission), tag.RowsAffected())
 }
 
 func GetDOIs(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (doiToDOI map[string]store.CollectionDOI) {

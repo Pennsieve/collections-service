@@ -29,6 +29,9 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	}
 	collectionsStore := params.Container.CollectionsStore()
 	userClaim := params.Claims.UserClaim
+
+	// GetCollections only returns collections where the given user has >= Guest permission,
+	// so no further authz is required for this route.
 	storeResp, err := collectionsStore.GetCollections(ctx, userClaim.Id, limit, offset)
 	if err != nil {
 		return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error getting collections for user %s", userClaim.NodeId), err)

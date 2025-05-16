@@ -25,6 +25,8 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 		slog.String(NodeIDPathParamKey, nodeID),
 		slog.String("userNodeId", userClaim.NodeId))
 
+	// GetCollection only returns the collection if the given user has >= Guest permission,
+	// so no further authz is required for this route.
 	storeResp, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
 	if err != nil {
 		if errors.Is(err, store.ErrCollectionNotFound) {
