@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"strings"
@@ -41,13 +42,25 @@ func GroupByDatasource(dois []store.DOI) (pennsieveDOIs []string, externalDOIs [
 	return
 }
 
-func CheckForUnpublished(datasetResults service.DatasetsByDOIResponse) error {
+// ValidateDiscoverResponse returns a Bad Request *apierrors.Error if datasetResults
+// contains unpublished datasets or published collection datasets (a collection cannot contain a collection).
+func ValidateDiscoverResponse(datasetResults service.DatasetsByDOIResponse) error {
 	if len(datasetResults.Unpublished) > 0 {
 		var details []string
 		for _, unpublished := range datasetResults.Unpublished {
 			details = append(details, fmt.Sprintf("%s status is %s", unpublished.DOI, unpublished.Status))
 		}
 		return apierrors.NewBadRequestError(fmt.Sprintf("request contains unpublished DOIs: %s", strings.Join(details, ", ")))
+	}
+
+	var collectionDetails []string
+	for publishedDOI, published := range datasetResults.Published {
+		if published.DatasetType != nil && *published.DatasetType == dto.CollectionDatasetType {
+			collectionDetails = append(collectionDetails, publishedDOI)
+		}
+	}
+	if len(collectionDetails) > 0 {
+		return apierrors.NewBadRequestError(fmt.Sprintf("request contains collection DOIs: %s", strings.Join(collectionDetails, ", ")))
 	}
 	return nil
 }

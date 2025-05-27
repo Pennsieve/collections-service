@@ -59,7 +59,7 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 			return dto.CreateCollectionResponse{}, apierrors.NewInternalServerError("error looking up DOIs in Discover", err)
 		}
 
-		if err := CheckForUnpublished(datasetResults); err != nil {
+		if err := ValidateDiscoverResponse(datasetResults); err != nil {
 			return dto.CreateCollectionResponse{}, err
 		}
 

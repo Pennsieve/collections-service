@@ -41,6 +41,12 @@ func WithPublicContributors(contributors ...dto.PublicContributor) PublicDataset
 	}
 }
 
+func WithDatasetType(datasetType string) PublicDatasetOption {
+	return func(publicDataset *dto.PublicDataset) {
+		publicDataset.DatasetType = &datasetType
+	}
+}
+
 func (e *ExpectedPennsieveDatasets) NewPublishedWithOptions(opts ...PublicDatasetOption) dto.PublicDataset {
 	doi := NewPennsieveDOI()
 	banner := NewBanner()

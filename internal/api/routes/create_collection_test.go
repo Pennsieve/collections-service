@@ -286,12 +286,6 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 	published1 := expectedDatasets.NewPublished()
 	published2 := expectedDatasets.NewPublished()
 
-	/*publishedDOI1 := apitest.NewPennsieveDOI()
-	banner1 := apitest.NewBanner()
-
-	publishedDOI2 := apitest.NewPennsieveDOI()
-	banner2 := apitest.NewBanner()*/
-
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(*callingUser.ID, pgdb.Owner).
 		WithPublicDatasets(published1, published2)
@@ -355,6 +349,9 @@ func TestHandleCreateCollection(t *testing.T) {
 		},
 		{
 			"return Bad Request when given unknown fields", testRejectUnknownFields,
+		},
+		{
+			"return Bad Request when given a Pennsieve collection DOI", testRejectCollectionDOI,
 		},
 	}
 
@@ -453,4 +450,54 @@ func testRejectUnknownFields(t *testing.T) {
 
 	assert.Contains(t, response.Body, unknownFieldName)
 	assert.Contains(t, response.Body, "unknown field")
+}
+
+func testRejectCollectionDOI(t *testing.T) {
+	ctx := context.Background()
+
+	callingUser := apitest.SeedUser1
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	researchDataset := expectedDatasets.NewPublishedWithOptions(apitest.WithDatasetType("research"))
+	releaseDataset := expectedDatasets.NewPublishedWithOptions(apitest.WithDatasetType("release"))
+	collectionDataset := expectedDatasets.NewPublishedWithOptions(apitest.WithDatasetType(dto.CollectionDatasetType))
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithPublicDatasets(researchDataset, releaseDataset, collectionDataset)
+
+	createCollectionRequest := dto.CreateCollectionRequest{
+		Name:        expectedCollection.Name,
+		Description: expectedCollection.Description,
+		DOIs:        expectedCollection.DOIs.Strings(),
+	}
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	config := apitest.NewConfigBuilder().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
+			WithClaims(claims).
+			WithBody(t, createCollectionRequest).
+			Build(),
+		Container: container,
+		Config:    config,
+		Claims:    &claims,
+	}
+
+	response, err := Handle(ctx, NewCreateCollectionRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+
+	assert.Contains(t, response.Body, collectionDataset.DOI)
 }
