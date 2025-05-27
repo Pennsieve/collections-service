@@ -169,6 +169,8 @@ func (d *Date) UnmarshalText(data []byte) error {
 	return nil
 }
 
+const CollectionDatasetType = "collection"
+
 // PublicDataset and it's child DTOs are taken from the Discover service so that
 // our responses match those of Discover.
 type PublicDataset struct {

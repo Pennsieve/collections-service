@@ -706,6 +706,10 @@ func TestHandlePatchCollection(t *testing.T) {
 			"forbid updates from users without the proper role on the collection",
 			testHandlePatchCollectionAuthz,
 		},
+		{
+			"return Bad Request when given a collection DOI to add",
+			testRejectAddingCollectionDOI,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1007,4 +1011,57 @@ func testHandlePatchCollectionAuthz(t *testing.T) {
 		})
 	}
 
+}
+
+func testRejectAddingCollectionDOI(t *testing.T) {
+	ctx := context.Background()
+
+	callingUser := apitest.SeedUser1
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(callingUser.ID, pgdb.Owner)
+
+	mockCollectionStore := mocks.NewMockCollectionsStore().WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	researchDataset := expectedDatasets.NewPublishedWithOptions(apitest.WithDatasetType("research"))
+	releaseDataset := expectedDatasets.NewPublishedWithOptions(apitest.WithDatasetType("release"))
+	collectionDataset := expectedDatasets.NewPublishedWithOptions(apitest.WithDatasetType(dto.CollectionDatasetType))
+
+	patchCollectionRequest := dto.PatchCollectionRequest{
+		DOIs: &dto.PatchDOIs{Add: []string{researchDataset.DOI, releaseDataset.DOI, collectionDataset.DOI}},
+	}
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	config := apitest.NewConfigBuilder().
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithCollectionsStore(mockCollectionStore).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, patchCollectionRequest).
+			Build(),
+		Container: container,
+		Config:    config,
+		Claims:    &claims,
+	}
+
+	response, err := Handle(ctx, NewPatchCollectionRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+
+	assert.Contains(t, response.Body, collectionDataset.DOI)
 }

@@ -82,7 +82,7 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 				"error querying Discover for DOIs to add during update",
 				err)
 		}
-		if err := CheckForUnpublished(discoverResp); err != nil {
+		if err := ValidateDiscoverResponse(discoverResp); err != nil {
 			return dto.GetCollectionResponse{}, err
 		}
 	}
