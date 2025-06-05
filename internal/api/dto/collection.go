@@ -294,3 +294,14 @@ func (t Tombstone) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(TombstoneAlias(t))
 }
+
+type PublishCollectionRequest struct {
+	License string   `json:"license"`
+	Tags    []string `json:"tags"`
+}
+
+type PublishCollectionResponse struct{}
+
+func (r PublishCollectionResponse) Marshal() (string, error) {
+	return defaultMarshalImpl(r)
+}

@@ -964,7 +964,7 @@ func testHandlePatchCollectionAuthz(t *testing.T) {
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
 			params := Params{
-				Request: apitest.NewAPIGatewayRequestBuilder(DeleteCollectionRouteKey).
+				Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 					WithBody(t, dto.PatchCollectionRequest{}).
@@ -994,7 +994,7 @@ func testHandlePatchCollectionAuthz(t *testing.T) {
 				WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
 			params := Params{
-				Request: apitest.NewAPIGatewayRequestBuilder(DeleteCollectionRouteKey).
+				Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 					WithBody(t, dto.PatchCollectionRequest{}).
