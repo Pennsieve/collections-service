@@ -2,12 +2,15 @@ package config
 
 import (
 	"fmt"
+	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
 	"strings"
 )
 
 type PennsieveConfig struct {
-	DiscoverServiceURL string
-	DOIPrefix          string
+	DiscoverServiceURL    string
+	DOIPrefix             string
+	JWTSecretKey          *sharedconfig.SSMSetting
+	CollectionNamespaceID int64
 }
 
 func NewPennsieveConfig(options ...PennsieveOption) PennsieveConfig {
@@ -32,9 +35,21 @@ func WithDOIPrefix(doiPrefix string) PennsieveOption {
 	}
 }
 
+func WithJWTSecretKey(jwtSecretKey string) PennsieveOption {
+	return func(pennsieveConfig *PennsieveConfig) {
+		pennsieveConfig.JWTSecretKey = JWTSecretKeySetting.WithValue(jwtSecretKey)
+	}
+}
+
+func WithCollectionNamespaceID(namespaceID int64) PennsieveOption {
+	return func(pennsieveConfig *PennsieveConfig) {
+		pennsieveConfig.CollectionNamespaceID = namespaceID
+	}
+}
+
 // LoadWithEnvSettings returns a copy of this PennsieveConfig where any missing fields are populated by the
 // given PennsieveEnvironmentSettings.
-func (c PennsieveConfig) LoadWithEnvSettings(environmentSettings PennsieveEnvironmentSettings) (PennsieveConfig, error) {
+func (c PennsieveConfig) LoadWithEnvSettings(environmentName string, environmentSettings PennsieveEnvironmentSettings) (PennsieveConfig, error) {
 	if len(c.DiscoverServiceURL) == 0 {
 		url, err := environmentSettings.DiscoverServiceHost.Get()
 		if err != nil {
@@ -52,11 +67,20 @@ func (c PennsieveConfig) LoadWithEnvSettings(environmentSettings PennsieveEnviro
 		}
 		c.DOIPrefix = prefix
 	}
+	if c.CollectionNamespaceID == 0 {
+		namespaceID, err := environmentSettings.CollectionNamespaceID.GetInt64()
+		if err != nil {
+			return PennsieveConfig{}, err
+		}
+		c.CollectionNamespaceID = namespaceID
+	}
+
+	c.JWTSecretKey = JWTSecretKeySetting.WithEnvironment(environmentName)
 	return c, nil
 }
 
 // Load returns a copy of this PennsieveConfig where any missing fields are populated by the
 // given DeployedPennsieveEnvironmentSettings.
-func (c PennsieveConfig) Load() (PennsieveConfig, error) {
-	return c.LoadWithEnvSettings(DeployedPennsieveEnvironmentSettings)
+func (c PennsieveConfig) Load(environmentName string) (PennsieveConfig, error) {
+	return c.LoadWithEnvSettings(environmentName, DeployedPennsieveEnvironmentSettings)
 }

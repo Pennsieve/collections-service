@@ -1,6 +1,7 @@
 package apitest
 
 import (
+	"context"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
@@ -11,6 +12,7 @@ import (
 type TestContainer struct {
 	TestPostgresDB       postgres.DB
 	TestDiscover         service.Discover
+	TestInternalDiscover service.InternalDiscover
 	TestCollectionsStore store.CollectionsStore
 	logger               *slog.Logger
 }
@@ -34,6 +36,13 @@ func (c *TestContainer) CollectionsStore() store.CollectionsStore {
 		panic("no store.CollectionsStore set for this TestContainer")
 	}
 	return c.TestCollectionsStore
+}
+
+func (c *TestContainer) InternalDiscover(ctx context.Context) (service.InternalDiscover, error) {
+	if c.TestInternalDiscover == nil {
+		panic("no service.InternalDiscover set for this TestContainer")
+	}
+	return c.TestInternalDiscover, nil
 }
 
 func (c *TestContainer) Logger() *slog.Logger {
@@ -80,5 +89,10 @@ func (c *TestContainer) WithContainerStoreFromPostgresDB(collectionsDBName strin
 		panic("cannot create ContainerStore from nil PostgresDB; call WithPostgresDB first")
 	}
 	c.TestCollectionsStore = store.NewPostgresCollectionsStore(c.TestPostgresDB, collectionsDBName, c.Logger())
+	return c
+}
+
+func (c *TestContainer) WithInternalDiscover(internalDiscover service.InternalDiscover) *TestContainer {
+	c.TestInternalDiscover = internalDiscover
 	return c
 }

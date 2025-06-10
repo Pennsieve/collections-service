@@ -2,20 +2,29 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/shared/clients/ssm"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	awsSSM "github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 )
 
 type DependencyContainer interface {
 	PostgresDB() postgres.DB
 	Discover() service.Discover
+	// InternalDiscover returns a Discover service for calling
+	// the internal endpoints. Since these require authz, the setup
+	// is a little different and requires calling SSM. So it is separated
+	// out from Discover so that we only do this setup if the internal
+	// endpoints will be used.
+	InternalDiscover(ctx context.Context) (service.InternalDiscover, error)
 	CollectionsStore() store.CollectionsStore
 	Logger() *slog.Logger
 	SetLogger(logger *slog.Logger)
@@ -27,7 +36,9 @@ type Container struct {
 	Config           config.Config
 	postgresdb       *postgres.RDSProxy
 	discover         *service.HTTPDiscover
+	internalDiscover *service.HTTPInternalDiscover
 	collectionsStore *store.PostgresCollectionsStore
+	parameterStore   *ssm.AWSParameterStore
 	logger           *slog.Logger
 }
 
@@ -95,4 +106,29 @@ func (c *Container) CollectionsStore() store.CollectionsStore {
 			c.Logger())
 	}
 	return c.collectionsStore
+}
+
+// ParameterStore is not part of the interface, since right now it is only used internally by Config.
+func (c *Container) ParameterStore() ssm.ParameterStore {
+	if c.parameterStore == nil {
+		c.parameterStore = ssm.NewAWSParameterStore(awsSSM.NewFromConfig(c.AwsConfig))
+	}
+	return c.parameterStore
+}
+
+func (c *Container) InternalDiscover(ctx context.Context) (service.InternalDiscover, error) {
+	if c.internalDiscover == nil {
+		jwtSecretKey, err := c.Config.PennsieveConfig.JWTSecretKey.Load(
+			ctx,
+			c.ParameterStore().GetParameter)
+		if err != nil {
+			return nil, fmt.Errorf("error creating internal discover service; cannot get JWT secret Key from SSM: %w", err)
+		}
+		c.internalDiscover = service.NewHTTPInternalDiscover(
+			c.Config.PennsieveConfig.DiscoverServiceURL,
+			jwtSecretKey,
+			c.Config.PennsieveConfig.CollectionNamespaceID,
+			c.Logger())
+	}
+	return c.internalDiscover, nil
 }

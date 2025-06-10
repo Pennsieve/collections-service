@@ -17,3 +17,5 @@ type PublishDOICollectionRequest struct {
 	OwnerOrcid       string   `json:"ownerOrcid"`
 	CollectionNodeID string   `json:"collectionNodeId"`
 }
+
+type PublishDOICollectionResponse struct{}

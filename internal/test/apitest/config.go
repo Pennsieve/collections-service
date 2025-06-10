@@ -1,16 +1,21 @@
 package apitest
 
 import (
+	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
 )
+
+const CollectionNamespaceID = int64(-20)
 
 type ConfigBuilder struct {
 	c *config.Config
 }
 
 func NewConfigBuilder() *ConfigBuilder {
-	return &ConfigBuilder{c: &config.Config{}}
+	return &ConfigBuilder{c: &config.Config{
+		Environment: "test",
+	}}
 }
 
 func (b *ConfigBuilder) WithPostgresDBConfig(postgresDBConfig sharedconfig.PostgresDBConfig) *ConfigBuilder {
@@ -23,17 +28,29 @@ func (b *ConfigBuilder) WithPennsieveConfig(pennsieveConfig config.PennsieveConf
 	return b
 }
 
+func (b *ConfigBuilder) WithEnvironment(env string) *ConfigBuilder {
+	b.c.Environment = env
+	return b
+}
+
 func (b *ConfigBuilder) Build() config.Config {
 	return *b.c
 }
 
 func PennsieveConfig(discoverServiceURL string) config.PennsieveConfig {
-	return config.NewPennsieveConfig(config.WithDiscoverServiceURL(discoverServiceURL),
-		config.WithDOIPrefix(PennsieveDOIPrefix))
+	return config.NewPennsieveConfig(
+		config.WithDiscoverServiceURL(discoverServiceURL),
+		config.WithDOIPrefix(PennsieveDOIPrefix),
+		config.WithJWTSecretKey(uuid.NewString()),
+		config.WithCollectionNamespaceID(CollectionNamespaceID),
+	)
 }
 
 func PennsieveConfigWithFakeURL() config.PennsieveConfig {
 	return config.NewPennsieveConfig(
 		config.WithDiscoverServiceURL("http://example.com/discover"),
-		config.WithDOIPrefix(PennsieveDOIPrefix))
+		config.WithDOIPrefix(PennsieveDOIPrefix),
+		config.WithJWTSecretKey(uuid.NewString()),
+		config.WithCollectionNamespaceID(CollectionNamespaceID),
+	)
 }

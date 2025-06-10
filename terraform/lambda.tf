@@ -27,6 +27,7 @@ resource "aws_lambda_function" "collections_service_api_lambda" {
       POSTGRES_COLLECTIONS_DATABASE = var.pennsieve_postgres_database,
       DISCOVER_SERVICE_HOST         = local.discover_service_host,
       PENNSIEVE_DOI_PREFIX          = local.pennsieve_doi_prefix,
+      COLLECTION_NAMESPACE_ID       = local.collection_namespace_id,
       LOG_LEVEL                     = local.log_level
     }
   }

@@ -46,6 +46,8 @@ func CollectionsServiceAPIHandler(
 			slog.Group("pennsieve",
 				slog.String("doiPrefix", config.PennsieveConfig.DOIPrefix),
 				slog.String("discoverURL", config.PennsieveConfig.DiscoverServiceURL),
+				slog.Int64("collectionNamespaceID", config.PennsieveConfig.CollectionNamespaceID),
+				slog.String("jwtSecretKey", config.PennsieveConfig.JWTSecretKey.String()),
 			),
 		)
 
