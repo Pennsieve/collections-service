@@ -10,7 +10,7 @@ type Discover struct {
 	GetDatasetsByDOIFunc
 }
 
-func NewMockDiscover() *Discover {
+func NewDiscover() *Discover {
 	return &Discover{}
 }
 

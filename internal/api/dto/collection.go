@@ -300,7 +300,11 @@ type PublishCollectionRequest struct {
 	Tags    []string `json:"tags"`
 }
 
-type PublishCollectionResponse struct{}
+type PublishCollectionResponse struct {
+	PublishedDatasetID int64  `json:"publishedDatasetId"`
+	PublishedVersion   int64  `json:"publishedVersion"`
+	Status             string `json:"status"`
+}
 
 func (r PublishCollectionResponse) Marshal() (string, error) {
 	return defaultMarshalImpl(r)

@@ -1,4 +1,4 @@
-package store
+package collections
 
 import (
 	"github.com/pennsieve/collections-service/internal/api/datasource"
@@ -36,9 +36,19 @@ type DOI struct {
 	Datasource datasource.DOIDatasource
 }
 
+type DOIs []DOI
+
+func (d DOIs) Strings() []string {
+	s := make([]string, len(d))
+	for i, doi := range d {
+		s[i] = doi.Value
+	}
+	return s
+}
+
 type GetCollectionResponse struct {
 	CollectionBase
-	DOIs []DOI
+	DOIs DOIs
 }
 
 type DOIUpdate struct {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"log/slog"
 	"net/http"
 )
@@ -29,7 +29,7 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 	// so no further authz is required for this route.
 	storeResp, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
 	if err != nil {
-		if errors.Is(err, store.ErrCollectionNotFound) {
+		if errors.Is(err, collections.ErrCollectionNotFound) {
 			return dto.GetCollectionResponse{}, apierrors.NewCollectionNotFoundError(nodeID)
 		}
 		return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(

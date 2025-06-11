@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 )
 
-func (p Params) StoreToDTOCollection(storeCollection store.GetCollectionResponse) (dto.GetCollectionResponse, error) {
+func (p Params) StoreToDTOCollection(storeCollection collections.GetCollectionResponse) (dto.GetCollectionResponse, error) {
 	response := dto.GetCollectionResponse{
 		CollectionSummary: dto.CollectionSummary{
 			NodeID:      storeCollection.NodeID,

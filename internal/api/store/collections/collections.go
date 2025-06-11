@@ -1,4 +1,4 @@
-package store
+package collections
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
 
-type CollectionsStore interface {
+type Store interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
 	// GetCollections returns a paginated list of collection summaries that the given user has at least guest permission on.
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
@@ -24,21 +24,21 @@ type CollectionsStore interface {
 	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
 }
 
-type PostgresCollectionsStore struct {
+type PostgresStore struct {
 	db           postgres.DB
 	databaseName string
 	logger       *slog.Logger
 }
 
-func NewPostgresCollectionsStore(db postgres.DB, collectionsDatabaseName string, logger *slog.Logger) *PostgresCollectionsStore {
-	return &PostgresCollectionsStore{
+func NewPostgresStore(db postgres.DB, collectionsDatabaseName string, logger *slog.Logger) *PostgresStore {
+	return &PostgresStore{
 		db:           db,
 		databaseName: collectionsDatabaseName,
-		logger:       logger.With(slog.String("type", "PostgresCollectionsStore")),
+		logger:       logger.With(slog.String("type", "collections.PostgresStore")),
 	}
 }
 
-func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error) {
+func (s *PostgresStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return CreateCollectionResponse{}, fmt.Errorf("CreateCollection error connecting to database %s: %w", s.databaseName, err)
@@ -94,7 +94,7 @@ func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID 
 	}, nil
 }
 
-func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error) {
+func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error) {
 	if limit < 0 {
 		return GetCollectionsResponse{}, fmt.Errorf("limit cannot be negative: %d", limit)
 	}
@@ -272,7 +272,7 @@ func getCollectionByID(ctx context.Context, conn *pgx.Conn, userID int64, collec
 }
 
 // GetCollection returns the error ErrCollectionNotFound if no collection with the given node id exists for the given user id.
-func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
+func (s *PostgresStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return GetCollectionResponse{}, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
@@ -281,7 +281,7 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 	return getCollectionByNodeID(ctx, conn, userID, nodeID)
 }
 
-func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collectionID int64) error {
+func (s *PostgresStore) DeleteCollection(ctx context.Context, collectionID int64) error {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return fmt.Errorf("DeleteCollection error connecting to database %s: %w", s.databaseName, err)
@@ -302,7 +302,7 @@ func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collect
 	return nil
 }
 
-func (s *PostgresCollectionsStore) UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error) {
+func (s *PostgresStore) UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error) {
 
 	// Create SQL for name and description update if necessary
 	var collectionUpdateSQL string
@@ -397,8 +397,8 @@ func (s *PostgresCollectionsStore) UpdateCollection(ctx context.Context, userID,
 	return updatedCollection, nil
 }
 
-func (s *PostgresCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {
+func (s *PostgresStore) closeConn(ctx context.Context, conn *pgx.Conn) {
 	if err := conn.Close(ctx); err != nil {
-		s.logger.Warn("error closing DB connection", slog.Any("error", err))
+		s.logger.Warn("error closing collections.PostgresStore DB connection", slog.Any("error", err))
 	}
 }

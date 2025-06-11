@@ -10,12 +10,19 @@ type PublishDOICollectionRequest struct {
 	DOIs             []string `json:"dois"`    // min 1 item
 	License          string   `json:"license"`
 	Tags             []string `json:"tags"`
-	OwnerID          int32    `json:"ownerId"`
+	OwnerID          int64    `json:"ownerId"`
 	OwnerNodeID      string   `json:"ownerNodeId"`
 	OwnerFirstName   string   `json:"ownerFirstName"`
 	OwnerLastName    string   `json:"ownerLastName"`
-	OwnerOrcid       string   `json:"ownerOrcid"`
+	OwnerORCID       string   `json:"ownerOrcid"`
 	CollectionNodeID string   `json:"collectionNodeId"`
 }
 
-type PublishDOICollectionResponse struct{}
+type PublishDOICollectionResponse struct {
+	Name               string `json:"name"`
+	SourceCollectionID int64  `json:"sourceCollectionId"`
+	PublishedDatasetID int64  `json:"publishedDatasetId"`
+	PublishedVersion   int64  `json:"publishedVersion"`
+	Status             string `json:"status"`
+	PublicID           string `json:"publicId"`
+}

@@ -148,7 +148,7 @@ func testDeleteAuthz(t *testing.T) {
 		t.Run(tooLowPerm.String(), func(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
 
-			mockCollectionStore := mocks.NewMockCollectionsStore().
+			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
 			params := Params{
@@ -179,7 +179,7 @@ func testDeleteAuthz(t *testing.T) {
 			mockCollectionID := int64(123)
 			expectedCollection.ID = &mockCollectionID
 
-			mockCollectionStore := mocks.NewMockCollectionsStore().
+			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
 				WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
 					require.Equal(t, mockCollectionID, collectionID)

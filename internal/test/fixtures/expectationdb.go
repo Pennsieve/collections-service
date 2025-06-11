@@ -3,7 +3,7 @@ package fixtures
 import (
 	"context"
 	"github.com/jackc/pgx/v5"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -17,7 +17,7 @@ import (
 type ExpectationDB struct {
 	db                     *test.PostgresDB
 	dbName                 string
-	internalStore          *store.PostgresCollectionsStore
+	internalStore          *collections.PostgresStore
 	createdUsers           map[int64]bool
 	knownCollectionIDs     map[int64]bool
 	knownCollectionNodeIDs map[string]bool
@@ -33,9 +33,9 @@ func NewExpectationDB(db *test.PostgresDB, dbName string) *ExpectationDB {
 	}
 }
 
-func (e *ExpectationDB) collectionsStore() store.CollectionsStore {
+func (e *ExpectationDB) collectionsStore() collections.Store {
 	if e.internalStore == nil {
-		e.internalStore = store.NewPostgresCollectionsStore(e.db, e.dbName, logging.Default.With(slog.String("source", "ExpectationDB")))
+		e.internalStore = collections.NewPostgresStore(e.db, e.dbName, logging.Default.With(slog.String("source", "ExpectationDB")))
 	}
 	return e.internalStore
 }
@@ -80,7 +80,7 @@ func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
-func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection) store.CreateCollectionResponse {
+func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection) collections.CreateCollectionResponse {
 	test.Helper(t)
 	ownerIdx := slices.IndexFunc(expected.Users, func(user apitest.ExpectedUser) bool {
 		return user.PermissionBit == pgdb.Owner
@@ -154,7 +154,7 @@ func (e *ExpectationDB) CleanUp(ctx context.Context, t require.TestingT) {
 	}
 }
 
-func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, expected *apitest.ExpectedCollection, actual store.Collection) {
+func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, expected *apitest.ExpectedCollection, actual collections.Collection) {
 	require.Equal(t, expected.Name, actual.Name)
 	require.Equal(t, expected.Description, actual.Description)
 	if expected.NodeID != nil {

@@ -5,7 +5,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -74,7 +74,7 @@ type ExpectedDOI struct {
 }
 
 // WithDOIs adds to the current ExpectedDOI slice
-func (c *ExpectedCollection) WithDOIs(dois ...store.DOI) *ExpectedCollection {
+func (c *ExpectedCollection) WithDOIs(dois ...collections.DOI) *ExpectedCollection {
 	for _, doi := range dois {
 		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: doi.Value, Datasource: doi.Datasource})
 	}
@@ -82,7 +82,7 @@ func (c *ExpectedCollection) WithDOIs(dois ...store.DOI) *ExpectedCollection {
 }
 
 // SetDOIs replaces the current ExpectedDOI slice with the given DOIs
-func (c *ExpectedCollection) SetDOIs(dois ...store.DOI) *ExpectedCollection {
+func (c *ExpectedCollection) SetDOIs(dois ...collections.DOI) *ExpectedCollection {
 	var newDOIs []ExpectedDOI
 	for _, doi := range dois {
 		newDOIs = append(newDOIs, ExpectedDOI{DOI: doi.Value, Datasource: doi.Datasource})
@@ -92,7 +92,7 @@ func (c *ExpectedCollection) SetDOIs(dois ...store.DOI) *ExpectedCollection {
 }
 
 func (c *ExpectedCollection) WithNPennsieveDOIs(n int) *ExpectedCollection {
-	var dois []store.DOI
+	var dois []collections.DOI
 	for i := 0; i < n; i++ {
 		dois = append(dois, NewPennsieveDOI())
 	}
@@ -138,13 +138,13 @@ func (d ExpectedDOIs) Strings() []string {
 	return strs
 }
 
-func (d ExpectedDOIs) AsDOIs() []store.DOI {
+func (d ExpectedDOIs) AsDOIs() collections.DOIs {
 	if len(d) == 0 {
 		return nil
 	}
-	strs := make([]store.DOI, len(d))
+	strs := make([]collections.DOI, len(d))
 	for i, doi := range d {
-		strs[i] = store.DOI{
+		strs[i] = collections.DOI{
 			Value:      doi.DOI,
 			Datasource: doi.Datasource,
 		}
@@ -152,7 +152,7 @@ func (d ExpectedDOIs) AsDOIs() []store.DOI {
 	return strs
 }
 
-func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) store.GetCollectionResponse {
+func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) collections.GetCollectionResponse {
 	test.Helper(t)
 	require.NotNil(t, c.ID, "expected collection does not have ID set")
 	require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
@@ -161,7 +161,7 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 	})
 	require.NotEqual(t, -1, userIdx, "given user %d has no permission for expected collection", expectedUserID)
 	user := c.Users[userIdx]
-	collectionBase := store.CollectionBase{
+	collectionBase := collections.CollectionBase{
 		ID:          *c.ID,
 		NodeID:      *c.NodeID,
 		Name:        c.Name,
@@ -169,7 +169,7 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 		Size:        len(c.DOIs),
 		UserRole:    user.PermissionBit.ToRole(),
 	}
-	return store.GetCollectionResponse{
+	return collections.GetCollectionResponse{
 		CollectionBase: collectionBase,
 		DOIs:           c.DOIs.AsDOIs(),
 	}
@@ -177,14 +177,14 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 
 func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetCollectionFunc {
 	test.Helper(t)
-	return func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
 		return c.ToGetCollectionResponse(t, userID), nil
 	}
 }
 
 func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.UpdateCollectionFunc {
-	return func(ctx context.Context, userID int64, collectionID int64, update store.UpdateCollectionRequest) (store.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int64, collectionID int64, update collections.UpdateCollectionRequest) (collections.GetCollectionResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
@@ -210,7 +210,7 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 			toDeleteSet[toDelete] = true
 		}
 
-		var updatedDOIs []store.DOI
+		var updatedDOIs []collections.DOI
 		for _, doi := range c.DOIs.AsDOIs() {
 			if _, deleted := toDeleteSet[doi.Value]; !deleted {
 				updatedDOIs = append(updatedDOIs, doi)
@@ -219,7 +219,7 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 
 		updatedDOIs = append(updatedDOIs, update.DOIs.Add...)
 
-		collectionBase := store.CollectionBase{
+		collectionBase := collections.CollectionBase{
 			NodeID:      *c.NodeID,
 			ID:          *c.ID,
 			Name:        updatedName,
@@ -227,7 +227,7 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 			Size:        len(updatedDOIs),
 			UserRole:    user.PermissionBit.ToRole(),
 		}
-		return store.GetCollectionResponse{
+		return collections.GetCollectionResponse{
 			CollectionBase: collectionBase,
 			DOIs:           updatedDOIs,
 		}, nil

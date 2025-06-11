@@ -2,7 +2,7 @@ package routes
 
 import (
 	"context"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
@@ -285,9 +285,9 @@ func testHandleGetCollectionsEmptyCollectionsArray(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
-		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
-			return store.GetCollectionsResponse{
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
+			return collections.GetCollectionsResponse{
 				Limit:  DefaultGetCollectionsLimit,
 				Offset: DefaultGetCollectionsOffset,
 			}, nil
@@ -319,14 +319,14 @@ func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
-		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
-			return store.GetCollectionsResponse{
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
+			return collections.GetCollectionsResponse{
 				Limit:      DefaultGetCollectionsLimit,
 				Offset:     DefaultGetCollectionsOffset,
 				TotalCount: 1,
-				Collections: []store.CollectionSummary{{
-					CollectionBase: store.CollectionBase{
+				Collections: []collections.CollectionSummary{{
+					CollectionBase: collections.CollectionBase{
 						NodeID:      *expectedCollection.NodeID,
 						Name:        expectedCollection.Name,
 						Description: expectedCollection.Description,

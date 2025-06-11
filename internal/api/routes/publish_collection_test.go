@@ -4,11 +4,14 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -60,7 +63,7 @@ func testHandlePublishCollectionNoBody(t *testing.T) {
 	ctx := context.Background()
 	callingUser := apitest.SeedUser1
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -91,7 +94,7 @@ func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 		Tags:    []string{"test"},
 	}
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -122,7 +125,7 @@ func testHandlePublishCollectionLicenseTooLong(t *testing.T) {
 		Tags:    []string{"test"},
 	}
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -153,7 +156,7 @@ func testHandlePublishCollectionNoTags(t *testing.T) {
 		License: "Creative Commons something",
 	}
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -185,7 +188,7 @@ func testHandlePublishCollectionEmptyTags(t *testing.T) {
 		Tags:    []string{},
 	}
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -213,11 +216,11 @@ func testHandlePublishCollectionNotFound(t *testing.T) {
 	callingUser := apitest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
+	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
 		test.Helper(t)
 		require.Equal(t, callingUser.ID, userID)
 		require.Equal(t, nonExistentNodeID, nodeID)
-		return store.GetCollectionResponse{}, store.ErrCollectionNotFound
+		return collections.GetCollectionResponse{}, collections.ErrCollectionNotFound
 	})
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -254,7 +257,7 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 		t.Run(tooLowPerm.String(), func(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
 
-			mockCollectionStore := mocks.NewMockCollectionsStore().
+			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
 			params := Params{
@@ -284,10 +287,38 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 	// only pgdb.Owner can publish
 	for _, okPerm := range []pgdb.DbPermission{pgdb.Owner} {
 		t.Run(okPerm.String(), func(t *testing.T) {
-			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm)
 
-			mockCollectionStore := mocks.NewMockCollectionsStore().
+			expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+			dataset := expectedDatasets.NewPublished()
+
+			mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
+
+			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm).WithPublicDatasets(dataset)
+
+			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+
+			mockInternalDiscover := mocks.NewInternalDiscover().WithPublishCollectionFunc(func(collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
+				t.Helper()
+				require.Equal(t, *expectedCollection.ID, collectionID)
+				require.Equal(t, role.Owner, userRole)
+				return service.PublishDOICollectionResponse{
+					Name:               expectedCollection.Name,
+					SourceCollectionID: *expectedCollection.ID,
+					PublishedDatasetID: 14,
+					PublishedVersion:   1,
+					Status:             "PublishInProgress",
+					PublicID:           *expectedCollection.NodeID,
+				}, nil
+			})
+
+			mockUsersStore := mocks.NewUsersStore().WithGetUserFunc(func(ctx context.Context, userID int64) (users.GetUserResponse, error) {
+				require.Equal(t, callingUser.ID, userID)
+				return users.GetUserResponse{
+					FirstName: &callingUser.FirstName,
+					LastName:  &callingUser.LastName,
+				}, nil
+			})
 
 			params := Params{
 				Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
@@ -298,9 +329,13 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 						Tags:    []string{"test"},
 					}).
 					Build(),
-				Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
-				Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
-				Claims:    &claims,
+				Container: apitest.NewTestContainer().
+					WithCollectionsStore(mockCollectionStore).
+					WithDiscover(mockDiscover).
+					WithInternalDiscover(mockInternalDiscover).
+					WithUsersStore(mockUsersStore),
+				Config: apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
+				Claims: &claims,
 			}
 
 			resp, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)

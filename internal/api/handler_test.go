@@ -8,7 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/routes"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
@@ -183,7 +183,7 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 		DOIs:        []string{publishedDOI.Value, unpublishedDOI.Value},
 	}
 
-	mockDiscoverService := mocks.NewMockDiscover().
+	mockDiscoverService := mocks.NewDiscover().
 		WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
 			test.Helper(t)
 			require.Equal(t, []string{publishedDOI.Value, unpublishedDOI.Value}, dois)
@@ -263,7 +263,7 @@ func testCreateCollection(t *testing.T) {
 		DOIs:        []string{publishedDOI1.Value, publishedDOI2.Value},
 	}
 
-	mockDiscoverService := mocks.NewMockDiscover().
+	mockDiscoverService := mocks.NewDiscover().
 		WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
 			t.Helper()
 			require.Equal(t, []string{publishedDOI1.Value, publishedDOI2.Value}, dois)
@@ -276,22 +276,22 @@ func testCreateCollection(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewMockCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []store.DOI) (store.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
 		t.Helper()
 		require.Equal(t, callingUser.ID, userID)
 		require.NotEmpty(t, nodeID)
 		collectionNodeID = nodeID
 		require.Equal(t, createCollectionRequest.Name, name)
 		require.Equal(t, createCollectionRequest.Description, description)
-		var expectedDOIs []store.DOI
+		var expectedDOIs []collections.DOI
 		for _, doi := range createCollectionRequest.DOIs {
-			expectedDOIs = append(expectedDOIs, store.DOI{
+			expectedDOIs = append(expectedDOIs, collections.DOI{
 				Value:      doi,
 				Datasource: datasource.Pennsieve,
 			})
 		}
 		require.Equal(t, expectedDOIs, dois)
-		return store.CreateCollectionResponse{
+		return collections.CreateCollectionResponse{
 			ID:          1,
 			CreatorRole: role.Owner,
 		}, nil
@@ -336,17 +336,17 @@ func testGetCollections(t *testing.T) {
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDataset)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
-		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
 			require.Equal(t, callingUser.ID, userID)
 			require.Equal(t, routes.DefaultGetCollectionsLimit, limit)
 			require.Equal(t, expectedOffset, offset)
-			return store.GetCollectionsResponse{
+			return collections.GetCollectionsResponse{
 				Limit:      routes.DefaultGetCollectionsLimit,
 				Offset:     expectedOffset,
 				TotalCount: 101,
-				Collections: []store.CollectionSummary{{
-					CollectionBase: store.CollectionBase{
+				Collections: []collections.CollectionSummary{{
+					CollectionBase: collections.CollectionBase{
 						NodeID:      *expectedCollection.NodeID,
 						Name:        expectedCollection.Name,
 						Description: expectedCollection.Description,
@@ -358,7 +358,7 @@ func testGetCollections(t *testing.T) {
 			}, nil
 		})
 
-	mockDiscoverService := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
+	mockDiscoverService := mocks.NewDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
 
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().
@@ -404,10 +404,10 @@ func testGetCollection(t *testing.T) {
 
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDataset)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
+	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
-	mockDiscoverService := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
+	mockDiscoverService := mocks.NewDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
 
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().
@@ -454,7 +454,7 @@ func testDeleteCollection(t *testing.T) {
 
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDataset)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
+	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
 		WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
 			require.Equal(t, *expectedCollection.ID, collectionID)
@@ -490,7 +490,7 @@ func testUpdateCollection(t *testing.T) {
 
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(datasetToRemove)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
+	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
 		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
@@ -508,7 +508,7 @@ func testUpdateCollection(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().
 			WithCollectionsStore(mockCollectionStore).
-			WithDiscover(mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))),
+			WithDiscover(mocks.NewDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))),
 		apitest.NewConfigBuilder().
 			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
 			Build(),

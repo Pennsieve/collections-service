@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -13,11 +13,11 @@ import (
 	"strings"
 )
 
-func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) store.Collection {
+func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) collections.Collection {
 	test.Helper(t)
 	rows, err := conn.Query(ctx, "SELECT * from collections.collections where id = @id", pgx.NamedArgs{"id": collectionID})
 	require.NoError(t, err)
-	collection, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[store.Collection])
+	collection, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[collections.Collection])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			require.FailNow(t, "no collection found with id", "id = %d", collectionID)
@@ -29,11 +29,11 @@ func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, coll
 	}
 	return collection
 }
-func GetCollectionByNodeID(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionNodeID string) store.Collection {
+func GetCollectionByNodeID(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionNodeID string) collections.Collection {
 	test.Helper(t)
 	rows, err := conn.Query(ctx, "SELECT * from collections.collections where node_id = @nodeId", pgx.NamedArgs{"nodeId": collectionNodeID})
 	require.NoError(t, err)
-	collection, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[store.Collection])
+	collection, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[collections.Collection])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			require.FailNow(t, "no collection found with node id", "node id = %d", collectionNodeID)
@@ -47,15 +47,15 @@ func GetCollectionByNodeID(ctx context.Context, t require.TestingT, conn *pgx.Co
 
 }
 
-func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (userIDToCollectionUser map[int64]store.CollectionUser) {
+func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (userIDToCollectionUser map[int64]collections.CollectionUser) {
 	test.Helper(t)
 	rows, err := conn.Query(ctx,
 		"SELECT * FROM collections.collection_user WHERE collection_id = @collection_id",
 		pgx.NamedArgs{"collection_id": collectionID})
 	require.NoError(t, err)
-	collectionUsers, err := pgx.CollectRows(rows, pgx.RowToStructByName[store.CollectionUser])
+	collectionUsers, err := pgx.CollectRows(rows, pgx.RowToStructByName[collections.CollectionUser])
 	require.NoError(t, err)
-	userIDToCollectionUser = make(map[int64]store.CollectionUser, len(collectionUsers))
+	userIDToCollectionUser = make(map[int64]collections.CollectionUser, len(collectionUsers))
 	for _, collectionUser := range collectionUsers {
 		userIDToCollectionUser[collectionUser.UserID] = collectionUser
 	}
@@ -68,7 +68,7 @@ func AddCollectionUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, 
 		"collection_id":  collectionID,
 		"user_id":        userID,
 		"permission_bit": permission,
-		"role":           store.PgxRole(permission.ToRole()),
+		"role":           collections.PgxRole(permission.ToRole()),
 	}
 	tag, err := conn.Exec(ctx,
 		`INSERT INTO collections.collection_user (collection_id, user_id, permission_bit, role) 
@@ -92,7 +92,7 @@ func AddCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn,
 		values = append(values, fmt.Sprintf("(@%s, @%s, @%s, @%s)", collectionKey, userKey, permKey, roleKey))
 		args[userKey] = userID
 		args[permKey] = permission
-		args[roleKey] = store.PgxRole(permission.ToRole())
+		args[roleKey] = collections.PgxRole(permission.ToRole())
 	}
 
 	tag, err := conn.Exec(ctx,
@@ -102,15 +102,15 @@ func AddCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn,
 	require.Equal(t, int64(len(userIDToPermission)), tag.RowsAffected(), "expected to add %d users, but added %d", len(userIDToPermission), tag.RowsAffected())
 }
 
-func GetDOIs(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (doiToDOI map[string]store.CollectionDOI) {
+func GetDOIs(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (doiToDOI map[string]collections.CollectionDOI) {
 	test.Helper(t)
 	rows, err := conn.Query(ctx,
 		"SELECT * FROM collections.dois WHERE collection_id = @collection_id",
 		pgx.NamedArgs{"collection_id": collectionID})
 	require.NoError(t, err)
-	dois, err := pgx.CollectRows(rows, pgx.RowToStructByName[store.CollectionDOI])
+	dois, err := pgx.CollectRows(rows, pgx.RowToStructByName[collections.CollectionDOI])
 	require.NoError(t, err)
-	doiToDOI = make(map[string]store.CollectionDOI, len(dois))
+	doiToDOI = make(map[string]collections.CollectionDOI, len(dois))
 	for _, doi := range dois {
 		doiToDOI[doi.DOI] = doi
 	}
@@ -134,9 +134,20 @@ func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, tes
 			return err
 		}
 
+		userArgs := pgx.NamedArgs{
+			"id":                  userID,
+			"email":               testUser.Email,
+			"node_id":             testUser.NodeID,
+			"is_super_admin":      testUser.IsSuperAdmin,
+			"first_name":          testUser.FirstName,
+			"last_name":           testUser.LastName,
+			"orcid_authorization": testUser.ORCIDAuthorization,
+		}
+
 		if err := conn.QueryRow(ctx,
-			"INSERT INTO pennsieve.users (id, email, node_id, is_super_admin) VALUES (@id, @email, @node_id, @is_super_admin) RETURNING id",
-			pgx.NamedArgs{"id": userID, "email": testUser.Email, "node_id": testUser.NodeID, "is_super_admin": testUser.IsSuperAdmin}).
+			`INSERT INTO pennsieve.users (id, email, node_id, is_super_admin, first_name, last_name, orcid_authorization) 
+                                      VALUES (@id, @email, @node_id, @is_super_admin, @first_name, @last_name, @orcid_authorization) RETURNING id`,
+			userArgs).
 			Scan(&returnedID); err != nil {
 			return err
 		}

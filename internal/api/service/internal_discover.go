@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/dataset"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/organization"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"io"
 	"log/slog"
 	"net/http"
@@ -19,7 +20,7 @@ import (
 // needs to call an internal Discover endpoint.
 
 type InternalDiscover interface {
-	PublishCollection(collectionClaim *dataset.Claim, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
+	PublishCollection(collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
 }
 
 type HTTPInternalDiscover struct {
@@ -38,12 +39,17 @@ func NewHTTPInternalDiscover(host, jwtSecretKey string, collectionNamespaceID in
 	}
 }
 
-func (d *HTTPInternalDiscover) PublishCollection(collectionClaim *dataset.Claim, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error) {
+func (d *HTTPInternalDiscover) PublishCollection(collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error) {
 	requestBody, err := makeJSONBody(request)
 	if err != nil {
 		return PublishDOICollectionResponse{}, fmt.Errorf("error marshalling publish collection request: %w", err)
 	}
-	requestURL := fmt.Sprintf("%s/", d.host)
+	requestURL := fmt.Sprintf("%s/collection/%d/publish", d.host, collectionID)
+	collectionClaim := &dataset.Claim{
+		Role:   userRole,
+		NodeId: request.CollectionNodeID,
+		IntId:  collectionID,
+	}
 	response, err := d.InvokePennsieve(collectionClaim, http.MethodPost, requestURL, requestBody)
 	if err != nil {
 		return PublishDOICollectionResponse{}, err

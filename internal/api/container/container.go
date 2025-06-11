@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/shared/clients/ssm"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"log/slog"
@@ -25,7 +26,8 @@ type DependencyContainer interface {
 	// out from Discover so that we only do this setup if the internal
 	// endpoints will be used.
 	InternalDiscover(ctx context.Context) (service.InternalDiscover, error)
-	CollectionsStore() store.CollectionsStore
+	CollectionsStore() collections.Store
+	UsersStore() users.Store
 	Logger() *slog.Logger
 	SetLogger(logger *slog.Logger)
 	AddLoggingContext(args ...any)
@@ -37,7 +39,8 @@ type Container struct {
 	postgresdb       *postgres.RDSProxy
 	discover         *service.HTTPDiscover
 	internalDiscover *service.HTTPInternalDiscover
-	collectionsStore *store.PostgresCollectionsStore
+	collectionsStore *collections.PostgresStore
+	usersStore       *users.PostgresStore
 	parameterStore   *ssm.AWSParameterStore
 	logger           *slog.Logger
 }
@@ -99,13 +102,20 @@ func (c *Container) Discover() service.Discover {
 	return c.discover
 }
 
-func (c *Container) CollectionsStore() store.CollectionsStore {
+func (c *Container) CollectionsStore() collections.Store {
 	if c.collectionsStore == nil {
-		c.collectionsStore = store.NewPostgresCollectionsStore(c.PostgresDB(),
+		c.collectionsStore = collections.NewPostgresStore(c.PostgresDB(),
 			c.Config.PostgresDB.CollectionsDatabase,
 			c.Logger())
 	}
 	return c.collectionsStore
+}
+
+func (c *Container) UsersStore() users.Store {
+	if c.usersStore == nil {
+		c.usersStore = users.NewPostgresStore(c.PostgresDB(), c.Config.PostgresDB.CollectionsDatabase, c.Logger())
+	}
+	return c.usersStore
 }
 
 // ParameterStore is not part of the interface, since right now it is only used internally by Config.
