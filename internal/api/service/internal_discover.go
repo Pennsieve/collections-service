@@ -3,8 +3,8 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
 	"github.com/pennsieve/collections-service/internal/shared/util"
-	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/dataset"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/organization"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -40,17 +40,13 @@ func NewHTTPInternalDiscover(host, jwtSecretKey string, collectionNamespaceID in
 }
 
 func (d *HTTPInternalDiscover) PublishCollection(collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error) {
-	requestBody, err := makeJSONBody(request)
-	if err != nil {
-		return PublishDOICollectionResponse{}, fmt.Errorf("error marshalling publish collection request: %w", err)
-	}
 	requestURL := fmt.Sprintf("%s/collection/%d/publish", d.host, collectionID)
 	collectionClaim := &dataset.Claim{
 		Role:   userRole,
 		NodeId: request.CollectionNodeID,
 		IntId:  collectionID,
 	}
-	response, err := d.InvokePennsieve(collectionClaim, http.MethodPost, requestURL, requestBody)
+	response, err := d.InvokePennsieve(collectionClaim, http.MethodPost, requestURL, request)
 	if err != nil {
 		return PublishDOICollectionResponse{}, err
 	}
@@ -85,7 +81,7 @@ func (d *HTTPInternalDiscover) InvokePennsieve(collectionClaim *dataset.Claim, m
 }
 
 func (d *HTTPInternalDiscover) addAuth(collectionClaim *dataset.Claim, request *http.Request) error {
-	serviceClaim := authorizer.GenerateServiceClaim(5 * time.Minute).WithOrganizationClaim(OrganizationClaim(d.collectionNamespaceID)).WithDatasetClaim(collectionClaim)
+	serviceClaim := jwtdiscover.GenerateServiceClaim(5 * time.Minute).WithOrganizationClaim(OrganizationClaim(d.collectionNamespaceID)).WithDatasetClaim(collectionClaim)
 	token, err := serviceClaim.AsToken(d.jwtSecretKey)
 	if err != nil {
 		return fmt.Errorf("error creating JWT from service claim: %w", err)

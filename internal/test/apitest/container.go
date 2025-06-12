@@ -2,6 +2,7 @@ package apitest
 
 import (
 	"context"
+	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/api/store/users"
@@ -103,6 +104,15 @@ func (c *TestContainer) WithContainerStoreFromPostgresDB(collectionsDBName strin
 
 func (c *TestContainer) WithInternalDiscover(internalDiscover service.InternalDiscover) *TestContainer {
 	c.TestInternalDiscover = internalDiscover
+	return c
+}
+
+func (c *TestContainer) WithHTTPTestInternalDiscover(pennsieveConfig config.PennsieveConfig) *TestContainer {
+	c.TestInternalDiscover = service.NewHTTPInternalDiscover(
+		pennsieveConfig.DiscoverServiceURL,
+		*pennsieveConfig.JWTSecretKey.Value,
+		pennsieveConfig.CollectionNamespaceID,
+		c.Logger())
 	return c
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/store/users"
+	"github.com/pennsieve/collections-service/internal/shared/util"
 	"math/rand"
 )
 
@@ -11,6 +12,9 @@ type User interface {
 	GetID() int64
 	GetNodeID() string
 	GetIsSuperAdmin() bool
+	GetFirstName() string
+	GetLastName() string
+	GetORCIDAuthorization() *users.ORCIDAuthorization
 }
 
 type SeedUser struct {
@@ -31,6 +35,18 @@ func (s SeedUser) GetNodeID() string {
 
 func (s SeedUser) GetIsSuperAdmin() bool {
 	return s.IsSuperAdmin
+}
+func (s SeedUser) GetFirstName() string {
+	return s.FirstName
+}
+
+func (s SeedUser) GetLastName() string {
+	return s.LastName
+}
+
+// GetORCIDAuthorization always returns nil since as of now, no seed user has this set.
+func (s SeedUser) GetORCIDAuthorization() *users.ORCIDAuthorization {
+	return nil
 }
 
 // These users are already present in the Pennsieve seed DB Docker container used for tests.
@@ -83,6 +99,18 @@ func (t *TestUser) GetNodeID() string {
 
 func (t *TestUser) GetIsSuperAdmin() bool {
 	return t.IsSuperAdmin
+}
+
+func (t *TestUser) GetFirstName() string {
+	return util.SafeDeref(t.FirstName)
+}
+
+func (t *TestUser) GetLastName() string {
+	return util.SafeDeref(t.LastName)
+}
+
+func (t *TestUser) GetORCIDAuthorization() *users.ORCIDAuthorization {
+	return t.ORCIDAuthorization
 }
 
 func NewTestUser(options ...TestUserOption) *TestUser {

@@ -22,6 +22,7 @@ import (
 var PublishCollectionRouteKey = fmt.Sprintf("POST /{%s}/publish", NodeIDPathParamKey)
 
 func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectionResponse, error) {
+	// Get all the inputs items
 	nodeID := params.Request.PathParameters[NodeIDPathParamKey]
 	if len(nodeID) == 0 {
 		return dto.PublishCollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf(`missing %q path parameter`, NodeIDPathParamKey))
@@ -47,10 +48,12 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		return dto.PublishCollectionResponse{}, apierrors.NewRequestUnmarshallError(publishRequest, err)
 	}
 
+	// Validate the request body
 	if err := validatePublishRequest(&publishRequest); err != nil {
 		return dto.PublishCollectionResponse{}, err
 	}
 
+	// Lookup info for the initial publish request to Discover
 	collection, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
 	if err != nil {
 		if errors.Is(err, collections.ErrCollectionNotFound) {
@@ -105,6 +108,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		CollectionNodeID: collection.NodeID,
 	}
 
+	// Initiate publish to Discover
 	internalDiscover, err := params.Container.InternalDiscover(ctx)
 	if err != nil {
 		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error getting internal Discover dependency", err)
@@ -122,10 +126,15 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		slog.String("ownerOrcid", discoverPubReq.OwnerORCID),
 	)
 
+	// Create manifest and copy to S3
+
+	// Finalize publish with Discover
+
 	publishResponse := dto.PublishCollectionResponse{
 		PublishedDatasetID: discoverPubResp.PublishedDatasetID,
 		PublishedVersion:   discoverPubResp.PublishedVersion,
-		Status:             discoverPubResp.Status,
+		// TODO: update this status with response from finalize?
+		Status: discoverPubResp.Status,
 	}
 	return publishResponse, nil
 }

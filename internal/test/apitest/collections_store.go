@@ -5,13 +5,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/rand/v2"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 // ExpectedCollection is what we expect the collection to look like
@@ -231,5 +237,60 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 			CollectionBase: collectionBase,
 			DOIs:           updatedDOIs,
 		}, nil
+	}
+}
+
+// PublishDOICollectionRequestVerification should contain assertions to verify request fields that cannot be verified
+// by reference to the ExpectedCollection
+type PublishDOICollectionRequestVerification func(t require.TestingT, request service.PublishDOICollectionRequest)
+
+func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, expectedPublishedID, expectedPublishedVersion int64, expectedPublishStatus string, verifications ...PublishDOICollectionRequestVerification) mocks.PublishCollectionFunc {
+	return func(collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.NotNil(t, c.NodeID, "expected collection does not have nodeID set")
+
+		require.Equal(t, *c.ID, collectionID, "requested collection id %d does not match expected collection id %d", collectionID, *c.ID)
+		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
+
+		require.Equal(t, c.Description, request.Description)
+		require.Equal(t, c.DOIs.Strings(), request.DOIs)
+
+		for _, verification := range verifications {
+			verification(t, request)
+		}
+
+		return service.PublishDOICollectionResponse{
+			Name:               c.Name,
+			SourceCollectionID: *c.ID,
+			PublishedDatasetID: expectedPublishedID,
+			PublishedVersion:   expectedPublishedVersion,
+			Status:             expectedPublishStatus,
+			PublicID:           *c.NodeID,
+		}, nil
+	}
+}
+
+func (c *ExpectedCollection) DatasetServiceRole(expectedRole role.Role) jwtdiscover.ServiceRole {
+	return jwtdiscover.ServiceRole{
+		Type:   jwtdiscover.DatasetServiceRoleType,
+		Id:     strconv.FormatInt(*c.ID, 10),
+		NodeId: *c.NodeID,
+		Role:   strings.ToLower(expectedRole.String()),
+	}
+}
+
+func VerifyPublishingUser(expectedUser User) PublishDOICollectionRequestVerification {
+	return func(t require.TestingT, request service.PublishDOICollectionRequest) {
+		test.Helper(t)
+		assert.Equal(t, expectedUser.GetID(), request.OwnerID)
+		assert.Equal(t, expectedUser.GetNodeID(), request.OwnerNodeID)
+		assert.Equal(t, expectedUser.GetFirstName(), request.OwnerFirstName)
+		assert.Equal(t, expectedUser.GetLastName(), request.OwnerLastName)
+		if expectedUser.GetORCIDAuthorization() == nil {
+			assert.Empty(t, request.OwnerORCID)
+		} else {
+			assert.Equal(t, expectedUser.GetORCIDAuthorization().ORCID, request.OwnerORCID)
+		}
 	}
 }

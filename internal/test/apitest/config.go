@@ -3,7 +3,11 @@ package apitest
 import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
 	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
+	"strconv"
+	"strings"
 )
 
 const CollectionNamespaceID = int64(-20)
@@ -53,4 +57,13 @@ func PennsieveConfigWithFakeURL() config.PennsieveConfig {
 		config.WithJWTSecretKey(uuid.NewString()),
 		config.WithCollectionNamespaceID(CollectionNamespaceID),
 	)
+}
+
+func ExpectedOrgServiceRole(collectionNamespaceID int64) jwtdiscover.ServiceRole {
+	return jwtdiscover.ServiceRole{
+		Type:   jwtdiscover.OrganizationServiceRoleType,
+		Id:     strconv.FormatInt(collectionNamespaceID, 10),
+		NodeId: "",
+		Role:   strings.ToLower(role.Owner.String()),
+	}
 }

@@ -76,6 +76,8 @@ func CollectionsServiceAPIHandler(
 			return routes.Handle(ctx, routes.NewDeleteCollectionRouteHandler(), routeParams)
 		case routes.PatchCollectionRouteKey:
 			return routes.Handle(ctx, routes.NewPatchCollectionRouteHandler(), routeParams)
+		case routes.PublishCollectionRouteKey:
+			return routes.Handle(ctx, routes.NewPublishCollectionRouteHandler(), routeParams)
 		default:
 			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", routeKey), nil, http.StatusNotFound)
 			routeNotFound.LogError(logger)

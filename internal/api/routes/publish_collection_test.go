@@ -4,20 +4,125 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+func TestPublishCollection(t *testing.T) {
+	tests := []struct {
+		scenario string
+		tstFunc  func(t *testing.T, expectationDB *fixtures.ExpectationDB)
+	}{
+		{"publish collection", testPublish},
+	}
+
+	ctx := context.Background()
+	postgresDBConfig := test.PostgresDBConfig(t)
+
+	for _, tt := range tests {
+		t.Run(tt.scenario, func(t *testing.T) {
+			db := test.NewPostgresDBFromConfig(t, postgresDBConfig)
+			expectationDB := fixtures.NewExpectationDB(db, postgresDBConfig.CollectionsDatabase)
+
+			t.Cleanup(func() {
+				expectationDB.CleanUp(ctx, t)
+			})
+
+			tt.tstFunc(t, expectationDB)
+		})
+	}
+
+}
+
+func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	callingUser := apitest.NewTestUser(
+		apitest.WithFirstName(uuid.NewString()),
+		apitest.WithLastName(uuid.NewString()),
+		apitest.WithORCID(uuid.NewString()),
+	)
+	expectationDB.CreateTestUser(ctx, t, callingUser)
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	// The dataset that will be in the collection
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	dataset := expectedDatasets.NewPublished()
+
+	// The collection
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
+	expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+	pennsieveConfig := apitest.PennsieveConfigWithFakeURL()
+
+	expectedPublishedDatasetID := rand.Int63n(5000) + 1
+	expectedPublishedVersion := rand.Int63n(20) + 1
+	expectedPublishStatus := uuid.NewString()
+
+	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
+		WithGetDatasetsByDOIFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)).
+		WithPublishCollectionFunc(t, expectedCollection.PublishCollectionFunc(
+			t,
+			expectedPublishedDatasetID,
+			expectedPublishedVersion,
+			expectedPublishStatus,
+			apitest.VerifyPublishingUser(callingUser),
+		),
+			apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID),
+			expectedCollection.DatasetServiceRole(role.Owner),
+		)
+
+	mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
+	defer mockDiscoverServer.Close()
+
+	pennsieveConfig.DiscoverServiceURL = mockDiscoverServer.URL
+
+	config := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(pennsieveConfig).
+		Build()
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, dto.PublishCollectionRequest{
+				License: "Creative Commons",
+				Tags:    []string{"test"},
+			}).
+			Build(),
+		Container: apitest.NewTestContainer().
+			WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
+			WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase).
+			WithUsersStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase).
+			WithHTTPTestDiscover(mockDiscoverServer.URL).
+			WithHTTPTestInternalDiscover(pennsieveConfig),
+		Config: config,
+		Claims: &claims,
+	}
+
+	resp, err := PublishCollection(ctx, params)
+	require.NoError(t, err)
+
+	assert.Equal(t, expectedPublishedDatasetID, resp.PublishedDatasetID)
+	assert.Equal(t, expectedPublishedVersion, resp.PublishedVersion)
+	assert.Equal(t, expectedPublishStatus, resp.Status)
+
+}
 
 // TestHandlePublishCollection tests that run the Handle wrapper around PublishCollection
 func TestHandlePublishCollection(t *testing.T) {
@@ -298,21 +403,16 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
-			mockInternalDiscover := mocks.NewInternalDiscover().WithPublishCollectionFunc(func(collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
-				t.Helper()
-				require.Equal(t, *expectedCollection.ID, collectionID)
-				require.Equal(t, role.Owner, userRole)
-				return service.PublishDOICollectionResponse{
-					Name:               expectedCollection.Name,
-					SourceCollectionID: *expectedCollection.ID,
-					PublishedDatasetID: 14,
-					PublishedVersion:   1,
-					Status:             "PublishInProgress",
-					PublicID:           *expectedCollection.NodeID,
-				}, nil
-			})
+			mockInternalDiscover := mocks.NewInternalDiscover().WithPublishCollectionFunc(
+				expectedCollection.PublishCollectionFunc(t,
+					14,
+					1,
+					"PublishInProgress",
+					apitest.VerifyPublishingUser(callingUser)),
+			)
 
 			mockUsersStore := mocks.NewUsersStore().WithGetUserFunc(func(ctx context.Context, userID int64) (users.GetUserResponse, error) {
+				t.Helper()
 				require.Equal(t, callingUser.ID, userID)
 				return users.GetUserResponse{
 					FirstName: &callingUser.FirstName,
