@@ -3,6 +3,7 @@ package dto_test
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pennsieve/collections-service/internal/api/apijson"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -151,7 +152,7 @@ func TestPublicDataset_EmbargoReleaseDate(t *testing.T) {
 		})
 
 		t.Run("marshal", func(t *testing.T) {
-			asDate := dto.Date(expectedEmbargoReleaseTime)
+			asDate := apijson.Date(expectedEmbargoReleaseTime)
 			embargoedPublicDataset := dto.PublicDataset{EmbargoReleaseDate: &asDate}
 			bytes, err := json.Marshal(embargoedPublicDataset)
 			require.NoError(t, err)

@@ -5,9 +5,8 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
 	sharedconfig "github.com/pennsieve/collections-service/internal/shared/config"
-	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"strconv"
-	"strings"
 )
 
 const CollectionNamespaceID = int64(-20)
@@ -64,6 +63,6 @@ func ExpectedOrgServiceRole(collectionNamespaceID int64) jwtdiscover.ServiceRole
 		Type:   jwtdiscover.OrganizationServiceRoleType,
 		Id:     strconv.FormatInt(collectionNamespaceID, 10),
 		NodeId: "",
-		Role:   strings.ToLower(role.Owner.String()),
+		Role:   pgdb.Owner.AsRoleString(),
 	}
 }
