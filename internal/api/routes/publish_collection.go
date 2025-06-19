@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/api/validate"
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
@@ -73,6 +75,10 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		)
 	}
 
+	if len(collection.Description) == 0 {
+		return dto.PublishCollectionResponse{}, apierrors.NewBadRequestError("published description cannot be empty")
+	}
+
 	pennsieveDOIs, _ := GroupByDatasource(collection.DOIs)
 
 	banners := make([]string, 0)
@@ -127,6 +133,30 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	)
 
 	// Create manifest and copy to S3
+	manifest, err := publishing.NewManifestBuilder().
+		WithID(discoverPubResp.PublicID).
+		WithPennsieveDatasetID(discoverPubResp.PublishedDatasetID).
+		WithVersion(discoverPubResp.PublishedVersion).
+		WithName(collection.Name).
+		WithDescription(collection.Description).
+		WithCreator(creator(userResp)).
+		WithLicense(publishRequest.License).
+		WithKeywords(publishRequest.Tags).
+		WithReferences(pennsieveDOIs).
+		Build()
+	if err != nil {
+		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error creating manifest", err)
+	}
+
+	manifestKey := manifest.S3Key()
+	saveManifestResp, err := params.Container.ManifestStore().SaveManifest(ctx, manifestKey, manifest)
+	if err != nil {
+		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error publishing manifest", err)
+	}
+
+	params.Container.Logger().Info("wrote manifest to S3",
+		slog.String("key", manifestKey),
+		slog.String("s3VersionId", saveManifestResp.S3VersionID))
 
 	// Finalize publish with Discover
 
@@ -157,4 +187,15 @@ func validatePublishRequest(publishRequest *dto.PublishCollectionRequest) error 
 		return err
 	}
 	return nil
+}
+
+func creator(user users.GetUserResponse) publishing.PublishedContributor {
+	return publishing.PublishedContributor{
+		FirstName: util.SafeDeref(user.FirstName),
+		LastName:  util.SafeDeref(user.LastName),
+		Orcid:     util.SafeDeref(user.ORCID),
+		//TODO add middle initial and degree to GetUserResponse
+		MiddleInitial: "",
+		Degree:        "",
+	}
 }

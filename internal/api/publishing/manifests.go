@@ -30,7 +30,7 @@ const ManifestPennsieveSchemaVersion = "5.0"
 
 type ManifestV5 struct {
 	PennsieveDatasetId int64                  `json:"pennsieveDatasetId"`
-	Version            int                    `json:"version"`
+	Version            int64                  `json:"version"`
 	Revision           int                    `json:"revision,omitempty"`
 	Name               string                 `json:"name,omitempty"`
 	Description        string                 `json:"description"`
@@ -60,6 +60,14 @@ type ManifestV5 struct {
 
 func (m ManifestV5) Marshal() ([]byte, error) {
 	return json.MarshalIndent(m, "", "  ")
+}
+
+func (m ManifestV5) S3Key() string {
+	return S3Key(m.PennsieveDatasetId)
+}
+
+func S3Key(publishedDatasetID int64) string {
+	return fmt.Sprintf("%d/%s", publishedDatasetID, ManifestFileName)
 }
 
 type PublishedContributor struct {
@@ -99,7 +107,7 @@ func (b *ManifestBuilder) WithPennsieveDatasetID(id int64) *ManifestBuilder {
 	return b
 }
 
-func (b *ManifestBuilder) WithVersion(version int) *ManifestBuilder {
+func (b *ManifestBuilder) WithVersion(version int64) *ManifestBuilder {
 	b.m.Version = version
 	return b
 }
@@ -167,6 +175,7 @@ func (b *ManifestBuilder) Build() (ManifestV5, error) {
 	lenWithoutSize := int64(len(jsonBytesWithZeroSize) - 1)
 	lenOfSize := numberOfDigits(lenWithoutSize)
 	size := lenWithoutSize + lenOfSize
+	// needs adjustment if we are at a power of 10
 	if numberOfDigits(size) > lenOfSize {
 		size += 1
 	}

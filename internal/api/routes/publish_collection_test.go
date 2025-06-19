@@ -3,8 +3,11 @@ package routes
 import (
 	"context"
 	"github.com/google/uuid"
+	config2 "github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/manifests"
 	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -24,7 +27,7 @@ import (
 func TestPublishCollection(t *testing.T) {
 	tests := []struct {
 		scenario string
-		tstFunc  func(t *testing.T, expectationDB *fixtures.ExpectationDB)
+		tstFunc  func(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO)
 	}{
 		{"publish collection", testPublish},
 	}
@@ -36,19 +39,23 @@ func TestPublishCollection(t *testing.T) {
 		t.Run(tt.scenario, func(t *testing.T) {
 			db := test.NewPostgresDBFromConfig(t, postgresDBConfig)
 			expectationDB := fixtures.NewExpectationDB(db, postgresDBConfig.CollectionsDatabase)
+			minio := fixtures.NewMinIOWithDefaultClient(ctx, t)
 
 			t.Cleanup(func() {
 				expectationDB.CleanUp(ctx, t)
+				minio.CleanUp(ctx, t)
 			})
 
-			tt.tstFunc(t, expectationDB)
+			tt.tstFunc(t, expectationDB, minio)
 		})
 	}
 
 }
 
-func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO) {
 	ctx := context.Background()
+
+	publishBucket := minio.CreatePublishBucket(ctx, t)
 
 	callingUser := apitest.NewTestUser(
 		apitest.WithFirstName(uuid.NewString()),
@@ -67,7 +74,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
 	expectationDB.CreateCollection(ctx, t, expectedCollection)
 
-	pennsieveConfig := apitest.PennsieveConfigWithFakeURL()
+	pennsieveConfig := apitest.PennsieveConfigWithOptions(config2.WithPublishBucket(publishBucket))
 
 	expectedPublishedDatasetID := rand.Int63n(5000) + 1
 	expectedPublishedVersion := rand.Int63n(20) + 1
@@ -110,7 +117,8 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 			WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase).
 			WithUsersStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase).
 			WithHTTPTestDiscover(mockDiscoverServer.URL).
-			WithHTTPTestInternalDiscover(pennsieveConfig),
+			WithHTTPTestInternalDiscover(pennsieveConfig).
+			WithMinIOManifestStore(ctx, t, config.PennsieveConfig.PublishBucket),
 		Config: config,
 		Claims: &claims,
 	}
@@ -121,6 +129,8 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assert.Equal(t, expectedPublishedDatasetID, resp.PublishedDatasetID)
 	assert.Equal(t, expectedPublishedVersion, resp.PublishedVersion)
 	assert.Equal(t, expectedPublishStatus, resp.Status)
+
+	minio.RequireObjectExists(ctx, t, pennsieveConfig.PublishBucket, publishing.S3Key(resp.PublishedDatasetID))
 
 }
 
@@ -403,9 +413,10 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
+			expectedPublishedID := int64(14)
 			mockInternalDiscover := mocks.NewInternalDiscover().WithPublishCollectionFunc(
 				expectedCollection.PublishCollectionFunc(t,
-					14,
+					expectedPublishedID,
 					1,
 					"PublishInProgress",
 					apitest.VerifyPublishingUser(callingUser)),
@@ -417,6 +428,18 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 				return users.GetUserResponse{
 					FirstName: &callingUser.FirstName,
 					LastName:  &callingUser.LastName,
+				}, nil
+			})
+
+			pennsieveConfig := apitest.PennsieveConfigWithFakeURL()
+
+			mockManifestStore := mocks.NewManifestStore().WithSaveManifestFunc(func(ctx context.Context, key string, manifest publishing.ManifestV5) (manifests.SaveManifestResponse, error) {
+				require.Equal(t, publishing.S3Key(expectedPublishedID), key)
+				require.Equal(t, expectedPublishedID, manifest.PennsieveDatasetId)
+				require.Equal(t, expectedCollection.Name, manifest.Name)
+				require.Equal(t, callingUser.LastName, manifest.Creator.LastName)
+				return manifests.SaveManifestResponse{
+					S3VersionID: uuid.NewString(),
 				}, nil
 			})
 
@@ -433,8 +456,9 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 					WithCollectionsStore(mockCollectionStore).
 					WithDiscover(mockDiscover).
 					WithInternalDiscover(mockInternalDiscover).
-					WithUsersStore(mockUsersStore),
-				Config: apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
+					WithUsersStore(mockUsersStore).
+					WithManifestStore(mockManifestStore),
+				Config: apitest.NewConfigBuilder().WithPennsieveConfig(pennsieveConfig).Build(),
 				Claims: &claims,
 			}
 

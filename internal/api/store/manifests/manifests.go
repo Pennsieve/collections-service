@@ -7,19 +7,29 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"log/slog"
 )
 
-type ManifestStore interface {
-	SaveManifest(ctx context.Context, manifest publishing.ManifestV5) (SaveManifestResponse, error)
-	DeleteManifest(ctx context.Context) error
+type Store interface {
+	SaveManifest(ctx context.Context, key string, manifest publishing.ManifestV5) (SaveManifestResponse, error)
+	DeleteManifest(ctx context.Context, key string) error
 }
 
-type S3ManifestStore struct {
+type S3Store struct {
 	s3            *s3.Client
 	publishBucket string
+	logger        *slog.Logger
 }
 
-func (s *S3ManifestStore) SaveManifest(ctx context.Context, key string, manifest publishing.ManifestV5) (SaveManifestResponse, error) {
+func NewS3Store(s3Client *s3.Client, publishBucket string, logger *slog.Logger) *S3Store {
+	return &S3Store{
+		s3:            s3Client,
+		publishBucket: publishBucket,
+		logger:        logger,
+	}
+}
+
+func (s *S3Store) SaveManifest(ctx context.Context, key string, manifest publishing.ManifestV5) (SaveManifestResponse, error) {
 	manifestBytes, err := manifest.Marshal()
 	if err != nil {
 		return SaveManifestResponse{}, fmt.Errorf("error marshalling manifest for uploading to %s/$%s: %w",
@@ -39,7 +49,7 @@ func (s *S3ManifestStore) SaveManifest(ctx context.Context, key string, manifest
 	return SaveManifestResponse{S3VersionID: aws.ToString(putOut.VersionId)}, err
 }
 
-func (s *S3ManifestStore) DeleteManifest(ctx context.Context) error {
+func (s *S3Store) DeleteManifest(ctx context.Context, key string) error {
 	//TODO implement me
 	panic("implement me")
 }

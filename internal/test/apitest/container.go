@@ -5,9 +5,12 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/manifests"
 	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
+	"github.com/pennsieve/collections-service/internal/test"
+	"github.com/stretchr/testify/require"
 	"log/slog"
 )
 
@@ -17,6 +20,7 @@ type TestContainer struct {
 	TestInternalDiscover service.InternalDiscover
 	TestCollectionsStore collections.Store
 	TestUsersStore       users.Store
+	TestManifestStore    manifests.Store
 	logger               *slog.Logger
 }
 
@@ -53,6 +57,13 @@ func (c *TestContainer) UsersStore() users.Store {
 		panic("no users.Store set for this TestContainer")
 	}
 	return c.TestUsersStore
+}
+
+func (c *TestContainer) ManifestStore() manifests.Store {
+	if c.TestManifestStore == nil {
+		panic("no manifests.Store set for this TestContainer")
+	}
+	return c.TestManifestStore
 }
 
 func (c *TestContainer) Logger() *slog.Logger {
@@ -126,5 +137,16 @@ func (c *TestContainer) WithUsersStoreFromPostgresDB(collectionsDBName string) *
 		panic("cannot create users.Store from nil PostgresDB; call WithPostgresDB first")
 	}
 	c.TestUsersStore = users.NewPostgresStore(c.TestPostgresDB, collectionsDBName, c.Logger())
+	return c
+}
+
+func (c *TestContainer) WithManifestStore(manifestStore manifests.Store) *TestContainer {
+	c.TestManifestStore = manifestStore
+	return c
+}
+
+func (c *TestContainer) WithMinIOManifestStore(ctx context.Context, t require.TestingT, publishBucket string) *TestContainer {
+	s3Client := test.DefaultMinIOS3Client(ctx, t)
+	c.TestManifestStore = manifests.NewS3Store(s3Client, publishBucket, c.Logger())
 	return c
 }

@@ -11,6 +11,7 @@ type PennsieveConfig struct {
 	DOIPrefix             string
 	JWTSecretKey          *sharedconfig.SSMSetting
 	CollectionNamespaceID int64
+	PublishBucket         string
 }
 
 func NewPennsieveConfig(options ...PennsieveOption) PennsieveConfig {
@@ -47,6 +48,12 @@ func WithCollectionNamespaceID(namespaceID int64) PennsieveOption {
 	}
 }
 
+func WithPublishBucket(publishBucket string) PennsieveOption {
+	return func(pennsieveConfig *PennsieveConfig) {
+		pennsieveConfig.PublishBucket = publishBucket
+	}
+}
+
 // LoadWithEnvSettings returns a copy of this PennsieveConfig where any missing fields are populated by the
 // given PennsieveEnvironmentSettings.
 func (c PennsieveConfig) LoadWithEnvSettings(environmentName string, environmentSettings PennsieveEnvironmentSettings) (PennsieveConfig, error) {
@@ -73,6 +80,14 @@ func (c PennsieveConfig) LoadWithEnvSettings(environmentName string, environment
 			return PennsieveConfig{}, err
 		}
 		c.CollectionNamespaceID = namespaceID
+	}
+
+	if len(c.PublishBucket) == 0 {
+		publishBucket, err := environmentSettings.PublishBucket.Get()
+		if err != nil {
+			return PennsieveConfig{}, err
+		}
+		c.PublishBucket = publishBucket
 	}
 
 	c.JWTSecretKey = JWTSecretKeySetting.WithEnvironment(environmentName)

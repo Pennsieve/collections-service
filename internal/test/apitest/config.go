@@ -10,6 +10,7 @@ import (
 )
 
 const CollectionNamespaceID = int64(-20)
+const PublishBucket = "test-publish-bucket"
 
 type ConfigBuilder struct {
 	c *config.Config
@@ -40,22 +41,26 @@ func (b *ConfigBuilder) Build() config.Config {
 	return *b.c
 }
 
-func PennsieveConfig(discoverServiceURL string) config.PennsieveConfig {
-	return config.NewPennsieveConfig(
-		config.WithDiscoverServiceURL(discoverServiceURL),
-		config.WithDOIPrefix(PennsieveDOIPrefix),
-		config.WithJWTSecretKey(uuid.NewString()),
-		config.WithCollectionNamespaceID(CollectionNamespaceID),
-	)
-}
-
-func PennsieveConfigWithFakeURL() config.PennsieveConfig {
-	return config.NewPennsieveConfig(
+func PennsieveConfigWithOptions(opts ...config.PennsieveOption) config.PennsieveConfig {
+	pennsieveConfig := config.NewPennsieveConfig(
 		config.WithDiscoverServiceURL("http://example.com/discover"),
 		config.WithDOIPrefix(PennsieveDOIPrefix),
 		config.WithJWTSecretKey(uuid.NewString()),
 		config.WithCollectionNamespaceID(CollectionNamespaceID),
+		config.WithPublishBucket(PublishBucket),
 	)
+	for _, opt := range opts {
+		opt(&pennsieveConfig)
+	}
+	return pennsieveConfig
+}
+
+func PennsieveConfig(discoverServiceURL string) config.PennsieveConfig {
+	return PennsieveConfigWithOptions(config.WithDiscoverServiceURL(discoverServiceURL))
+}
+
+func PennsieveConfigWithFakeURL() config.PennsieveConfig {
+	return PennsieveConfigWithOptions()
 }
 
 func ExpectedOrgServiceRole(collectionNamespaceID int64) jwtdiscover.ServiceRole {

@@ -1,7 +1,6 @@
 package publishing
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"slices"
@@ -36,7 +35,6 @@ func TestManifestBuilder_Build(t *testing.T) {
 			asBytes, err := manifest.Marshal()
 			require.NoError(t, err)
 			assert.Equal(t, manifestEntry.Size, int64(len(asBytes)))
-			fmt.Println(string(asBytes))
 		})
 	}
 
@@ -60,15 +58,12 @@ func TestManifestBuilder_Build_EdgeCase_OrderOfMagnitudeChange(t *testing.T) {
 		}
 	}
 
-	fmt.Println(tempSize, powerOfTen)
-
 	// Create the test manifest with a power of 10 size.
 	manifest, err := NewManifestBuilder().WithDescription(strings.Repeat("a", powerOfTen-tempSize)).Build()
 	require.NoError(t, err)
 	manifestBytes, err := manifest.Marshal()
 	require.NoError(t, err)
 	manifestSize := int64(len(manifestBytes))
-	fmt.Println(manifestSize)
 
 	manifestEntryIdx := slices.IndexFunc(manifest.Files, func(fileManifest FileManifest) bool {
 		return fileManifest.Path == ManifestFileName

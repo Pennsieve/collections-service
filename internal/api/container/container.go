@@ -3,9 +3,11 @@ package container
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/manifests"
 	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/shared/clients/ssm"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
@@ -28,6 +30,7 @@ type DependencyContainer interface {
 	InternalDiscover(ctx context.Context) (service.InternalDiscover, error)
 	CollectionsStore() collections.Store
 	UsersStore() users.Store
+	ManifestStore() manifests.Store
 	Logger() *slog.Logger
 	SetLogger(logger *slog.Logger)
 	AddLoggingContext(args ...any)
@@ -41,6 +44,7 @@ type Container struct {
 	internalDiscover *service.HTTPInternalDiscover
 	collectionsStore *collections.PostgresStore
 	usersStore       *users.PostgresStore
+	manifestStore    *manifests.S3Store
 	parameterStore   *ssm.AWSParameterStore
 	logger           *slog.Logger
 }
@@ -116,6 +120,14 @@ func (c *Container) UsersStore() users.Store {
 		c.usersStore = users.NewPostgresStore(c.PostgresDB(), c.Config.PostgresDB.CollectionsDatabase, c.Logger())
 	}
 	return c.usersStore
+}
+
+func (c *Container) ManifestStore() manifests.Store {
+	if c.manifestStore == nil {
+		s3Client := s3.NewFromConfig(c.AwsConfig)
+		c.manifestStore = manifests.NewS3Store(s3Client, c.Config.PennsieveConfig.PublishBucket, c.Logger())
+	}
+	return c.manifestStore
 }
 
 // ParameterStore is not part of the interface, since right now it is only used internally by Config.
