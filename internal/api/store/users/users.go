@@ -36,10 +36,10 @@ func (s *PostgresStore) GetUser(ctx context.Context, userID int64) (GetUserRespo
 	defer s.closeConn(ctx, conn)
 
 	args := pgx.NamedArgs{"id": userID}
-	query := `SELECT u.first_name, u.last_name, u.orcid_authorization->>'orcid' from pennsieve.users u where id = @id`
+	query := `SELECT u.first_name, u.middle_initial, u.last_name, u.degree, u.orcid_authorization->>'orcid' from pennsieve.users u where id = @id`
 
 	var user GetUserResponse
-	if err := conn.QueryRow(ctx, query, args).Scan(&user.FirstName, &user.LastName, &user.ORCID); err != nil {
+	if err := conn.QueryRow(ctx, query, args).Scan(&user.FirstName, &user.MiddleInitial, &user.LastName, &user.Degree, &user.ORCID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return GetUserResponse{}, ErrUserNotFound
 		}

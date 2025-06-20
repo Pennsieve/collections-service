@@ -10,6 +10,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
@@ -280,7 +281,7 @@ func (c *ExpectedCollection) DatasetServiceRole(expectedRole role.Role) jwtdisco
 	}
 }
 
-func VerifyPublishingUser(expectedUser User) PublishDOICollectionRequestVerification {
+func VerifyPublishingUser(expectedUser userstest.User) PublishDOICollectionRequestVerification {
 	return func(t require.TestingT, request service.PublishDOICollectionRequest) {
 		test.Helper(t)
 		assert.Equal(t, expectedUser.GetID(), request.OwnerID)

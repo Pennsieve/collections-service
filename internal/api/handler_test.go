@@ -12,6 +12,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +53,7 @@ func testDefaultNotFound(t *testing.T) {
 	handler := CollectionsServiceAPIHandler(apitest.NewTestContainer(), apitest.NewConfigBuilder().Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder("GET /unknown").
-		WithDefaultClaims(apitest.SeedUser2).
+		WithDefaultClaims(userstest.SeedUser2).
 		Build()
 
 	response, err := handler(context.Background(), req)
@@ -88,7 +89,7 @@ func testCreateCollectionExternalDOIs(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.SeedUser1).
+		WithDefaultClaims(userstest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -114,7 +115,7 @@ func testCreateCollectionEmptyName(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.SeedUser1).
+		WithDefaultClaims(userstest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -138,7 +139,7 @@ func testCreateCollectionNameTooLong(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.SeedUser1).
+		WithDefaultClaims(userstest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -162,7 +163,7 @@ func testCreateCollectionDescriptionTooLong(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.SeedUser1).
+		WithDefaultClaims(userstest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -200,7 +201,7 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 			Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.SeedUser1).
+		WithDefaultClaims(userstest.SeedUser1).
 		WithBody(t, createCollectionRequest).
 		Build()
 
@@ -219,7 +220,7 @@ func testCreateCollectionNoBody(t *testing.T) {
 		apitest.NewTestContainer(),
 		apitest.NewConfigBuilder().Build())
 
-	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).WithDefaultClaims(apitest.SeedUser1).Build()
+	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).WithDefaultClaims(userstest.SeedUser1).Build()
 
 	response, err := handler(context.Background(), req)
 	require.NoError(t, err)
@@ -235,7 +236,7 @@ func testCreateCollectionMalformedBody(t *testing.T) {
 		apitest.NewConfigBuilder().Build())
 
 	req := apitest.NewAPIGatewayRequestBuilder(routes.CreateCollectionRouteKey).
-		WithDefaultClaims(apitest.SeedUser1).
+		WithDefaultClaims(userstest.SeedUser1).
 		Build()
 
 	req.Body = "{]"
@@ -255,7 +256,7 @@ func testCreateCollection(t *testing.T) {
 	publishedDOI2 := apitest.NewPennsieveDOI()
 	banner2 := apitest.NewBanner()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        uuid.NewString(),
@@ -325,7 +326,7 @@ func testCreateCollection(t *testing.T) {
 }
 
 func testGetCollections(t *testing.T) {
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	expectedDataset := expectedDatasets.NewPublished()
@@ -397,7 +398,7 @@ func testGetCollections(t *testing.T) {
 }
 
 func testGetCollection(t *testing.T) {
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	expectedDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
@@ -447,7 +448,7 @@ func testGetCollection(t *testing.T) {
 }
 
 func testDeleteCollection(t *testing.T) {
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	expectedDataset := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))
@@ -482,7 +483,7 @@ func testDeleteCollection(t *testing.T) {
 }
 
 func testUpdateCollection(t *testing.T) {
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	datasetToRemove := expectedDatasets.NewPublished(apitest.NewPublicContributor(), apitest.NewPublicContributor(apitest.WithOrcid()))

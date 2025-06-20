@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,7 +43,7 @@ func TestDeleteCollection(t *testing.T) {
 }
 
 func testDeleteCollectionNonExistent(t *testing.T, _ *fixtures.ExpectationDB) {
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -77,9 +78,9 @@ func testDeleteCollectionNonExistent(t *testing.T, _ *fixtures.ExpectationDB) {
 func testDeleteCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user1 := apitest.NewTestUser()
+	user1 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user1)
-	user2 := apitest.NewTestUser()
+	user2 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user2)
 
 	user1CollectionDelete := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
@@ -139,7 +140,7 @@ func TestHandleDeleteCollection(t *testing.T) {
 
 func testDeleteAuthz(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 	claims := apitest.DefaultClaims(callingUser)
 
 	// pgdb.Write & pgdb.Delete => role.Editor, which we take to mean perm it add or delete DOIs but

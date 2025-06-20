@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
-	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
 	"strings"
@@ -117,7 +117,7 @@ func GetDOIs(ctx context.Context, t require.TestingT, conn *pgx.Conn, collection
 	return
 }
 
-func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, testUser *apitest.TestUser) {
+func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, testUser *userstest.TestUser) {
 	test.Helper(t)
 	require.Nil(t, testUser.ID, "cannot create new user from TestUser: id already set")
 
@@ -130,7 +130,7 @@ func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, tes
 	// 1 everytime the container is started.
 	require.NoError(t, pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, "SELECT nextval('pennsieve.users_id_seq') + @max_seed_user_id",
-			pgx.NamedArgs{"max_seed_user_id": apitest.SeedSuperUser.ID}).Scan(&userID); err != nil {
+			pgx.NamedArgs{"max_seed_user_id": userstest.SeedSuperUser.ID}).Scan(&userID); err != nil {
 			return err
 		}
 
@@ -142,11 +142,13 @@ func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, tes
 			"first_name":          testUser.FirstName,
 			"last_name":           testUser.LastName,
 			"orcid_authorization": testUser.ORCIDAuthorization,
+			"middle_initial":      testUser.MiddleInitial,
+			"degree":              testUser.Degree,
 		}
 
 		if err := conn.QueryRow(ctx,
-			`INSERT INTO pennsieve.users (id, email, node_id, is_super_admin, first_name, last_name, orcid_authorization) 
-                                      VALUES (@id, @email, @node_id, @is_super_admin, @first_name, @last_name, @orcid_authorization) RETURNING id`,
+			`INSERT INTO pennsieve.users (id, email, node_id, is_super_admin, first_name, last_name, orcid_authorization, middle_initial, degree) 
+                                      VALUES (@id, @email, @node_id, @is_super_admin, @first_name, @last_name, @orcid_authorization, @middle_initial, @degree) RETURNING id`,
 			userArgs).
 			Scan(&returnedID); err != nil {
 			return err

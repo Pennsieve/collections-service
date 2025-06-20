@@ -1,9 +1,9 @@
-package apitest
+package userstest
 
 import (
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/pennsieve/collections-service/internal/api/store/users"
+	"github.com/pennsieve/collections-service/internal/shared/users"
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"math/rand"
 )
@@ -15,6 +15,8 @@ type User interface {
 	GetFirstName() string
 	GetLastName() string
 	GetORCIDAuthorization() *users.ORCIDAuthorization
+	GetMiddleInitial() string
+	GetDegree() string
 }
 
 type SeedUser struct {
@@ -47,6 +49,14 @@ func (s SeedUser) GetLastName() string {
 // GetORCIDAuthorization always returns nil since as of now, no seed user has this set.
 func (s SeedUser) GetORCIDAuthorization() *users.ORCIDAuthorization {
 	return nil
+}
+
+func (s SeedUser) GetMiddleInitial() string {
+	return ""
+}
+
+func (s SeedUser) GetDegree() string {
+	return ""
 }
 
 // These users are already present in the Pennsieve seed DB Docker container used for tests.
@@ -84,6 +94,8 @@ type TestUser struct {
 	FirstName          *string
 	LastName           *string
 	ORCIDAuthorization *users.ORCIDAuthorization
+	MiddleInitial      *string
+	Degree             *string
 }
 
 func (t *TestUser) GetID() int64 {
@@ -111,6 +123,14 @@ func (t *TestUser) GetLastName() string {
 
 func (t *TestUser) GetORCIDAuthorization() *users.ORCIDAuthorization {
 	return t.ORCIDAuthorization
+}
+
+func (t *TestUser) GetMiddleInitial() string {
+	return util.SafeDeref(t.MiddleInitial)
+}
+
+func (t *TestUser) GetDegree() string {
+	return util.SafeDeref(t.Degree)
 }
 
 func NewTestUser(options ...TestUserOption) *TestUser {
@@ -173,5 +193,16 @@ func WithORCID(orcid string) TestUserOption {
 			AccessToken:  uuid.NewString(),
 			RefreshToken: uuid.NewString(),
 		}
+	}
+}
+
+func WithMiddleInitial(middleInitial string) TestUserOption {
+	return func(testUser *TestUser) {
+		testUser.MiddleInitial = &middleInitial
+	}
+}
+func WithDegree(degree string) TestUserOption {
+	return func(testUser *TestUser) {
+		testUser.Degree = &degree
 	}
 }

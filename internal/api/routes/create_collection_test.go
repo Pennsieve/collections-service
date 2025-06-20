@@ -10,6 +10,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestCreateCollection(t *testing.T) {
 func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedCollection := apitest.NewExpectedCollection().
@@ -93,7 +94,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -151,7 +152,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -213,7 +214,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -279,7 +280,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -365,7 +366,7 @@ func TestHandleCreateCollection(t *testing.T) {
 func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner)
@@ -420,7 +421,7 @@ func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 func testRejectUnknownFields(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	unknownFieldName := uuid.NewString()
 	badRequest := fmt.Sprintf(`{"name": "bad request collection", %q: ["test-doi"]}`, unknownFieldName)
@@ -455,7 +456,7 @@ func testRejectUnknownFields(t *testing.T) {
 func testRejectCollectionDOI(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 

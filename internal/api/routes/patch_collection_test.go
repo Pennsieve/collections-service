@@ -11,6 +11,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,7 +61,7 @@ func testPatchCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
@@ -110,7 +111,7 @@ func testPatchCollectionDescription(t *testing.T, expectationDB *fixtures.Expect
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
@@ -164,7 +165,7 @@ func testPatchCollectionNameAndDescription(t *testing.T, expectationDB *fixtures
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
@@ -220,7 +221,7 @@ func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expecta
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToRemove1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -275,7 +276,7 @@ func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectatio
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -330,7 +331,7 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -397,7 +398,7 @@ func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.Exp
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	publishedToAdd := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -456,7 +457,7 @@ func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtur
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToRemove1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -515,7 +516,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -573,7 +574,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 func testPatchCollectionNonExistent(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	nonExistentNodeID := uuid.NewString()
@@ -612,7 +613,7 @@ func testPatchCollectionNonExistent(t *testing.T, expectationDB *fixtures.Expect
 func testPatchCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	nonExistentNodeID := uuid.NewString()
@@ -653,12 +654,12 @@ func TestGetUpdateRequestAddDOIs(t *testing.T) {
 	doiToAdd2 := apitest.NewPennsieveDOI()
 	doi2 := apitest.NewPennsieveDOI()
 
-	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(apitest.SeedUser1.ID, pgdb.Owner).
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(userstest.SeedUser1.ID, pgdb.Owner).
 		WithDOIs(doi1, doi2)
 
 	patchCollectionRequest := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{doiToAdd1.Value, doiToAdd2.Value}}}
 
-	updateRequest, err := GetUpdateRequest(apitest.PennsieveDOIPrefix, patchCollectionRequest, expectedCollection.ToGetCollectionResponse(t, apitest.SeedUser1.ID))
+	updateRequest, err := GetUpdateRequest(apitest.PennsieveDOIPrefix, patchCollectionRequest, expectedCollection.ToGetCollectionResponse(t, userstest.SeedUser1.ID))
 	require.NoError(t, err)
 
 	assert.Nil(t, updateRequest.Name)
@@ -721,7 +722,7 @@ func TestHandlePatchCollection(t *testing.T) {
 
 func testHandlePatchCollectionEmptyArrays(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().WithMockID(1).WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
@@ -759,7 +760,7 @@ func testHandlePatchCollectionEmptyArrays(t *testing.T) {
 
 func testHandlePatchCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedDOI := apitest.NewPennsieveDOI()
 	expectedCollection := apitest.NewExpectedCollection().WithMockID(2).WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
@@ -797,7 +798,7 @@ func testHandlePatchCollectionEmptyArraysInPublicDataset(t *testing.T) {
 
 func testHandlePatchCollectionNoBody(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	mockCollectionStore := mocks.NewCollectionsStore()
 
@@ -823,7 +824,7 @@ func testHandlePatchCollectionNoBody(t *testing.T) {
 
 func testHandlePatchCollectionEmptyName(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	mockCollectionStore := mocks.NewCollectionsStore()
 
@@ -855,7 +856,7 @@ func testHandlePatchCollectionEmptyName(t *testing.T) {
 
 func testHandlePatchCollectionNameTooLong(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	mockCollectionStore := mocks.NewCollectionsStore()
 
@@ -887,7 +888,7 @@ func testHandlePatchCollectionNameTooLong(t *testing.T) {
 
 func testHandlePatchCollectionDescriptionTooLong(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	mockCollectionStore := mocks.NewCollectionsStore()
 
@@ -919,7 +920,7 @@ func testHandlePatchCollectionDescriptionTooLong(t *testing.T) {
 
 func testHandlePatchCollectionNotFound(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
 	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
@@ -953,7 +954,7 @@ func testHandlePatchCollectionNotFound(t *testing.T) {
 
 func testHandlePatchCollectionAuthz(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 	claims := apitest.DefaultClaims(callingUser)
 
 	for _, tooLowPerm := range []pgdb.DbPermission{pgdb.Guest, pgdb.Read} {
@@ -1016,7 +1017,7 @@ func testHandlePatchCollectionAuthz(t *testing.T) {
 func testRejectAddingCollectionDOI(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithRandomID().

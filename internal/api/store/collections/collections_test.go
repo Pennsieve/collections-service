@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
@@ -68,7 +69,7 @@ func TestStore(t *testing.T) {
 
 func testCreateCollectionNilDOIs(t *testing.T, store *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
-	expectedOwner := apitest.NewTestUser()
+	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner)
 
@@ -82,7 +83,7 @@ func testCreateCollectionNilDOIs(t *testing.T, store *collections.PostgresStore,
 
 func testCreateCollectionEmptyDOIs(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
-	expectedOwner := apitest.NewTestUser()
+	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner)
@@ -97,7 +98,7 @@ func testCreateCollectionEmptyDOIs(t *testing.T, collectionsStore *collections.P
 
 func testCreateCollectionOneDOI(t *testing.T, store *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
-	expectedOwner := apitest.NewTestUser()
+	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
 
@@ -112,7 +113,7 @@ func testCreateCollectionOneDOI(t *testing.T, store *collections.PostgresStore, 
 
 func testCreateCollectionManyDOIs(t *testing.T, store *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
-	expectedOwner := apitest.NewTestUser()
+	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 
@@ -127,7 +128,7 @@ func testCreateCollectionManyDOIs(t *testing.T, store *collections.PostgresStore
 
 func testCreateCollectionEmptyDescription(t *testing.T, store *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
-	expectedOwner := apitest.NewTestUser()
+	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectedCollection.Description = ""
@@ -147,7 +148,7 @@ func testGetCollectionsNone(t *testing.T, store *collections.PostgresStore, _ *f
 	// Test with store
 	limit, offset := 10, 0
 	// use a user with no collections
-	response, err := store.GetCollections(ctx, apitest.SeedUser1.ID, limit, offset)
+	response, err := store.GetCollections(ctx, userstest.SeedUser1.ID, limit, offset)
 	require.NoError(t, err)
 
 	assert.Equal(t, limit, response.Limit)
@@ -161,9 +162,9 @@ func testGetCollections(t *testing.T, store *collections.PostgresStore, expectat
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user1 := apitest.NewTestUser()
+	user1 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user1)
-	user2 := apitest.NewTestUser()
+	user2 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user2)
 
 	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner)
@@ -218,9 +219,9 @@ func testGetCollectionsNoPerms(t *testing.T, store *collections.PostgresStore, e
 	// but it is a possibility and we coded against it, so here is a test
 
 	// Set up using the ExpectationDB
-	user1 := apitest.NewTestUser()
+	user1 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user1)
-	user2 := apitest.NewTestUser()
+	user2 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user2)
 
 	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().
@@ -282,7 +283,7 @@ func testGetCollectionsNoPerms(t *testing.T, store *collections.PostgresStore, e
 func testGetCollectionsLimitOffset(t *testing.T, store *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user1 := apitest.NewTestUser()
+	user1 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user1)
 
 	totalCollections := 11
@@ -332,7 +333,7 @@ func testGetCollectionNone(t *testing.T, collectionsStore *collections.PostgresS
 
 	// Test with collectionsStore
 	// use a user with no collections
-	_, err := collectionsStore.GetCollection(ctx, apitest.SeedUser1.ID, uuid.NewString())
+	_, err := collectionsStore.GetCollection(ctx, userstest.SeedUser1.ID, uuid.NewString())
 	require.ErrorIs(t, err, collections.ErrCollectionNotFound)
 }
 
@@ -340,9 +341,9 @@ func testGetCollection(t *testing.T, store *collections.PostgresStore, expectati
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user1 := apitest.NewTestUser()
+	user1 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user1)
-	user2 := apitest.NewTestUser()
+	user2 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user2)
 
 	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner)
@@ -390,9 +391,9 @@ func testGetCollectionNoPerms(t *testing.T, collectionsStore *collections.Postgr
 	ctx := context.Background()
 
 	// Set up using the ExpectationDB
-	user1 := apitest.NewTestUser()
+	user1 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user1)
-	user2 := apitest.NewTestUser()
+	user2 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user2)
 
 	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().
@@ -422,9 +423,9 @@ func testGetCollectionNoPerms(t *testing.T, collectionsStore *collections.Postgr
 func testDeleteCollection(t *testing.T, store *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user1 := apitest.NewTestUser()
+	user1 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user1)
-	user2 := apitest.NewTestUser()
+	user2 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user2)
 
 	user1CollectionDelete := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
@@ -453,7 +454,7 @@ func testDeleteCollectionNonExistent(t *testing.T, collectionsStore *collections
 func testUpdateCollectionName(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
@@ -478,7 +479,7 @@ func testUpdateCollectionName(t *testing.T, collectionsStore *collections.Postgr
 func testUpdateCollectionDescription(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
@@ -503,7 +504,7 @@ func testUpdateCollectionDescription(t *testing.T, collectionsStore *collections
 func testUpdateCollectionNameAndDescription(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
@@ -532,7 +533,7 @@ func testUpdateCollectionNameAndDescription(t *testing.T, collectionsStore *coll
 func testUpdateCollectionRemoveDOI(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	doiToKeep1 := apitest.NewPennsieveDOI()
@@ -562,7 +563,7 @@ func testUpdateCollectionRemoveDOI(t *testing.T, collectionsStore *collections.P
 func testUpdateCollectionRemoveDOIs(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	doiToKeep1 := apitest.NewPennsieveDOI()
@@ -593,7 +594,7 @@ func testUpdateCollectionRemoveDOIs(t *testing.T, collectionsStore *collections.
 func testUpdateCollectionAddDOI(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	doi1 := apitest.NewPennsieveDOI()
@@ -623,7 +624,7 @@ func testUpdateCollectionAddDOI(t *testing.T, collectionsStore *collections.Post
 func testUpdateCollectionAddDOIs(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	doi1 := apitest.NewPennsieveDOI()
@@ -654,7 +655,7 @@ func testUpdateCollectionAddDOIs(t *testing.T, collectionsStore *collections.Pos
 func testUpdateCollection(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	doiToKeep1 := apitest.NewPennsieveDOI()
@@ -694,7 +695,7 @@ func testUpdateCollection(t *testing.T, collectionsStore *collections.PostgresSt
 func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	doiToKeep1 := apitest.NewPennsieveDOI()
@@ -725,7 +726,7 @@ func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, collectionsStore *co
 func testUpdateCollectionAddExistingDOI(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	doi1 := apitest.NewPennsieveDOI()
@@ -758,7 +759,7 @@ func testUpdateCollectionNonExistent(t *testing.T, collectionsStore *collections
 	update := collections.UpdateCollectionRequest{
 		Name: &newName,
 	}
-	_, err := collectionsStore.UpdateCollection(context.Background(), apitest.SeedUser1.ID, nonExistentCollectionID, update)
+	_, err := collectionsStore.UpdateCollection(context.Background(), userstest.SeedUser1.ID, nonExistentCollectionID, update)
 	require.ErrorIs(t, err, collections.ErrCollectionNotFound)
 }
 
@@ -769,7 +770,7 @@ func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, collectionsStore
 			Remove: []string{apitest.NewPennsieveDOI().Value},
 		},
 	}
-	_, err := collectionsStore.UpdateCollection(context.Background(), apitest.SeedUser1.ID, nonExistentCollectionID, update)
+	_, err := collectionsStore.UpdateCollection(context.Background(), userstest.SeedUser1.ID, nonExistentCollectionID, update)
 	require.ErrorIs(t, err, collections.ErrCollectionNotFound)
 }
 

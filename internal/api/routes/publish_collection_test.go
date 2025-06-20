@@ -13,6 +13,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
@@ -57,10 +58,12 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	publishBucket := minio.CreatePublishBucket(ctx, t)
 
-	callingUser := apitest.NewTestUser(
-		apitest.WithFirstName(uuid.NewString()),
-		apitest.WithLastName(uuid.NewString()),
-		apitest.WithORCID(uuid.NewString()),
+	callingUser := userstest.NewTestUser(
+		userstest.WithFirstName(uuid.NewString()),
+		userstest.WithLastName(uuid.NewString()),
+		userstest.WithORCID(uuid.NewString()),
+		userstest.WithMiddleInitial("F"),
+		userstest.WithDegree("B.S."),
 	)
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
@@ -103,13 +106,15 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 		WithPennsieveConfig(pennsieveConfig).
 		Build()
 
+	expectedLicense := "Creative Commons"
+	expectedKeywords := []string{"test1, test2"}
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
-				Tags:    []string{"test"},
+				License: expectedLicense,
+				Tags:    expectedKeywords,
 			}).
 			Build(),
 		Container: apitest.NewTestContainer().
@@ -130,8 +135,22 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	assert.Equal(t, expectedPublishedVersion, resp.PublishedVersion)
 	assert.Equal(t, expectedPublishStatus, resp.Status)
 
-	minio.RequireObjectExists(ctx, t, pennsieveConfig.PublishBucket, publishing.S3Key(resp.PublishedDatasetID))
+	manifestKey := publishing.S3Key(resp.PublishedDatasetID)
+	headManifest := minio.RequireObjectExists(ctx, t, pennsieveConfig.PublishBucket, manifestKey)
+	var actualManifest publishing.ManifestV5
+	minio.GetObject(ctx, t, pennsieveConfig.PublishBucket, manifestKey, headManifest.VersionId).As(t, &actualManifest)
 
+	assert.Equal(t, expectedPublishedDatasetID, actualManifest.PennsieveDatasetId)
+	assert.Equal(t, expectedPublishedVersion, actualManifest.Version)
+	assert.Zero(t, actualManifest.Revision)
+	assert.NotEmpty(t, actualManifest.ID)
+	assert.Equal(t, expectedCollection.Name, actualManifest.Name)
+	assert.Equal(t, expectedCollection.Description, actualManifest.Description)
+
+	expectedCreator := apitest.ToPublishedContributor(callingUser)
+	assert.Equal(t, expectedCreator, actualManifest.Creator)
+	assert.Len(t, actualManifest.Contributors, 1)
+	assert.Equal(t, expectedCreator, actualManifest.Contributors[0])
 }
 
 // TestHandlePublishCollection tests that run the Handle wrapper around PublishCollection
@@ -176,7 +195,7 @@ func TestHandlePublishCollection(t *testing.T) {
 
 func testHandlePublishCollectionNoBody(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	mockCollectionStore := mocks.NewCollectionsStore()
 
@@ -202,7 +221,7 @@ func testHandlePublishCollectionNoBody(t *testing.T) {
 
 func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	publishRequest := dto.PublishCollectionRequest{
 		License: "",
@@ -233,7 +252,7 @@ func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 
 func testHandlePublishCollectionLicenseTooLong(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	publishRequest := dto.PublishCollectionRequest{
 		License: strings.Repeat("a", 256),
@@ -265,7 +284,7 @@ func testHandlePublishCollectionLicenseTooLong(t *testing.T) {
 
 func testHandlePublishCollectionNoTags(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	publishRequest := dto.PublishCollectionRequest{
 		License: "Creative Commons something",
@@ -296,7 +315,7 @@ func testHandlePublishCollectionNoTags(t *testing.T) {
 
 func testHandlePublishCollectionEmptyTags(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	publishRequest := dto.PublishCollectionRequest{
 		License: "Creative Commons something",
@@ -328,7 +347,7 @@ func testHandlePublishCollectionEmptyTags(t *testing.T) {
 
 func testHandlePublishCollectionNotFound(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
 	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
@@ -365,7 +384,7 @@ func testHandlePublishCollectionNotFound(t *testing.T) {
 
 func testHandlePublishCollectionAuthz(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 	claims := apitest.DefaultClaims(callingUser)
 
 	for _, tooLowPerm := range []pgdb.DbPermission{pgdb.Guest, pgdb.Read, pgdb.Write, pgdb.Delete, pgdb.Administer} {

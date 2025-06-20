@@ -191,11 +191,10 @@ func validatePublishRequest(publishRequest *dto.PublishCollectionRequest) error 
 
 func creator(user users.GetUserResponse) publishing.PublishedContributor {
 	return publishing.PublishedContributor{
-		FirstName: util.SafeDeref(user.FirstName),
-		LastName:  util.SafeDeref(user.LastName),
-		Orcid:     util.SafeDeref(user.ORCID),
-		//TODO add middle initial and degree to GetUserResponse
-		MiddleInitial: "",
-		Degree:        "",
+		FirstName:     util.SafeDeref(user.FirstName),
+		LastName:      util.SafeDeref(user.LastName),
+		Orcid:         util.SafeDeref(user.ORCID),
+		MiddleInitial: util.SafeDeref(user.MiddleInitial),
+		Degree:        util.SafeDeref(user.Degree),
 	}
 }

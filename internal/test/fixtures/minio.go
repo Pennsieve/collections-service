@@ -2,6 +2,7 @@ package fixtures
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -74,6 +75,27 @@ func (m *MinIO) RequireObjectExists(ctx context.Context, t require.TestingT, buc
 	headOut, err := m.s3Client.HeadObject(ctx, headIn)
 	require.NoError(t, err, "HEAD object returned an error for expected bucket: %s, key: %s", bucket, key)
 	return headOut
+}
+
+type S3Object struct {
+	*s3.GetObjectOutput
+}
+
+func (o S3Object) As(t require.TestingT, target any) S3Object {
+	defer test.Close(t, o.Body)
+	require.NoError(t, json.NewDecoder(o.Body).Decode(target))
+	return o
+}
+
+func (m *MinIO) GetObject(ctx context.Context, t require.TestingT, bucket, key string, versionID *string) S3Object {
+	getIn := &s3.GetObjectInput{
+		Bucket:    aws.String(bucket),
+		Key:       aws.String(key),
+		VersionId: versionID,
+	}
+	getOut, err := m.s3Client.GetObject(ctx, getIn)
+	require.NoError(t, err)
+	return S3Object{getOut}
 }
 
 // ListObjectVersions returns slices of all DeleteMarkers and Versions found in the given bucket under the given prefix if any.

@@ -7,6 +7,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
 	"log/slog"
@@ -113,7 +114,7 @@ func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT
 	return response
 }
 
-func (e *ExpectationDB) CreateTestUser(ctx context.Context, t require.TestingT, testUser *apitest.TestUser) {
+func (e *ExpectationDB) CreateTestUser(ctx context.Context, t require.TestingT, testUser *userstest.TestUser) {
 	test.Helper(t)
 	conn := e.connect(ctx, t)
 	defer test.CloseConnection(ctx, t, conn)

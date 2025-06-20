@@ -1,7 +1,9 @@
 package users
 
 type GetUserResponse struct {
-	FirstName *string
-	LastName  *string
-	ORCID     *string
+	FirstName     *string
+	MiddleInitial *string
+	LastName      *string
+	Degree        *string
+	ORCID         *string
 }
