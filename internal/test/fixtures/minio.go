@@ -3,7 +3,6 @@ package fixtures
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -36,20 +35,6 @@ func (m *MinIO) CreatePublishBucket(ctx context.Context, t require.TestingT) str
 	bucketName := aws.String(randomName)
 	createInput := &s3.CreateBucketInput{Bucket: bucketName}
 	_, err := m.s3Client.CreateBucket(ctx, createInput)
-	if err != nil {
-		fmt.Printf("%v: %T\n", err, err)
-		unwrapped := errors.Unwrap(err)
-		for unwrapped != nil {
-			fmt.Printf("%v: %T\n", unwrapped, unwrapped)
-			unwrapped = errors.Unwrap(unwrapped)
-		}
-		fmt.Printf("%+v\n", m.s3Client.Options())
-		fmt.Printf("BaseEndpoint: %s\n", *m.s3Client.Options().BaseEndpoint)
-		fmt.Printf("Credentials: %+v: %T\n", m.s3Client.Options().Credentials, m.s3Client.Options().Credentials)
-		fmt.Printf("EndpointResolver2: %+v: %T\n", m.s3Client.Options().EndpointResolverV2, m.s3Client.Options().EndpointResolverV2)
-		fmt.Printf("Region: %s\n", m.s3Client.Options().Region)
-
-	}
 	require.NoError(t, err)
 
 	require.NoError(t, s3.NewBucketExistsWaiter(m.s3Client).Wait(ctx, &s3.HeadBucketInput{Bucket: bucketName}, time.Minute), "publish bucket %s not created in time", randomName)

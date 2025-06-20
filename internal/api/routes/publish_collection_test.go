@@ -2,7 +2,9 @@ package routes
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/apijson"
 	config2 "github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
@@ -23,6 +25,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPublishCollection(t *testing.T) {
@@ -143,7 +146,6 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	assert.Equal(t, expectedPublishedDatasetID, actualManifest.PennsieveDatasetId)
 	assert.Equal(t, expectedPublishedVersion, actualManifest.Version)
 	assert.Zero(t, actualManifest.Revision)
-	assert.NotEmpty(t, actualManifest.ID)
 	assert.Equal(t, expectedCollection.Name, actualManifest.Name)
 	assert.Equal(t, expectedCollection.Description, actualManifest.Description)
 
@@ -151,6 +153,36 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	assert.Equal(t, expectedCreator, actualManifest.Creator)
 	assert.Len(t, actualManifest.Contributors, 1)
 	assert.Equal(t, expectedCreator, actualManifest.Contributors[0])
+
+	assert.Equal(t, expectedKeywords, actualManifest.Keywords)
+	assert.Equal(t, expectedLicense, actualManifest.License)
+
+	expectedDatePublished := apijson.Date(time.Now())
+	assert.True(t, expectedDatePublished.Equal(actualManifest.DatePublished))
+
+	assert.NotEmpty(t, actualManifest.ID)
+
+	assert.Equal(t, publishing.ManifestPublisher, actualManifest.Publisher)
+	assert.Equal(t, publishing.ManifestContext, actualManifest.Context)
+	assert.Equal(t, publishing.ManifestSchemaVersion, actualManifest.SchemaVersion)
+	assert.Equal(t, publishing.ManifestType, actualManifest.Type)
+	assert.Equal(t, publishing.ManifestPennsieveSchemaVersion, actualManifest.PennsieveSchemaVersion)
+
+	assert.Equal(t, expectedCollection.DOIs.Strings(), actualManifest.References)
+
+	expectedFileManifest := publishing.FileManifest{
+		Name:     publishing.ManifestFileName,
+		Path:     publishing.ManifestFileName,
+		Size:     aws.ToInt64(headManifest.ContentLength),
+		FileType: publishing.ManifestFileType,
+		// These fields are not set for the manifest's own FileManifest entry
+		SourcePackageId: "",
+		S3VersionId:     "",
+		SHA256:          "",
+	}
+	require.Len(t, actualManifest.Files, 1)
+	assert.Equal(t, expectedFileManifest, actualManifest.Files[0])
+
 }
 
 // TestHandlePublishCollection tests that run the Handle wrapper around PublishCollection

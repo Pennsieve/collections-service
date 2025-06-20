@@ -12,7 +12,11 @@ import (
 )
 
 const DefaultMinIOPort = "9000"
-const DefaultMinIOHost = "localhost"
+
+// DefaultMinIOHost is set to 127.0.0.1 instead of localhost because I had trouble
+// running tests locally after connecting and disconnecting from VPN. DNS failed for
+// localhost
+const DefaultMinIOHost = "127.0.0.1"
 
 // defaultMinIOS3Client can be shared. Get
 var defaultMinIOS3Client *s3.Client

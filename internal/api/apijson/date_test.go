@@ -44,7 +44,6 @@ func TestDate_UnmarshalText(t *testing.T) {
 	dateString := dateTimeObject.Format(time.DateOnly)
 
 	jsonBytes := []byte(fmt.Sprintf(`{"Date":%q}`, dateString))
-	expectedYear, expectedMonth, expectedDay := dateTimeObject.Date()
 
 	t.Run("as pointer member", func(t *testing.T) {
 		var hasDatePointer struct {
@@ -54,11 +53,7 @@ func TestDate_UnmarshalText(t *testing.T) {
 		require.NoError(t, json.Unmarshal(jsonBytes, &hasDatePointer))
 		assert.NotZero(t, *hasDatePointer.Date)
 
-		actualYear, actualMonth, actualDay := time.Time(*hasDatePointer.Date).Date()
-
-		assert.Equal(t, expectedYear, actualYear)
-		assert.Equal(t, expectedMonth, actualMonth)
-		assert.Equal(t, expectedDay, actualDay)
+		assert.True(t, hasDatePointer.Date.EqualToTime(dateTimeObject))
 	})
 
 	t.Run("as non-pointer member", func(t *testing.T) {
@@ -69,11 +64,6 @@ func TestDate_UnmarshalText(t *testing.T) {
 		require.NoError(t, json.Unmarshal(jsonBytes, &hasDate))
 		assert.NotZero(t, hasDate.Date)
 
-		actualYear, actualMonth, actualDay := time.Time(hasDate.Date).Date()
-
-		assert.Equal(t, expectedYear, actualYear)
-		assert.Equal(t, expectedMonth, actualMonth)
-		assert.Equal(t, expectedDay, actualDay)
-
+		assert.True(t, hasDate.Date.EqualToTime(dateTimeObject))
 	})
 }

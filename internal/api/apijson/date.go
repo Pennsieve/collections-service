@@ -9,6 +9,19 @@ import (
 // embargo release date JSON field and others which has no time info.
 type Date time.Time
 
+func (d Date) Equal(other Date) bool {
+	return d.EqualToTime(time.Time(other))
+}
+
+func (d Date) EqualToTime(other time.Time) bool {
+	thisTime := time.Time(d)
+	thisYear, thisMonth, thisDay := thisTime.Date()
+
+	otherYear, otherMonth, otherDay := other.Date()
+
+	return thisYear == otherYear && thisMonth == otherMonth && thisDay == otherDay
+}
+
 func (d Date) MarshalText() (text []byte, err error) {
 	dateOnly := time.Time(d).Format(time.DateOnly)
 	return []byte(dateOnly), nil
