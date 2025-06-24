@@ -105,7 +105,7 @@ func (c *TestContainer) WithCollectionsStore(collectionsStore collections.Store)
 	return c
 }
 
-func (c *TestContainer) WithContainerStoreFromPostgresDB(collectionsDBName string) *TestContainer {
+func (c *TestContainer) WithCollectionsStoreFromPostgresDB(collectionsDBName string) *TestContainer {
 	if c.TestPostgresDB == nil {
 		panic("cannot create ContainerStore from nil PostgresDB; call WithPostgresDB first")
 	}

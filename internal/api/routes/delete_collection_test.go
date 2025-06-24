@@ -54,7 +54,7 @@ func testDeleteCollectionNonExistent(t *testing.T, _ *fixtures.ExpectationDB) {
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(DeleteCollectionRouteKey).
@@ -101,7 +101,7 @@ func testDeleteCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(DeleteCollectionRouteKey).

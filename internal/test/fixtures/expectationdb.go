@@ -82,7 +82,7 @@ func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
-func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.TestingT, expected apitest.ExpectedPublishStatus) {
+func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.TestingT, expected *apitest.ExpectedPublishStatus) {
 	test.Helper(t)
 	require.NotNil(t, expected.CollectionID, "expected collectionID not set")
 	conn := e.connect(ctx, t)

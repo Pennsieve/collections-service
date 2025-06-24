@@ -184,6 +184,14 @@ func GetPublishStatus(ctx context.Context, t require.TestingT, conn *pgx.Conn, c
 
 	rows, _ := conn.Query(ctx, query, args)
 	publishStatus, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[publishing.PublishStatus])
-	require.NoError(t, err)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			require.FailNow(t, "no publish status found for collection with id", "id = %d", collectionID)
+		} else if errors.Is(err, pgx.ErrTooManyRows) {
+			require.FailNow(t, "more than one publish status found for collection with id", "id = %d", collectionID)
+		} else {
+			require.NoError(t, err)
+		}
+	}
 	return publishStatus
 }

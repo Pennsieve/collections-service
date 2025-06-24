@@ -67,7 +67,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -124,7 +124,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
 		WithHTTPTestDiscover(mockDiscoverServer.URL).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -185,7 +185,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
 		WithHTTPTestDiscover(mockDiscoverServer.URL).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -251,7 +251,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
 		WithHTTPTestDiscover(mockDiscoverServer.URL).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -312,7 +312,7 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
 		WithHTTPTestDiscover(mockDiscoverServer.URL).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).

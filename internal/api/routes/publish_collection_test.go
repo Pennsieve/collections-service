@@ -4,8 +4,9 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/apijson"
-	config2 "github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
@@ -34,6 +35,7 @@ func TestPublishCollection(t *testing.T) {
 		tstFunc  func(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO)
 	}{
 		{"publish collection", testPublish},
+		{"should return a 409 Conflict error if publish already in progress", testPublishNoConcurrent},
 	}
 
 	ctx := context.Background()
@@ -78,13 +80,18 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	// The collection
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
-	expectationDB.CreateCollection(ctx, t, expectedCollection)
+	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
-	pennsieveConfig := apitest.PennsieveConfigWithOptions(config2.WithPublishBucket(publishBucket))
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(
+		publishing.CompletedStatus,
+		publishing.PublicationType,
+		*callingUser.ID).WithCollectionID(createCollectionResp.ID)
+
+	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
 
 	expectedPublishedDatasetID := rand.Int63n(5000) + 1
 	expectedPublishedVersion := rand.Int63n(20) + 1
-	expectedPublishStatus := uuid.NewString()
+	expectedDiscoverPublishStatus := uuid.NewString()
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)).
@@ -92,7 +99,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 			t,
 			expectedPublishedDatasetID,
 			expectedPublishedVersion,
-			expectedPublishStatus,
+			expectedDiscoverPublishStatus,
 			apitest.VerifyPublishingUser(callingUser),
 		),
 			apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID),
@@ -104,7 +111,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	pennsieveConfig.DiscoverServiceURL = mockDiscoverServer.URL
 
-	config := apitest.NewConfigBuilder().
+	apiConfig := apitest.NewConfigBuilder().
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		WithPennsieveConfig(pennsieveConfig).
 		Build()
@@ -121,13 +128,13 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 			}).
 			Build(),
 		Container: apitest.NewTestContainer().
-			WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
-			WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase).
-			WithUsersStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase).
+			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+			WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+			WithUsersStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 			WithHTTPTestDiscover(mockDiscoverServer.URL).
 			WithHTTPTestInternalDiscover(pennsieveConfig).
-			WithMinIOManifestStore(ctx, t, config.PennsieveConfig.PublishBucket),
-		Config: config,
+			WithMinIOManifestStore(ctx, t, apiConfig.PennsieveConfig.PublishBucket),
+		Config: apiConfig,
 		Claims: &claims,
 	}
 
@@ -136,7 +143,9 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	assert.Equal(t, expectedPublishedDatasetID, resp.PublishedDatasetID)
 	assert.Equal(t, expectedPublishedVersion, resp.PublishedVersion)
-	assert.Equal(t, expectedPublishStatus, resp.Status)
+	assert.Equal(t, expectedDiscoverPublishStatus, resp.Status)
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
 
 	manifestKey := publishing.S3Key(resp.PublishedDatasetID)
 	headManifest := minio.RequireObjectExists(ctx, t, pennsieveConfig.PublishBucket, manifestKey)
@@ -182,6 +191,57 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	}
 	require.Len(t, actualManifest.Files, 1)
 	assert.Equal(t, expectedFileManifest, actualManifest.Files[0])
+
+}
+
+func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO) {
+	ctx := context.Background()
+
+	callingUser := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	// The dataset that will be in the collection
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	dataset := expectedDatasets.NewPublished()
+
+	// The collection
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
+	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+	expectedPublishStatus := apitest.NewExpectedInProgressPublishStatus(*callingUser.ID)
+	expectationDB.CreatePublishStatusPreCondition(ctx, t, createCollectionResp.ID, expectedPublishStatus)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+		Build()
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, dto.PublishCollectionRequest{
+				License: "Creative Commons",
+				Tags:    []string{"test1, test2"},
+			}).
+			Build(),
+		Container: apitest.NewTestContainer().
+			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+			WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase),
+		Config: apiConfig,
+		Claims: &claims,
+	}
+
+	_, err := PublishCollection(ctx, params)
+	var apiError apierrors.Error
+	require.ErrorAs(t, err, &apiError)
+
+	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
+	assert.Contains(t, apiError.UserMessage, "in progress")
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
 
 }
 

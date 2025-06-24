@@ -181,6 +181,22 @@ func NewExpectedPublishStatus(pubStatus publishing.Status, pubType publishing.Ty
 	}
 }
 
+// NewExpectedInProgressPublishStatus returns an ExpectedPublishStatus that makes sense if we are
+// expecting an InProgress status at the end of a test. This status should only be temporary, so if we expect this
+// status at the end of the test, there must be an existing pre-condition of that status already
+// existing.
+func NewExpectedInProgressPublishStatus(pubUser int64) *ExpectedPublishStatus {
+	return NewExpectedPublishStatus(publishing.InProgressStatus, publishing.PublicationType, pubUser).WithExistingInProgressPublishStatus(pubUser)
+}
+
+func (s *ExpectedPublishStatus) WithCollectionID(collectionID int64) *ExpectedPublishStatus {
+	s.CollectionID = &collectionID
+	if s.PreCondition != nil {
+		s.PreCondition.CollectionID = collectionID
+	}
+	return s
+}
+
 func (s *ExpectedPublishStatus) WithExistingInProgressPublishStatus(userID int64) *ExpectedPublishStatus {
 	startedAt := time.Now().AddDate(0, 1, 2)
 	s.PreCondition = &publishing.PublishStatus{

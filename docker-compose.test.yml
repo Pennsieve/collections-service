@@ -23,7 +23,7 @@ services:
       # need to set this. See: https://golang.testcontainers.org/system_requirements/ci/dind_patterns/
       - /var/run/docker.sock:/var/run/docker.sock
   pennsievedb-collections:
-    image: pennsieve/pennsievedb-collections:20250515223535-seed
+    image: pennsieve/pennsievedb-collections:20250624123226-seed
     restart: always
   #    command: [ "postgres", "-c", "log_statement=all" ]
   minio:

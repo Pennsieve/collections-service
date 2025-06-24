@@ -6,10 +6,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
@@ -395,6 +397,46 @@ func (s *PostgresStore) UpdateCollection(ctx context.Context, userID, collection
 		return GetCollectionResponse{}, fmt.Errorf("UpdateCollection error getting updated collection %d: %w", collectionID, err)
 	}
 	return updatedCollection, nil
+}
+
+func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, userID int64) error {
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return fmt.Errorf("StartPublish error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+
+	query := `INSERT INTO collections.publish_status (collection_id, status, type, user_id, started_at)
+              VALUES (@collection_id, @status, @type, @user_id, @started_at)
+              ON CONFLICT (collection_id) DO UPDATE
+                SET status = EXCLUDED.status,
+                    type = EXCLUDED.type,
+                    user_id = EXCLUDED.user_id,
+                    started_at = EXCLUDED.started_at
+                WHERE collections.publish_status.status != @in_progress`
+
+	args := pgx.NamedArgs{
+		"collection_id": collectionID,
+		"status":        publishing.InProgressStatus,
+		"type":          publishing.PublicationType,
+		"user_id":       userID,
+		"started_at":    time.Now().UTC(),
+		"in_progress":   publishing.InProgressStatus,
+	}
+
+	tag, err := conn.Exec(ctx, query, args)
+	if err != nil {
+		return fmt.Errorf("error starting publish of collection %d for user %d: %w",
+			collectionID,
+			userID,
+			err)
+	}
+	if tag.RowsAffected() == int64(0) {
+		return ErrPublishInProgress
+	}
+
+	return nil
+
 }
 
 func (s *PostgresStore) closeConn(ctx context.Context, conn *pgx.Conn) {
