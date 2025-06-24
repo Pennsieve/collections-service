@@ -5,6 +5,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
@@ -19,6 +20,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ExpectedCollection is what we expect the collection to look like
@@ -157,6 +159,63 @@ func (d ExpectedDOIs) AsDOIs() collections.DOIs {
 		}
 	}
 	return strs
+}
+
+type ExpectedPublishStatus struct {
+	CollectionID *int64
+	// PreCondition is an optional status that already exists prior to
+	// the test
+	PreCondition *publishing.PublishStatus
+	// ExpectedStatus and other Expected* fields are what we expect
+	// the status fields to be after the test
+	ExpectedStatus publishing.Status
+	ExpectedType   publishing.Type
+	ExpectedUserID int64
+}
+
+func NewExpectedPublishStatus(pubStatus publishing.Status, pubType publishing.Type, pubUser int64) *ExpectedPublishStatus {
+	return &ExpectedPublishStatus{
+		ExpectedStatus: pubStatus,
+		ExpectedType:   pubType,
+		ExpectedUserID: pubUser,
+	}
+}
+
+func (s *ExpectedPublishStatus) WithExistingInProgressPublishStatus(userID int64) *ExpectedPublishStatus {
+	startedAt := time.Now().AddDate(0, 1, 2)
+	s.PreCondition = &publishing.PublishStatus{
+		Status:    publishing.InProgressStatus,
+		Type:      publishing.PublicationType,
+		StartedAt: startedAt,
+		UserID:    &userID,
+	}
+	return s
+}
+
+func (s *ExpectedPublishStatus) WithExistingCompletedPublishStatus(userID int64) *ExpectedPublishStatus {
+	startedAt := time.Now().AddDate(0, 1, 2)
+	finishedAt := startedAt.Add(time.Minute)
+	s.PreCondition = &publishing.PublishStatus{
+		Status:     publishing.CompletedStatus,
+		Type:       publishing.PublicationType,
+		StartedAt:  startedAt,
+		FinishedAt: &finishedAt,
+		UserID:     &userID,
+	}
+	return s
+}
+
+func (s *ExpectedPublishStatus) WithExistingFailedPublishStatus(userID int64) *ExpectedPublishStatus {
+	startedAt := time.Now().AddDate(0, 1, 2)
+	finishedAt := startedAt.Add(time.Minute)
+	s.PreCondition = &publishing.PublishStatus{
+		Status:     publishing.FailedStatus,
+		Type:       publishing.PublicationType,
+		StartedAt:  startedAt,
+		FinishedAt: &finishedAt,
+		UserID:     &userID,
+	}
+	return s
 }
 
 func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) collections.GetCollectionResponse {

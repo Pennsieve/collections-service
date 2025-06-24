@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
@@ -158,4 +159,31 @@ func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, tes
 
 	require.Equal(t, userID, returnedID)
 	testUser.ID = &returnedID
+}
+
+func AddPublishStatus(ctx context.Context, t require.TestingT, conn *pgx.Conn, status publishing.PublishStatus) {
+	query := `INSERT INTO collections.publish_status (collection_id, status, type, started_at, finished_at, user_id) 
+                                              VALUES (@collection_id, @status, @type, @started_at, @finished_at, @user_id)`
+	args := pgx.NamedArgs{
+		"collection_id": status.CollectionID,
+		"status":        status.Status,
+		"type":          status.Type,
+		"started_at":    status.StartedAt,
+		"finished_at":   status.FinishedAt,
+		"user_id":       status.UserID,
+	}
+	tag, err := conn.Exec(ctx, query, args)
+	require.NoError(t, err, "error inserting publish_status row")
+	require.Equal(t, int64(1), tag.RowsAffected())
+}
+
+func GetPublishStatus(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) publishing.PublishStatus {
+	query := `SELECT collection_id, status, type, started_at, finished_at, user_id
+                FROM collections.publish_status WHERE collection_id = @collection_Id`
+	args := pgx.NamedArgs{"collection_id": collectionID}
+
+	rows, _ := conn.Query(ctx, query, args)
+	publishStatus, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[publishing.PublishStatus])
+	require.NoError(t, err)
+	return publishStatus
 }

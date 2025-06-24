@@ -3,6 +3,7 @@ package fixtures
 import (
 	"context"
 	"github.com/jackc/pgx/v5"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -81,6 +82,33 @@ func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
+func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.TestingT, expected apitest.ExpectedPublishStatus) {
+	test.Helper(t)
+	require.NotNil(t, expected.CollectionID, "expected collectionID not set")
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	actual := GetPublishStatus(ctx, t, conn, *expected.CollectionID)
+	require.Equal(t, expected.ExpectedStatus, actual.Status)
+	require.Equal(t, expected.ExpectedType, actual.Type)
+	require.Equal(t, expected.ExpectedUserID, actual.UserID)
+	require.NotZero(t, actual.StartedAt)
+	if actual.Status == publishing.InProgressStatus {
+		// If we expected InProgress, then we should expect that there are no changes to the pre-condition
+		preCondition := expected.PreCondition
+		require.NotNil(t, preCondition)
+		require.Equal(t, preCondition.UserID, expected.ExpectedUserID)
+		require.True(t, actual.StartedAt.Equal(preCondition.StartedAt))
+		require.Nil(t, actual.FinishedAt)
+	} else {
+		require.NotNil(t, actual.FinishedAt)
+		require.False(t, (*actual.FinishedAt).Before(actual.StartedAt))
+		if preCondition := expected.PreCondition; preCondition != nil {
+			require.True(t, actual.StartedAt.After(preCondition.StartedAt))
+		}
+	}
+}
+
 func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection) collections.CreateCollectionResponse {
 	test.Helper(t)
 	ownerIdx := slices.IndexFunc(expected.Users, func(user apitest.ExpectedUser) bool {
@@ -120,6 +148,18 @@ func (e *ExpectationDB) CreateTestUser(ctx context.Context, t require.TestingT, 
 	defer test.CloseConnection(ctx, t, conn)
 	CreateTestUser(ctx, t, conn, testUser)
 	e.createdUsers[*testUser.ID] = true
+}
+
+func (e *ExpectationDB) CreatePublishStatusPreCondition(ctx context.Context, t require.TestingT, collectionID int64, expectedPublishStatus *apitest.ExpectedPublishStatus) {
+	test.Helper(t)
+	require.NotNil(t, expectedPublishStatus.PreCondition, "the given ExpectedPublishStatus does not have a precondition")
+	expectedPublishStatus.CollectionID = &collectionID
+	expectedPublishStatus.PreCondition.CollectionID = collectionID
+
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	AddPublishStatus(ctx, t, conn, *expectedPublishStatus.PreCondition)
 }
 
 func (e *ExpectationDB) CleanUp(ctx context.Context, t require.TestingT) {
