@@ -91,22 +91,41 @@ func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.Test
 	actual := GetPublishStatus(ctx, t, conn, *expected.CollectionID)
 	require.Equal(t, expected.ExpectedStatus, actual.Status)
 	require.Equal(t, expected.ExpectedType, actual.Type)
-	require.Equal(t, expected.ExpectedUserID, actual.UserID)
+	require.Equal(t, expected.ExpectedUserID, *actual.UserID)
 	require.NotZero(t, actual.StartedAt)
-	if actual.Status == publishing.InProgressStatus {
-		// If we expected InProgress, then we should expect that there are no changes to the pre-condition
-		preCondition := expected.PreCondition
-		require.NotNil(t, preCondition)
-		require.Equal(t, preCondition.UserID, expected.ExpectedUserID)
-		require.True(t, actual.StartedAt.Equal(preCondition.StartedAt))
+	if expected.ExpectedStatus == publishing.InProgressStatus {
 		require.Nil(t, actual.FinishedAt)
+		if preCondition := expected.PreCondition; preCondition != nil {
+			switch preCondition.Status {
+			// If we expected InProgress with an InProgress pre-condition, then we should expect that there are no changes to the pre-condition
+			case publishing.InProgressStatus:
+				require.Equal(t, *preCondition.UserID, expected.ExpectedUserID)
+				require.True(t, actual.StartedAt.Equal(preCondition.StartedAt), "expected started_at to remain %v but was %v", preCondition.StartedAt, actual.StartedAt)
+			default:
+				// but if the pre-condition is not InProgress, then StartedAt should have been reset
+				require.True(t, actual.StartedAt.After(preCondition.StartedAt), "updated started_at %v <= previous started_at %v", actual.StartedAt, preCondition.StartedAt)
+			}
+		}
 	} else {
 		require.NotNil(t, actual.FinishedAt)
 		require.False(t, (*actual.FinishedAt).Before(actual.StartedAt))
 		if preCondition := expected.PreCondition; preCondition != nil {
-			require.True(t, actual.StartedAt.After(preCondition.StartedAt))
+			require.True(t, actual.StartedAt.Equal(preCondition.StartedAt), "expected started_at %v does not equal pre-condition started_at %v", actual.StartedAt, preCondition.StartedAt)
 		}
 	}
+}
+
+func (e *ExpectationDB) RequireNoPublishStatus(ctx context.Context, t require.TestingT, expectedCollectionID int64) {
+	test.Helper(t)
+	e.knownCollectionIDs[expectedCollectionID] = true
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	rows, _ := conn.Query(ctx, "SELECT * from collections.publish_status where collection_id = @collection_id", pgx.NamedArgs{"collection_id": expectedCollectionID})
+	unexpected, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (map[string]any, error) {
+		return pgx.RowToMap(row)
+	})
+	require.ErrorIs(t, err, pgx.ErrNoRows, "expected no row, got %v", unexpected)
 }
 
 func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection) collections.CreateCollectionResponse {
@@ -150,12 +169,14 @@ func (e *ExpectationDB) CreateTestUser(ctx context.Context, t require.TestingT, 
 	e.createdUsers[*testUser.ID] = true
 }
 
-func (e *ExpectationDB) CreatePublishStatusPreCondition(ctx context.Context, t require.TestingT, collectionID int64, expectedPublishStatus *apitest.ExpectedPublishStatus) {
+func (e *ExpectationDB) CreatePublishStatusPreCondition(ctx context.Context, t require.TestingT, expectedPublishStatus *apitest.ExpectedPublishStatus) {
 	test.Helper(t)
 	require.NotNil(t, expectedPublishStatus.PreCondition, "the given ExpectedPublishStatus does not have a precondition")
-	expectedPublishStatus.CollectionID = &collectionID
-	expectedPublishStatus.PreCondition.CollectionID = collectionID
-
+	require.NotNil(t, expectedPublishStatus.PreCondition.CollectionID, "collectionID not set on PreCondition")
+	require.Equal(t, expectedPublishStatus.PreCondition.CollectionID, *expectedPublishStatus.CollectionID,
+		"PreCondition.CollectionID %d does not match CollectionID %d",
+		expectedPublishStatus.PreCondition.CollectionID,
+		*expectedPublishStatus.CollectionID)
 	conn := e.connect(ctx, t)
 	defer test.CloseConnection(ctx, t, conn)
 

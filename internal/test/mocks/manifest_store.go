@@ -7,10 +7,10 @@ import (
 )
 
 type SaveManifestFunc func(ctx context.Context, key string, manifest publishing.ManifestV5) (manifests.SaveManifestResponse, error)
-type DeleteManifestFunc func(ctx context.Context, key string) error
+type DeleteManifestVersionFunc func(ctx context.Context, key string, s3VersionID string) error
 type ManifestStore struct {
 	SaveManifestFunc
-	DeleteManifestFunc
+	DeleteManifestVersionFunc
 }
 
 func NewManifestStore() *ManifestStore {
@@ -24,11 +24,11 @@ func (m *ManifestStore) SaveManifest(ctx context.Context, key string, manifest p
 	return m.SaveManifestFunc(ctx, key, manifest)
 }
 
-func (m *ManifestStore) DeleteManifest(ctx context.Context, key string) error {
-	if m.DeleteManifestFunc == nil {
+func (m *ManifestStore) DeleteManifestVersion(ctx context.Context, key string, s3VersionID string) error {
+	if m.DeleteManifestVersionFunc == nil {
 		panic("mock DeleteManifest function not set")
 	}
-	return m.DeleteManifest(ctx, key)
+	return m.DeleteManifestVersion(ctx, key, s3VersionID)
 }
 
 func (m *ManifestStore) WithSaveManifestFunc(saveManifestFunc SaveManifestFunc) *ManifestStore {
@@ -36,7 +36,7 @@ func (m *ManifestStore) WithSaveManifestFunc(saveManifestFunc SaveManifestFunc) 
 	return m
 }
 
-func (m *ManifestStore) WithDeleteManifestFunc(deleteManifestFunc DeleteManifestFunc) *ManifestStore {
-	m.DeleteManifestFunc = deleteManifestFunc
+func (m *ManifestStore) WithDeleteManifestVersionFunc(deleteManifestFunc DeleteManifestVersionFunc) *ManifestStore {
+	m.DeleteManifestVersionFunc = deleteManifestFunc
 	return m
 }

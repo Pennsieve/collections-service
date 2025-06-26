@@ -173,13 +173,13 @@ func AddPublishStatus(ctx context.Context, t require.TestingT, conn *pgx.Conn, s
 		"user_id":       status.UserID,
 	}
 	tag, err := conn.Exec(ctx, query, args)
-	require.NoError(t, err, "error inserting publish_status row")
+	require.NoError(t, err, "error inserting publish_status row: %+v", status)
 	require.Equal(t, int64(1), tag.RowsAffected())
 }
 
 func GetPublishStatus(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) publishing.PublishStatus {
 	query := `SELECT collection_id, status, type, started_at, finished_at, user_id
-                FROM collections.publish_status WHERE collection_id = @collection_Id`
+                FROM collections.publish_status WHERE collection_id = @collection_id`
 	args := pgx.NamedArgs{"collection_id": collectionID}
 
 	rows, _ := conn.Query(ctx, query, args)

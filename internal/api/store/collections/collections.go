@@ -2,6 +2,7 @@ package collections
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/config"
@@ -24,6 +25,9 @@ type Store interface {
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
 	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
+	// StartPublish returns a collections.ErrPublishInProgress error if the status of the given collection is InProgress
+	StartPublish(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error
+	FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status) error
 }
 
 type PostgresStore struct {
@@ -399,7 +403,7 @@ func (s *PostgresStore) UpdateCollection(ctx context.Context, userID, collection
 	return updatedCollection, nil
 }
 
-func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, userID int64) error {
+func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return fmt.Errorf("StartPublish error connecting to database %s: %w", s.databaseName, err)
@@ -412,13 +416,14 @@ func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, us
                 SET status = EXCLUDED.status,
                     type = EXCLUDED.type,
                     user_id = EXCLUDED.user_id,
-                    started_at = EXCLUDED.started_at
+                    started_at = EXCLUDED.started_at,
+                    finished_at = NULL
                 WHERE collections.publish_status.status != @in_progress`
 
 	args := pgx.NamedArgs{
 		"collection_id": collectionID,
 		"status":        publishing.InProgressStatus,
-		"type":          publishing.PublicationType,
+		"type":          publishingType,
 		"user_id":       userID,
 		"started_at":    time.Now().UTC(),
 		"in_progress":   publishing.InProgressStatus,
@@ -433,6 +438,38 @@ func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, us
 	}
 	if tag.RowsAffected() == int64(0) {
 		return ErrPublishInProgress
+	}
+
+	return nil
+
+}
+
+func (s *PostgresStore) FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status) error {
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return fmt.Errorf("FinishPublish error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+
+	query := `UPDATE collections.publish_status
+              SET status = @status,
+                  finished_at = @finished_at
+              WHERE collection_id = @collection_id`
+
+	args := pgx.NamedArgs{
+		"collection_id": collectionID,
+		"status":        publishingStatus,
+		"finished_at":   time.Now().UTC(),
+	}
+
+	tag, err := conn.Exec(ctx, query, args)
+	if err != nil {
+		return fmt.Errorf("error finishing publish of collection %d: %w",
+			collectionID,
+			err)
+	}
+	if tag.RowsAffected() == int64(0) {
+		return errors.New("no publish status found for collection")
 	}
 
 	return nil

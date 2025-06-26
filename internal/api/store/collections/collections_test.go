@@ -3,6 +3,7 @@ package collections_test
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -51,6 +52,12 @@ func TestStore(t *testing.T) {
 		{"update asking to add an already existing DOI should succeed", testUpdateCollectionAddExistingDOI},
 		{"update non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistent},
 		{"update DOIs on non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistentDOIUpdateOnly},
+		{"StartPublish should mark the start of a publish event", testStartPublish},
+		{"StartPublish should return InProgress error and do no updates if publish already in progress", testStartPublishExistingInProgress},
+		{"StartPublish should update an existing complete publish status", testStartPublishExistingComplete},
+		{"StartPublish should update an existing failed publish status", testStartPublishExistingFailed},
+		{"FinishPublish should update the publish status of a collection", testFinishPublish},
+		{"FinishPublish should return an error if no publish status exists", testFinishPublishNoExistingStatus},
 	} {
 
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -772,6 +779,111 @@ func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, collectionsStore
 	}
 	_, err := collectionsStore.UpdateCollection(context.Background(), userstest.SeedUser1.ID, nonExistentCollectionID, update)
 	require.ErrorIs(t, err, collections.ErrCollectionNotFound)
+}
+
+func testStartPublish(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	collectionID := expectationDB.CreateCollection(ctx, t, collection).ID
+
+	require.NoError(t, collectionsStore.StartPublish(ctx, collectionID, *user.ID, publishing.PublicationType))
+
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.InProgressStatus, publishing.PublicationType, *user.ID).WithCollectionID(collectionID)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+}
+
+func testStartPublishExistingInProgress(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	collectionID := expectationDB.CreateCollection(ctx, t, collection).ID
+	expectedPublishStatus := apitest.NewExpectedInProgressPublishStatus(*user.ID).WithCollectionID(collectionID)
+	expectationDB.CreatePublishStatusPreCondition(ctx, t, expectedPublishStatus)
+
+	err := collectionsStore.StartPublish(ctx, collectionID, *user.ID, publishing.PublicationType)
+	require.ErrorIs(t, err, collections.ErrPublishInProgress)
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+}
+
+func testStartPublishExistingComplete(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	oldUser := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, oldUser)
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	collectionID := expectationDB.CreateCollection(ctx, t, collection).ID
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.InProgressStatus, publishing.PublicationType, *user.ID).
+		WithCollectionID(collectionID).WithExistingCompletedPublishStatus(*oldUser.ID)
+
+	expectationDB.CreatePublishStatusPreCondition(ctx, t, expectedPublishStatus)
+
+	require.NoError(t, collectionsStore.StartPublish(ctx, collectionID, *user.ID, publishing.PublicationType))
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+}
+
+func testStartPublishExistingFailed(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	oldUser := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, oldUser)
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	collectionID := expectationDB.CreateCollection(ctx, t, collection).ID
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.InProgressStatus, publishing.PublicationType, *user.ID).
+		WithCollectionID(collectionID).WithExistingFailedPublishStatus(*oldUser.ID)
+
+	expectationDB.CreatePublishStatusPreCondition(ctx, t, expectedPublishStatus)
+
+	require.NoError(t, collectionsStore.StartPublish(ctx, collectionID, *user.ID, publishing.PublicationType))
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+}
+
+func testFinishPublish(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	collectionID := expectationDB.CreateCollection(ctx, t, collection).ID
+
+	expectedStatus := publishing.CompletedStatus
+
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(expectedStatus, publishing.PublicationType, *user.ID).
+		WithCollectionID(collectionID).
+		WithExistingInProgressPublishStatus(*user.ID)
+	expectationDB.CreatePublishStatusPreCondition(ctx, t, expectedPublishStatus)
+
+	require.NoError(t, collectionsStore.FinishPublish(ctx, collectionID, expectedPublishStatus.ExpectedStatus))
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+}
+
+func testFinishPublishNoExistingStatus(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	collectionID := int64(99999)
+
+	require.Error(t, collectionsStore.FinishPublish(ctx, collectionID, publishing.CompletedStatus))
+
+	expectationDB.RequireNoPublishStatus(ctx, t, collectionID)
 }
 
 func assertExpectedEqualCollectionBase(t *testing.T, expected *apitest.ExpectedCollection, actual collections.CollectionBase) {

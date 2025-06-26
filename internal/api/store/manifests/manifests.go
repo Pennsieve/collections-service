@@ -12,7 +12,7 @@ import (
 
 type Store interface {
 	SaveManifest(ctx context.Context, key string, manifest publishing.ManifestV5) (SaveManifestResponse, error)
-	DeleteManifest(ctx context.Context, key string) error
+	DeleteManifestVersion(ctx context.Context, key string, s3VersionID string) error
 }
 
 type S3Store struct {
@@ -49,7 +49,7 @@ func (s *S3Store) SaveManifest(ctx context.Context, key string, manifest publish
 	return SaveManifestResponse{S3VersionID: aws.ToString(putOut.VersionId)}, err
 }
 
-func (s *S3Store) DeleteManifest(ctx context.Context, key string) error {
+func (s *S3Store) DeleteManifestVersion(ctx context.Context, key string, s3VersionID string) error {
 	//TODO implement me
 	panic("implement me")
 }

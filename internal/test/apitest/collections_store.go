@@ -198,18 +198,21 @@ func (s *ExpectedPublishStatus) WithCollectionID(collectionID int64) *ExpectedPu
 }
 
 func (s *ExpectedPublishStatus) WithExistingInProgressPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().AddDate(0, 1, 2)
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
 	s.PreCondition = &publishing.PublishStatus{
 		Status:    publishing.InProgressStatus,
 		Type:      publishing.PublicationType,
 		StartedAt: startedAt,
 		UserID:    &userID,
 	}
+	if s.CollectionID != nil {
+		s.PreCondition.CollectionID = *s.CollectionID
+	}
 	return s
 }
 
 func (s *ExpectedPublishStatus) WithExistingCompletedPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().AddDate(0, 1, 2)
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
 	finishedAt := startedAt.Add(time.Minute)
 	s.PreCondition = &publishing.PublishStatus{
 		Status:     publishing.CompletedStatus,
@@ -218,11 +221,14 @@ func (s *ExpectedPublishStatus) WithExistingCompletedPublishStatus(userID int64)
 		FinishedAt: &finishedAt,
 		UserID:     &userID,
 	}
+	if s.CollectionID != nil {
+		s.PreCondition.CollectionID = *s.CollectionID
+	}
 	return s
 }
 
 func (s *ExpectedPublishStatus) WithExistingFailedPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().AddDate(0, 1, 2)
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
 	finishedAt := startedAt.Add(time.Minute)
 	s.PreCondition = &publishing.PublishStatus{
 		Status:     publishing.FailedStatus,
@@ -230,6 +236,9 @@ func (s *ExpectedPublishStatus) WithExistingFailedPublishStatus(userID int64) *E
 		StartedAt:  startedAt,
 		FinishedAt: &finishedAt,
 		UserID:     &userID,
+	}
+	if s.CollectionID != nil {
+		s.PreCondition.CollectionID = *s.CollectionID
 	}
 	return s
 }
@@ -353,6 +362,25 @@ func (c *ExpectedCollection) DatasetServiceRole(expectedRole role.Role) jwtdisco
 		Id:     strconv.FormatInt(*c.ID, 10),
 		NodeId: *c.NodeID,
 		Role:   strings.ToLower(expectedRole.String()),
+	}
+}
+
+func (c *ExpectedCollection) StartPublishFunc(t require.TestingT, expectedUserID int64, expectedType publishing.Type) mocks.StartPublishFunc {
+	return func(_ context.Context, collectionID int64, userID int64, publishingType publishing.Type) error {
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.Equal(t, *c.ID, collectionID)
+		require.Equal(t, expectedUserID, userID)
+		require.Equal(t, expectedType, publishingType)
+		return nil
+	}
+}
+
+func (c *ExpectedCollection) FinishPublishFunc(t require.TestingT, expectedStatus publishing.Status) mocks.FinishPublishFunc {
+	return func(_ context.Context, collectionID int64, publishingStatus publishing.Status) error {
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.Equal(t, *c.ID, collectionID)
+		require.Equal(t, expectedStatus, publishingStatus)
+		return nil
 	}
 }
 

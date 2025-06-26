@@ -6,9 +6,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/routes"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/manifests"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
@@ -41,6 +43,7 @@ func TestAPILambdaHandler(t *testing.T) {
 		{"get collection", testGetCollection},
 		{"delete collection", testDeleteCollection},
 		{"update collection", testUpdateCollection},
+		{"publish collection", testPublishCollection},
 	}
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -543,4 +546,73 @@ func testUpdateCollection(t *testing.T) {
 	apitest.RequireAsPennsieveDataset(t, actualDataset, &actualPennsieveDataset)
 	assert.Equal(t, datasetToAdd, actualPennsieveDataset)
 
+}
+
+func testPublishCollection(t *testing.T) {
+	callingUser := userstest.SeedUser1
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDatasets.NewPublished())
+
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t)).
+		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
+		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.CompletedStatus))
+
+	mockDiscover := mocks.NewDiscover().
+		WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
+
+	mockUserStore := mocks.NewUsersStore().WithGetUserFunc(mocks.NewGetUserFunc(t, callingUser))
+
+	expectedPublishedDatasetID := int64(12)
+	expectedPublishedVersion := int64(3)
+	expectedDiscoverPublishStatus := "InProgress"
+
+	mockInternalDiscover := mocks.NewInternalDiscover().
+		WithPublishCollectionFunc(expectedCollection.PublishCollectionFunc(
+			t,
+			expectedPublishedDatasetID,
+			expectedPublishedVersion,
+			expectedDiscoverPublishStatus),
+		)
+
+	mockManifestStore := mocks.NewManifestStore().WithSaveManifestFunc(func(_ context.Context, _ string, _ publishing.ManifestV5) (manifests.SaveManifestResponse, error) {
+		return manifests.SaveManifestResponse{S3VersionID: uuid.NewString()}, nil
+	})
+
+	publishRequest := dto.PublishCollectionRequest{
+		License: "Creative Commons",
+		Tags:    []string{"test1"},
+	}
+
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer().
+			WithCollectionsStore(mockCollectionStore).
+			WithDiscover(mockDiscover).
+			WithUsersStore(mockUserStore).
+			WithInternalDiscover(mockInternalDiscover).
+			WithManifestStore(mockManifestStore),
+		apitest.NewConfigBuilder().
+			WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+			Build(),
+	)
+	req := apitest.NewAPIGatewayRequestBuilder(routes.PublishCollectionRouteKey).
+		WithDefaultClaims(callingUser).
+		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
+		WithBody(t, publishRequest).
+		Build()
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	var responseDTO dto.PublishCollectionResponse
+	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
+
+	assert.Equal(t, expectedPublishedDatasetID, responseDTO.PublishedDatasetID)
+	assert.Equal(t, expectedPublishedVersion, responseDTO.PublishedVersion)
+	assert.Equal(t, expectedDiscoverPublishStatus, responseDTO.Status)
 }

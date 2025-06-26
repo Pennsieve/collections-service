@@ -66,6 +66,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			err)
 	}
 
+	// Check permissions
 	minRequiredRole := role.Owner
 	if !collection.UserRole.Implies(minRequiredRole) {
 		return dto.PublishCollectionResponse{}, apierrors.NewForbiddenError(
@@ -73,6 +74,14 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 				nodeID,
 				minRequiredRole),
 		)
+	}
+
+	// Make sure there is no in-progress publish for this collection
+	if err := params.Container.CollectionsStore().StartPublish(ctx, collection.ID, userClaim.Id, publishing.PublicationType); err != nil {
+		if errors.Is(err, collections.ErrPublishInProgress) {
+			return dto.PublishCollectionResponse{}, apierrors.NewConflictError(err.Error())
+		}
+		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error registering start of publish", err)
 	}
 
 	if len(collection.Description) == 0 {
@@ -158,7 +167,12 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		slog.String("key", manifestKey),
 		slog.String("s3VersionId", saveManifestResp.S3VersionID))
 
-	// Finalize publish with Discover
+	// TODO: Finalize publish with Discover
+
+	// Mark publish as finished
+	if err := params.Container.CollectionsStore().FinishPublish(ctx, collection.ID, publishing.CompletedStatus); err != nil {
+		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error marking publish as complete", err)
+	}
 
 	publishResponse := dto.PublishCollectionResponse{
 		PublishedDatasetID: discoverPubResp.PublishedDatasetID,

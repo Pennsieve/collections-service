@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 )
 
@@ -15,12 +16,18 @@ type DeleteCollectionFunc func(ctx context.Context, collectionID int64) error
 
 type UpdateCollectionFunc func(ctx context.Context, userID int64, collectionID int64, update collections.UpdateCollectionRequest) (collections.GetCollectionResponse, error)
 
+type StartPublishFunc func(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error
+
+type FinishPublishFunc func(ctx context.Context, collectionID int64, publishingStatus publishing.Status) error
+
 type CollectionsStore struct {
 	CreateCollectionsFunc
 	GetCollectionsFunc
 	GetCollectionFunc
 	DeleteCollectionFunc
 	UpdateCollectionFunc
+	StartPublishFunc
+	FinishPublishFunc
 }
 
 func NewCollectionsStore() *CollectionsStore {
@@ -49,6 +56,16 @@ func (c *CollectionsStore) WithDeleteCollectionFunc(f DeleteCollectionFunc) *Col
 
 func (c *CollectionsStore) WithUpdateCollectionFunc(f UpdateCollectionFunc) *CollectionsStore {
 	c.UpdateCollectionFunc = f
+	return c
+}
+
+func (c *CollectionsStore) WithStartPublishFunc(f StartPublishFunc) *CollectionsStore {
+	c.StartPublishFunc = f
+	return c
+}
+
+func (c *CollectionsStore) WithFinishPublishFunc(f FinishPublishFunc) *CollectionsStore {
+	c.FinishPublishFunc = f
 	return c
 }
 
@@ -85,4 +102,18 @@ func (c *CollectionsStore) UpdateCollection(ctx context.Context, userID, collect
 		panic("mock UpdateCollection function not set")
 	}
 	return c.UpdateCollectionFunc(ctx, userID, collectionID, update)
+}
+
+func (c *CollectionsStore) StartPublish(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error {
+	if c.StartPublishFunc == nil {
+		panic("mock StartPublish function not set")
+	}
+	return c.StartPublishFunc(ctx, collectionID, userID, publishingType)
+}
+
+func (c *CollectionsStore) FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status) error {
+	if c.FinishPublishFunc == nil {
+		panic("mock FinishPublish function not set")
+	}
+	return c.FinishPublishFunc(ctx, collectionID, publishingStatus)
 }

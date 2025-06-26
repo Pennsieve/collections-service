@@ -210,8 +210,9 @@ func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
-	expectedPublishStatus := apitest.NewExpectedInProgressPublishStatus(*callingUser.ID)
-	expectationDB.CreatePublishStatusPreCondition(ctx, t, createCollectionResp.ID, expectedPublishStatus)
+	expectedPublishStatus := apitest.NewExpectedInProgressPublishStatus(*callingUser.ID).
+		WithCollectionID(createCollectionResp.ID)
+	expectationDB.CreatePublishStatusPreCondition(ctx, t, expectedPublishStatus)
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
@@ -235,7 +236,7 @@ func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB
 	}
 
 	_, err := PublishCollection(ctx, params)
-	var apiError apierrors.Error
+	var apiError *apierrors.Error
 	require.ErrorAs(t, err, &apiError)
 
 	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
@@ -522,7 +523,9 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm).WithPublicDatasets(dataset)
 
 			mockCollectionStore := mocks.NewCollectionsStore().
-				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+				WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
+				WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.CompletedStatus))
 
 			expectedPublishedID := int64(14)
 			mockInternalDiscover := mocks.NewInternalDiscover().WithPublishCollectionFunc(
