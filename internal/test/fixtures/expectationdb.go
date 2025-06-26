@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
+	"time"
 )
 
 type ExpectationDB struct {
@@ -100,7 +101,7 @@ func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.Test
 			// If we expected InProgress with an InProgress pre-condition, then we should expect that there are no changes to the pre-condition
 			case publishing.InProgressStatus:
 				require.Equal(t, *preCondition.UserID, expected.ExpectedUserID)
-				require.True(t, actual.StartedAt.Equal(preCondition.StartedAt), "expected started_at to remain %v but was %v", preCondition.StartedAt, actual.StartedAt)
+				requireTimeWithinEpsilon(t, preCondition.StartedAt, actual.StartedAt, time.Second)
 			default:
 				// but if the pre-condition is not InProgress, then StartedAt should have been reset
 				require.True(t, actual.StartedAt.After(preCondition.StartedAt), "updated started_at %v <= previous started_at %v", actual.StartedAt, preCondition.StartedAt)
@@ -110,7 +111,7 @@ func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.Test
 		require.NotNil(t, actual.FinishedAt)
 		require.False(t, (*actual.FinishedAt).Before(actual.StartedAt))
 		if preCondition := expected.PreCondition; preCondition != nil {
-			require.True(t, actual.StartedAt.Equal(preCondition.StartedAt), "expected started_at %v does not equal pre-condition started_at %v", actual.StartedAt, preCondition.StartedAt)
+			requireTimeWithinEpsilon(t, preCondition.StartedAt, actual.StartedAt, time.Second)
 		}
 	}
 }
@@ -246,4 +247,18 @@ func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, 
 		require.NotZero(t, actualDOI.CreatedAt)
 		require.NotZero(t, actualDOI.UpdatedAt)
 	}
+}
+
+// requireTimeWithinEpsilon will fail test if absolute value of diff between expected and actual is more
+// than epsilon.
+// For times when cannot use time.Equal because one value goes through a serialization process that
+// creates small differences, for example, coming out of the DB.
+func requireTimeWithinEpsilon(t require.TestingT, expected, actual time.Time, epsilon time.Duration) {
+	delta := expected.Sub(actual)
+	require.LessOrEqual(t, delta.Abs(), epsilon,
+		"actual %v more than %v away from expected %v: %v",
+		actual,
+		epsilon,
+		expected,
+		delta.Abs())
 }
