@@ -18,7 +18,7 @@ type UpdateCollectionFunc func(ctx context.Context, userID int64, collectionID i
 
 type StartPublishFunc func(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error
 
-type FinishPublishFunc func(ctx context.Context, collectionID int64, publishingStatus publishing.Status) error
+type FinishPublishFunc func(ctx context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error
 
 type CollectionsStore struct {
 	CreateCollectionsFunc
@@ -111,9 +111,9 @@ func (c *CollectionsStore) StartPublish(ctx context.Context, collectionID int64,
 	return c.StartPublishFunc(ctx, collectionID, userID, publishingType)
 }
 
-func (c *CollectionsStore) FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status) error {
+func (c *CollectionsStore) FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error {
 	if c.FinishPublishFunc == nil {
 		panic("mock FinishPublish function not set")
 	}
-	return c.FinishPublishFunc(ctx, collectionID, publishingStatus)
+	return c.FinishPublishFunc(ctx, collectionID, publishingStatus, strict)
 }

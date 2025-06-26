@@ -115,6 +115,24 @@ func (m *MinIO) ListObjectVersions(ctx context.Context, t require.TestingT, buck
 	}
 }
 
+func (m *MinIO) RequireNoObject(ctx context.Context, t require.TestingT, bucket string, key string) {
+	listOutput := m.ListObjectVersions(ctx, t, bucket, &key)
+	require.Empty(t, listOutput.Versions, "key %s in bucket %s contains object versions", key, bucket)
+	require.Empty(t, listOutput.DeleteMarkers, "key %s in bucket %s contains delete markers", key, bucket)
+}
+
+func (m *MinIO) RequirePrefixEmpty(ctx context.Context, t require.TestingT, bucket string, prefix string) {
+	listOutput := m.ListObjectVersions(ctx, t, bucket, &prefix)
+	require.Empty(t, listOutput.Versions, "prefix %s in bucket %s contains object versions", prefix, bucket)
+	require.Empty(t, listOutput.DeleteMarkers, "prefix %s in bucket %s contains delete markers", prefix, bucket)
+}
+
+func (m *MinIO) RequireBucketEmpty(ctx context.Context, t require.TestingT, bucket string) {
+	listOutput := m.ListObjectVersions(ctx, t, bucket, nil)
+	require.Empty(t, listOutput.Versions, "bucket %s contains object versions", bucket)
+	require.Empty(t, listOutput.DeleteMarkers, "bucket %s contains delete markers", bucket)
+}
+
 func awsErrorToString(bucket string, error types.Error) string {
 	return fmt.Sprintf("AWS error: code: %s, message: %s, S3 Object: (%s, %s, %s)",
 		aws.ToString(error.Code),

@@ -36,6 +36,8 @@ func TestPublishCollection(t *testing.T) {
 	}{
 		{"publish collection", testPublish},
 		{"should return a 409 Conflict error if publish already in progress", testPublishNoConcurrent},
+		{"should return Bad Request if description is empty", testPublishNoDescription},
+		{"should return Bad Request if collection contains unpublished datasets", testPublishContainsTombstones},
 	}
 
 	ctx := context.Background()
@@ -194,7 +196,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 }
 
-func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO) {
+func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB, _ *fixtures.MinIO) {
 	ctx := context.Background()
 
 	callingUser := userstest.NewTestUser()
@@ -246,6 +248,121 @@ func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB
 
 }
 
+func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationDB, _ *fixtures.MinIO) {
+	ctx := context.Background()
+
+	callingUser := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	// The dataset that will be in the collection
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	dataset := expectedDatasets.NewPublished()
+
+	// The collection
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithDescription("").
+		WithUser(*callingUser.ID, pgdb.Owner).
+		WithPublicDatasets(dataset)
+	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.FailedStatus, publishing.PublicationType, *callingUser.ID).
+		WithCollectionID(createCollectionResp.ID)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+		Build()
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, dto.PublishCollectionRequest{
+				License: "Creative Commons",
+				Tags:    []string{"test1, test2"},
+			}).
+			Build(),
+		Container: apitest.NewTestContainer().
+			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+			WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase),
+		Config: apiConfig,
+		Claims: &claims,
+	}
+
+	_, err := PublishCollection(ctx, params)
+	var apiError *apierrors.Error
+	require.ErrorAs(t, err, &apiError)
+
+	assert.Equal(t, http.StatusBadRequest, apiError.StatusCode)
+	assert.Contains(t, apiError.UserMessage, "description cannot be empty")
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+
+}
+
+func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.ExpectationDB, _ *fixtures.MinIO) {
+	ctx := context.Background()
+
+	callingUser := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	// The dataset that will be in the collection
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	dataset := expectedDatasets.NewPublished()
+	tombstone := expectedDatasets.NewUnpublished()
+
+	// The collection
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(*callingUser.ID, pgdb.Owner).
+		WithPublicDatasets(dataset).
+		WithTombstones(tombstone)
+	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.FailedStatus, publishing.PublicationType, *callingUser.ID).
+		WithCollectionID(createCollectionResp.ID)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+		Build()
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, dto.PublishCollectionRequest{
+				License: "Creative Commons",
+				Tags:    []string{"test1, test2"},
+			}).
+			Build(),
+		Container: apitest.NewTestContainer().
+			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+			WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+			WithDiscover(mocks.NewDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))),
+		Config: apiConfig,
+		Claims: &claims,
+	}
+
+	_, err := PublishCollection(ctx, params)
+	var apiError *apierrors.Error
+	require.ErrorAs(t, err, &apiError)
+
+	assert.Equal(t, http.StatusBadRequest, apiError.StatusCode)
+	assert.Contains(t, apiError.UserMessage, "unpublished")
+	assert.Contains(t, apiError.UserMessage, tombstone.DOI)
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+
+}
+
 // TestHandlePublishCollection tests that run the Handle wrapper around PublishCollection
 func TestHandlePublishCollection(t *testing.T) {
 	tests := []struct {
@@ -276,6 +393,10 @@ func TestHandlePublishCollection(t *testing.T) {
 		{
 			"forbid publish from users without the proper role on the collection",
 			testHandlePublishCollectionAuthz,
+		},
+		{
+			"return Conflict when a publish is already in progress",
+			testHandlePublishCollectionPublishAlreadyInProgress,
 		},
 	}
 
@@ -583,4 +704,45 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 		})
 	}
 
+}
+
+func testHandlePublishCollectionPublishAlreadyInProgress(t *testing.T) {
+	ctx := context.Background()
+	callingUser := userstest.SeedUser1
+
+	publishRequest := dto.PublishCollectionRequest{
+		License: "Creative Commons",
+		Tags:    []string{"test"},
+	}
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithDOIs(apitest.NewPennsieveDOI())
+
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithStartPublishFunc(func(_ context.Context, _ int64, _ int64, _ publishing.Type) error {
+			return collections.ErrPublishInProgress
+		})
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, publishRequest).
+			Build(),
+		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
+		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
+		Claims:    &claims,
+	}
+	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
+
+	assert.Contains(t, response.Body, "in progress")
 }

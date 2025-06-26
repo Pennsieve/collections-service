@@ -46,6 +46,11 @@ func NewExpectedCollection() *ExpectedCollection {
 	}
 }
 
+func (c *ExpectedCollection) WithDescription(description string) *ExpectedCollection {
+	c.Description = description
+	return c
+}
+
 func (c *ExpectedCollection) WithNodeID() *ExpectedCollection {
 	nodeID := uuid.NewString()
 	c.NodeID = &nodeID
@@ -376,7 +381,7 @@ func (c *ExpectedCollection) StartPublishFunc(t require.TestingT, expectedUserID
 }
 
 func (c *ExpectedCollection) FinishPublishFunc(t require.TestingT, expectedStatus publishing.Status) mocks.FinishPublishFunc {
-	return func(_ context.Context, collectionID int64, publishingStatus publishing.Status) error {
+	return func(_ context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error {
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		require.Equal(t, *c.ID, collectionID)
 		require.Equal(t, expectedStatus, publishingStatus)

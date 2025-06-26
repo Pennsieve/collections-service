@@ -79,13 +79,22 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	// Make sure there is no in-progress publish for this collection
 	if err := params.Container.CollectionsStore().StartPublish(ctx, collection.ID, userClaim.Id, publishing.PublicationType); err != nil {
 		if errors.Is(err, collections.ErrPublishInProgress) {
+			// deliberately leave publish status alone
 			return dto.PublishCollectionResponse{}, apierrors.NewConflictError(err.Error())
 		}
-		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error registering start of publish", err)
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx,
+				apierrors.NewInternalServerError("error registering start of publish", err),
+				cleanupStatusIfExists(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 
 	if len(collection.Description) == 0 {
-		return dto.PublishCollectionResponse{}, apierrors.NewBadRequestError("published description cannot be empty")
+		return dto.PublishCollectionResponse{}, cleanupOnError(
+			ctx,
+			apierrors.NewBadRequestError("published description cannot be empty"),
+			cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+		)
 	}
 
 	pennsieveDOIs, _ := GroupByDatasource(collection.DOIs)
@@ -94,10 +103,18 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	if len(pennsieveDOIs) > 0 {
 		discoverDOIRes, err := params.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
 		if err != nil {
-			return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error getting DOI info from Discover", err)
+			return dto.PublishCollectionResponse{},
+				cleanupOnError(ctx,
+					apierrors.NewInternalServerError("error getting DOI info from Discover", err),
+					cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+				)
 		}
 		if len(discoverDOIRes.Unpublished) > 0 {
-			return dto.PublishCollectionResponse{}, apierrors.NewBadRequestError(fmt.Sprintf("collection contains unpublished DOIs: %s", strings.Join(slices.Collect(maps.Keys(discoverDOIRes.Unpublished)), ", ")))
+			return dto.PublishCollectionResponse{},
+				cleanupOnError(ctx,
+					apierrors.NewBadRequestError(fmt.Sprintf("collection contains unpublished DOIs: %s", strings.Join(slices.Collect(maps.Keys(discoverDOIRes.Unpublished)), ", "))),
+					cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+				)
 		}
 
 		banners = collectBanners(pennsieveDOIs, discoverDOIRes.Published)
@@ -105,7 +122,11 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 
 	userResp, err := params.Container.UsersStore().GetUser(ctx, userClaim.Id)
 	if err != nil {
-		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error getting user information", err)
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx,
+				apierrors.NewInternalServerError("error getting user information", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 
 	discoverPubReq := service.PublishDOICollectionRequest{
@@ -126,11 +147,19 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	// Initiate publish to Discover
 	internalDiscover, err := params.Container.InternalDiscover(ctx)
 	if err != nil {
-		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error getting internal Discover dependency", err)
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx,
+				apierrors.NewInternalServerError("error getting internal Discover dependency", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 	discoverPubResp, err := internalDiscover.PublishCollection(collection.ID, collection.UserRole, discoverPubReq)
 	if err != nil {
-		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error publishing to Discover", err)
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx,
+				apierrors.NewInternalServerError("error publishing to Discover", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 	params.Container.Logger().Info("publish started on Discover",
 		slog.Int64("publishedDatasetId", discoverPubResp.PublishedDatasetID),
@@ -154,13 +183,21 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		WithReferences(pennsieveDOIs).
 		Build()
 	if err != nil {
-		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error creating manifest", err)
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx,
+				apierrors.NewInternalServerError("error creating manifest", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 
 	manifestKey := manifest.S3Key()
 	saveManifestResp, err := params.Container.ManifestStore().SaveManifest(ctx, manifestKey, manifest)
 	if err != nil {
-		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error publishing manifest", err)
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx,
+				apierrors.NewInternalServerError("error publishing manifest", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 
 	params.Container.Logger().Info("wrote manifest to S3",
@@ -170,8 +207,12 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	// TODO: Finalize publish with Discover
 
 	// Mark publish as finished
-	if err := params.Container.CollectionsStore().FinishPublish(ctx, collection.ID, publishing.CompletedStatus); err != nil {
-		return dto.PublishCollectionResponse{}, apierrors.NewInternalServerError("error marking publish as complete", err)
+	if err := params.Container.CollectionsStore().FinishPublish(ctx, collection.ID, publishing.CompletedStatus, true); err != nil {
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx,
+				apierrors.NewInternalServerError("error marking publish as complete", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 
 	publishResponse := dto.PublishCollectionResponse{
@@ -211,4 +252,43 @@ func creator(user users.GetUserResponse) publishing.PublishedContributor {
 		MiddleInitial: util.SafeDeref(user.MiddleInitial),
 		Degree:        util.SafeDeref(user.Degree),
 	}
+}
+
+type cleanupFunc func(ctx context.Context) error
+
+// cleanupStatus sets publishing status to failed. If a status does not already exist
+// the error will be added to the cleanup errors.
+func cleanupStatus(collectionsStore collections.Store, collectionID int64) cleanupFunc {
+	return func(ctx context.Context) error {
+		return collectionsStore.FinishPublish(ctx, collectionID, publishing.FailedStatus, true)
+	}
+}
+
+// cleanupStatusIfExists sets publishing status to failed if a status exists, otherwise does nothing
+func cleanupStatusIfExists(collectionsStore collections.Store, collectionID int64) cleanupFunc {
+	return func(ctx context.Context) error {
+		return collectionsStore.FinishPublish(ctx, collectionID, publishing.FailedStatus, false)
+	}
+}
+
+func cleanupOnError(ctx context.Context, originalErr *apierrors.Error, cleanups ...cleanupFunc) error {
+	var cleanupErrs []string
+	for _, cleanup := range cleanups {
+		if cleanupErr := cleanup(ctx); cleanupErr != nil {
+			cleanupErrs = append(cleanupErrs,
+				fmt.Sprintf("in addition an error occured when running cleanup function: %s",
+					cleanupErr))
+		}
+	}
+	if len(cleanupErrs) == 0 {
+		return originalErr
+	}
+	joined := strings.Join(cleanupErrs, "; ")
+	var cause error
+	if origCause := originalErr.Cause; origCause == nil {
+		cause = fmt.Errorf("cleanup errors: %s", joined)
+	} else {
+		cause = fmt.Errorf("%w; %s", originalErr, joined)
+	}
+	return apierrors.NewError(originalErr.UserMessage, cause, originalErr.StatusCode)
 }

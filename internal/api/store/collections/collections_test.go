@@ -871,7 +871,7 @@ func testFinishPublish(t *testing.T, collectionsStore *collections.PostgresStore
 		WithExistingInProgressPublishStatus(*user.ID)
 	expectationDB.CreatePublishStatusPreCondition(ctx, t, expectedPublishStatus)
 
-	require.NoError(t, collectionsStore.FinishPublish(ctx, collectionID, expectedPublishStatus.ExpectedStatus))
+	require.NoError(t, collectionsStore.FinishPublish(ctx, collectionID, expectedPublishStatus.ExpectedStatus, true))
 
 	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
 }
@@ -881,7 +881,7 @@ func testFinishPublishNoExistingStatus(t *testing.T, collectionsStore *collectio
 
 	collectionID := int64(99999)
 
-	require.Error(t, collectionsStore.FinishPublish(ctx, collectionID, publishing.CompletedStatus))
+	require.Error(t, collectionsStore.FinishPublish(ctx, collectionID, publishing.CompletedStatus, true))
 
 	expectationDB.RequireNoPublishStatus(ctx, t, collectionID)
 }

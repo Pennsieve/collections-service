@@ -27,7 +27,10 @@ type Store interface {
 	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
 	// StartPublish returns a collections.ErrPublishInProgress error if the status of the given collection is InProgress
 	StartPublish(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error
-	FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status) error
+	// FinishPublish updates the existing publish status of collection with the given status.
+	// If strict is true, will return an error if no status is found
+	// otherwise, no error for this situation
+	FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error
 }
 
 type PostgresStore struct {
@@ -444,7 +447,7 @@ func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, us
 
 }
 
-func (s *PostgresStore) FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status) error {
+func (s *PostgresStore) FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return fmt.Errorf("FinishPublish error connecting to database %s: %w", s.databaseName, err)
@@ -468,7 +471,7 @@ func (s *PostgresStore) FinishPublish(ctx context.Context, collectionID int64, p
 			collectionID,
 			err)
 	}
-	if tag.RowsAffected() == int64(0) {
+	if strict && tag.RowsAffected() == int64(0) {
 		return errors.New("no publish status found for collection")
 	}
 
