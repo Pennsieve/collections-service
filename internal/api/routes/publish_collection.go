@@ -206,9 +206,23 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		slog.String("key", manifestKey),
 		slog.String("s3VersionId", manifestS3VersionID))
 
-	// TODO: Finalize publish with Discover
-
+	// TODO: Update this with actual Discover finalize request fields once they are known
+	discoverFinalizeReq := service.FinalizeDOICollectionPublishRequest{
+		PublishedDatasetID: discoverPubResp.PublishedDatasetID,
+		PublishedVersion:   discoverPubResp.PublishedVersion,
+		CollectionNodeID:   collection.NodeID,
+	}
+	discoverFinalizeResp, err := internalDiscover.FinalizeCollectionPublish(ctx, collection.ID, collection.UserRole, discoverFinalizeReq)
+	if err != nil {
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx,
+				apierrors.NewInternalServerError("error finalizing publish with Discover", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+				cleanupManifest(params.Container.ManifestStore(), manifestKey, manifestS3VersionID),
+			)
+	}
 	// Mark publish as finished
+	// TODO: Make the final status a function of the status returned by Discover finalize instead of just assuming Completed
 	if err := params.Container.CollectionsStore().FinishPublish(ctx, collection.ID, publishing.CompletedStatus, true); err != nil {
 		return dto.PublishCollectionResponse{},
 			cleanupOnError(ctx,
@@ -221,8 +235,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	publishResponse := dto.PublishCollectionResponse{
 		PublishedDatasetID: discoverPubResp.PublishedDatasetID,
 		PublishedVersion:   discoverPubResp.PublishedVersion,
-		// TODO: update this status with response from finalize?
-		Status: discoverPubResp.Status,
+		Status:             discoverFinalizeResp.Status,
 	}
 	return publishResponse, nil
 }

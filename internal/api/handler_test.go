@@ -569,6 +569,7 @@ func testPublishCollection(t *testing.T) {
 	expectedPublishedDatasetID := int64(12)
 	expectedPublishedVersion := int64(3)
 	expectedDiscoverPublishStatus := "InProgress"
+	expectedDiscoverFinalizeStatus := "Complete"
 
 	mockInternalDiscover := mocks.NewInternalDiscover().
 		WithPublishCollectionFunc(expectedCollection.PublishCollectionFunc(
@@ -576,6 +577,13 @@ func testPublishCollection(t *testing.T) {
 			expectedPublishedDatasetID,
 			expectedPublishedVersion,
 			expectedDiscoverPublishStatus),
+		).
+		WithFinalizeCollectionPublishFunc(
+			expectedCollection.FinalizeCollectionPublishFunc(
+				t,
+				expectedPublishedDatasetID,
+				expectedPublishedVersion,
+				expectedDiscoverFinalizeStatus),
 		)
 
 	mockManifestStore := mocks.NewManifestStore().WithSaveManifestFunc(func(_ context.Context, _ string, _ publishing.ManifestV5) (manifests.SaveManifestResponse, error) {
@@ -614,5 +622,5 @@ func testPublishCollection(t *testing.T) {
 
 	assert.Equal(t, expectedPublishedDatasetID, responseDTO.PublishedDatasetID)
 	assert.Equal(t, expectedPublishedVersion, responseDTO.PublishedVersion)
-	assert.Equal(t, expectedDiscoverPublishStatus, responseDTO.Status)
+	assert.Equal(t, expectedDiscoverFinalizeStatus, responseDTO.Status)
 }

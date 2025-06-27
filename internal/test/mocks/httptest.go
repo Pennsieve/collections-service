@@ -73,18 +73,8 @@ func (m *DiscoverMux) WithPublishCollectionFunc(ctx context.Context, t require.T
 		var publishRequest service.PublishDOICollectionRequest
 		require.NoError(t, json.NewDecoder(request.Body).Decode(&publishRequest))
 
-		authHeader := request.Header.Get("Authorization")
-		require.NotEmpty(t, authHeader)
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		require.False(t, tokenString == authHeader, "auth header value %s does not start with 'Bearer '", authHeader)
-
-		orgRole, datasetRole := m.ParseJWT(t, tokenString)
-
-		require.Equal(t, expectedOrgServiceRole, orgRole)
-		require.Equal(t, expectedDatasetServiceRole, datasetRole)
-		require.Equal(t, collectionIDParam, datasetRole.Id)
-
-		datasetRoleRole, _ := role.RoleFromString(datasetRole.Role)
+		_, actualDatasetRole := m.RequireExpectedAuthorization(t, collectionIDParam, expectedOrgServiceRole, expectedDatasetServiceRole, request)
+		datasetRoleRole, _ := role.RoleFromString(actualDatasetRole.Role)
 
 		publishResponse, err := f(ctx, collectionID, datasetRoleRole, publishRequest)
 		require.NoError(t, err)
@@ -95,6 +85,46 @@ func (m *DiscoverMux) WithPublishCollectionFunc(ctx context.Context, t require.T
 		require.NoError(t, err)
 	})
 	return m
+}
+
+func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t require.TestingT, f FinalizeCollectionPublishFunc, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
+	m.HandleFunc("POST /collection/{collectionId}/finalize", func(writer http.ResponseWriter, request *http.Request) {
+		test.Helper(t)
+
+		collectionIDParam := request.PathValue("collectionId")
+		collectionID, err := strconv.ParseInt(collectionIDParam, 10, 64)
+		require.NoError(t, err)
+
+		var finalizeRequest service.FinalizeDOICollectionPublishRequest
+		require.NoError(t, json.NewDecoder(request.Body).Decode(&finalizeRequest))
+
+		_, actualDatasetRole := m.RequireExpectedAuthorization(t, collectionIDParam, expectedOrgServiceRole, expectedDatasetServiceRole, request)
+
+		datasetRoleRole, _ := role.RoleFromString(actualDatasetRole.Role)
+
+		finalizeResponse, err := f(ctx, collectionID, datasetRoleRole, finalizeRequest)
+		require.NoError(t, err)
+
+		resBytes, err := json.Marshal(finalizeResponse)
+		require.NoError(t, err)
+		_, err = writer.Write(resBytes)
+		require.NoError(t, err)
+	})
+	return m
+}
+
+func (m *DiscoverMux) RequireExpectedAuthorization(t require.TestingT, collectionIDParam string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole, request *http.Request) (actualOrgRole jwtdiscover.ServiceRole, actualDatasetRole jwtdiscover.ServiceRole) {
+	authHeader := request.Header.Get("Authorization")
+	require.NotEmpty(t, authHeader)
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	require.False(t, tokenString == authHeader, "auth header value %s does not start with 'Bearer '", authHeader)
+
+	actualOrgRole, actualDatasetRole = m.ParseJWT(t, tokenString)
+
+	require.Equal(t, expectedOrgServiceRole, actualOrgRole)
+	require.Equal(t, expectedDatasetServiceRole, actualDatasetRole)
+	require.Equal(t, collectionIDParam, actualDatasetRole.Id)
+	return
 }
 
 func (m *DiscoverMux) ParseJWT(t require.TestingT, tokenString string) (orgRole jwtdiscover.ServiceRole, datasetRole jwtdiscover.ServiceRole) {

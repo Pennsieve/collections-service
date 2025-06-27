@@ -22,6 +22,7 @@ import (
 
 type InternalDiscover interface {
 	PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
+	FinalizeCollectionPublish(ctx context.Context, collectionID int64, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error)
 }
 
 type HTTPInternalDiscover struct {
@@ -68,6 +69,35 @@ func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collection
 	}
 	return responseDTO, nil
 
+}
+
+func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, collectionID int64, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error) {
+	requestURL := fmt.Sprintf("%s/collection/%d/finalize", d.host, collectionID)
+	collectionClaim := &dataset.Claim{
+		Role:   userRole,
+		NodeId: request.CollectionNodeID,
+		IntId:  collectionID,
+	}
+	response, err := d.InvokePennsieve(ctx, collectionClaim, http.MethodPost, requestURL, request)
+	if err != nil {
+		return FinalizeDOICollectionPublishResponse{}, err
+	}
+	defer util.CloseAndWarn(response, d.logger)
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return FinalizeDOICollectionPublishResponse{}, fmt.Errorf("error reading response from POST %s: %w", requestURL, err)
+	}
+	var responseDTO FinalizeDOICollectionPublishResponse
+	if err := json.Unmarshal(body, &responseDTO); err != nil {
+		rawResponse := string(body)
+		return FinalizeDOICollectionPublishResponse{}, fmt.Errorf(
+			"error unmarshalling response [%s] from POST %s: %w",
+			rawResponse,
+			requestURL,
+			err)
+	}
+	return responseDTO, nil
 }
 
 func (d *HTTPInternalDiscover) InvokePennsieve(ctx context.Context, collectionClaim *dataset.Claim, method string, url string, structBody any) (*http.Response, error) {

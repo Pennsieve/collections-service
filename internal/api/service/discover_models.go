@@ -26,3 +26,13 @@ type PublishDOICollectionResponse struct {
 	Status             string `json:"status"`
 	PublicID           string `json:"publicId"`
 }
+
+type FinalizeDOICollectionPublishRequest struct {
+	PublishedDatasetID int64  `json:"publishedDatasetId"`
+	PublishedVersion   int64  `json:"publishedVersion"`
+	CollectionNodeID   string `json:"collectionNodeId"`
+}
+
+type FinalizeDOICollectionPublishResponse struct {
+	Status string `json:"status"`
+}

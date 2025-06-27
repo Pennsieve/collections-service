@@ -94,7 +94,10 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	expectedPublishedDatasetID := rand.Int63n(5000) + 1
 	expectedPublishedVersion := rand.Int63n(20) + 1
 	expectedDiscoverPublishStatus := uuid.NewString()
+	expectedDiscoverFinalizeStatus := uuid.NewString()
 
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID)
+	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
 		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(
@@ -104,8 +107,16 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 			expectedDiscoverPublishStatus,
 			apitest.VerifyPublishingUser(callingUser),
 		),
-			apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID),
-			expectedCollection.DatasetServiceRole(role.Owner),
+			expectedOrgServiceRole,
+			expectedDatasetServiceRole,
+		).
+		WithFinalizeCollectionPublishFunc(ctx, t, expectedCollection.FinalizeCollectionPublishFunc(
+			t,
+			expectedPublishedDatasetID,
+			expectedPublishedVersion,
+			expectedDiscoverFinalizeStatus),
+			expectedOrgServiceRole,
+			expectedDatasetServiceRole,
 		)
 
 	mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
@@ -145,7 +156,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	assert.Equal(t, expectedPublishedDatasetID, resp.PublishedDatasetID)
 	assert.Equal(t, expectedPublishedVersion, resp.PublishedVersion)
-	assert.Equal(t, expectedDiscoverPublishStatus, resp.Status)
+	assert.Equal(t, expectedDiscoverFinalizeStatus, resp.Status)
 
 	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
 
@@ -651,13 +662,22 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 				WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.CompletedStatus))
 
 			expectedPublishedID := int64(14)
-			mockInternalDiscover := mocks.NewInternalDiscover().WithPublishCollectionFunc(
-				expectedCollection.PublishCollectionFunc(t,
-					expectedPublishedID,
-					1,
-					"PublishInProgress",
-					apitest.VerifyPublishingUser(callingUser)),
-			)
+			expectedPublishedVersion := int64(1)
+			mockInternalDiscover := mocks.NewInternalDiscover().
+				WithPublishCollectionFunc(
+					expectedCollection.PublishCollectionFunc(t,
+						expectedPublishedID,
+						expectedPublishedVersion,
+						"PublishInProgress",
+						apitest.VerifyPublishingUser(callingUser)),
+				).
+				WithFinalizeCollectionPublishFunc(
+					expectedCollection.FinalizeCollectionPublishFunc(
+						t,
+						expectedPublishedID,
+						expectedPublishedVersion,
+						"PublishComplete"),
+				)
 
 			mockUsersStore := mocks.NewUsersStore().WithGetUserFunc(func(ctx context.Context, userID int64) (users.GetUserResponse, error) {
 				t.Helper()

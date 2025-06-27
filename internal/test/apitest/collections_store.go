@@ -361,6 +361,32 @@ func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, expectedP
 	}
 }
 
+// FinalizeDOICollectionPublishRequestVerification should contain assertions to verify request fields that cannot be verified
+// by reference to the ExpectedCollection
+type FinalizeDOICollectionPublishRequestVerification func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest)
+
+func (c *ExpectedCollection) FinalizeCollectionPublishFunc(t require.TestingT, expectedPublishedID, expectedPublishedVersion int64, expectedPublishStatus string, verifications ...FinalizeDOICollectionPublishRequestVerification) mocks.FinalizeCollectionPublishFunc {
+	return func(ctx context.Context, collectionID int64, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.NotNil(t, c.NodeID, "expected collection does not have nodeID set")
+
+		require.Equal(t, *c.ID, collectionID, "requested collection id %d does not match expected collection id %d", collectionID, *c.ID)
+		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
+
+		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
+		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
+
+		for _, verification := range verifications {
+			verification(t, request)
+		}
+
+		return service.FinalizeDOICollectionPublishResponse{
+			Status: expectedPublishStatus,
+		}, nil
+	}
+}
+
 func (c *ExpectedCollection) DatasetServiceRole(expectedRole role.Role) jwtdiscover.ServiceRole {
 	return jwtdiscover.ServiceRole{
 		Type:   jwtdiscover.DatasetServiceRoleType,
