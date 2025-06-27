@@ -114,7 +114,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	// Test route
 	user1Claims := apitest.DefaultClaims(user1)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
@@ -199,7 +199,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	offset := 0
 
 	userClaims := apitest.DefaultClaims(user)
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	apiConfig := apitest.NewConfigBuilder().

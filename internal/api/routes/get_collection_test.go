@@ -116,7 +116,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()), expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial(), apitest.WithDegree(), apitest.WithOrcid())))
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	user1Claims := apitest.DefaultClaims(user1)
@@ -206,7 +206,7 @@ func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.Expectatio
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedPublicDataset).WithTombstones(expectedTombstone)
 	expectationDB.CreateCollection(ctx, t, expectedCollection)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	userClaims := apitest.DefaultClaims(callingUser)
@@ -318,7 +318,7 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
-	mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
+	mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(func(ctx context.Context, dois []string) (service.DatasetsByDOIResponse, error) {
 		return service.DatasetsByDOIResponse{Published: map[string]dto.PublicDataset{
 			expectedDOI.Value: apitest.NewPublicDataset(expectedDOI.Value, apitest.NewBanner(), apitest.NewPublicContributor()),
 		}}, nil

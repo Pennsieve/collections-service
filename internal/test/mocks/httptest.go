@@ -1,6 +1,7 @@
 package mocks
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
@@ -12,7 +13,7 @@ import (
 	"strings"
 )
 
-func ToDiscoverHandlerFunc(t require.TestingT, f GetDatasetsByDOIFunc) http.HandlerFunc {
+func ToDiscoverHandlerFunc(ctx context.Context, t require.TestingT, f GetDatasetsByDOIFunc) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
 		require.Equal(t, http.MethodGet, request.Method)
@@ -21,7 +22,7 @@ func ToDiscoverHandlerFunc(t require.TestingT, f GetDatasetsByDOIFunc) http.Hand
 		query := url.Query()
 		require.Contains(t, query, "doi")
 		dois := query["doi"]
-		res, err := f(dois)
+		res, err := f(ctx, dois)
 		require.NoError(t, err)
 		resBytes, err := json.Marshal(res)
 		require.NoError(t, err)
@@ -45,13 +46,13 @@ func NewDiscoverMux(jwtSecretKey string) *DiscoverMux {
 	}
 }
 
-func (m *DiscoverMux) WithGetDatasetsByDOIFunc(t require.TestingT, f GetDatasetsByDOIFunc) *DiscoverMux {
+func (m *DiscoverMux) WithGetDatasetsByDOIFunc(ctx context.Context, t require.TestingT, f GetDatasetsByDOIFunc) *DiscoverMux {
 	m.HandleFunc("GET /datasets/doi", func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
 		query := request.URL.Query()
 		require.Contains(t, query, "doi")
 		dois := query["doi"]
-		res, err := f(dois)
+		res, err := f(ctx, dois)
 		require.NoError(t, err)
 		resBytes, err := json.Marshal(res)
 		require.NoError(t, err)
@@ -61,7 +62,7 @@ func (m *DiscoverMux) WithGetDatasetsByDOIFunc(t require.TestingT, f GetDatasets
 	return m
 }
 
-func (m *DiscoverMux) WithPublishCollectionFunc(t require.TestingT, f PublishCollectionFunc, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
+func (m *DiscoverMux) WithPublishCollectionFunc(ctx context.Context, t require.TestingT, f PublishCollectionFunc, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
 	m.HandleFunc("POST /collection/{collectionId}/publish", func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
 
@@ -85,7 +86,7 @@ func (m *DiscoverMux) WithPublishCollectionFunc(t require.TestingT, f PublishCol
 
 		datasetRoleRole, _ := role.RoleFromString(datasetRole.Role)
 
-		publishResponse, err := f(collectionID, datasetRoleRole, publishRequest)
+		publishResponse, err := f(ctx, collectionID, datasetRoleRole, publishRequest)
 		require.NoError(t, err)
 
 		resBytes, err := json.Marshal(publishResponse)

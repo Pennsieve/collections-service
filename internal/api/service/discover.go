@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/dto"
@@ -13,7 +14,7 @@ import (
 )
 
 type Discover interface {
-	GetDatasetsByDOI(dois []string) (DatasetsByDOIResponse, error)
+	GetDatasetsByDOI(ctx context.Context, dois []string) (DatasetsByDOIResponse, error)
 }
 
 type HTTPDiscover struct {
@@ -25,13 +26,13 @@ func NewHTTPDiscover(discoverHost string, logger *slog.Logger) *HTTPDiscover {
 	return &HTTPDiscover{host: discoverHost, logger: logger}
 }
 
-func (d *HTTPDiscover) GetDatasetsByDOI(dois []string) (DatasetsByDOIResponse, error) {
+func (d *HTTPDiscover) GetDatasetsByDOI(ctx context.Context, dois []string) (DatasetsByDOIResponse, error) {
 	doiQueryParams := url.Values{}
 	for _, doi := range dois {
 		doiQueryParams.Add("doi", doi)
 	}
 	requestURL := fmt.Sprintf("%s/datasets/doi?%s", d.host, doiQueryParams.Encode())
-	response, err := d.InvokePennsieve(http.MethodGet, requestURL, nil)
+	response, err := d.InvokePennsieve(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return DatasetsByDOIResponse{}, err
 	}
@@ -53,21 +54,21 @@ func (d *HTTPDiscover) GetDatasetsByDOI(dois []string) (DatasetsByDOIResponse, e
 	return responseDTO, nil
 }
 
-func (d *HTTPDiscover) InvokePennsieve(method string, url string, structBody any) (*http.Response, error) {
-	req, err := newPennsieveRequest(method, url, structBody)
+func (d *HTTPDiscover) InvokePennsieve(ctx context.Context, method string, url string, structBody any) (*http.Response, error) {
+	req, err := newPennsieveRequest(ctx, method, url, structBody)
 	if err != nil {
 		return nil, fmt.Errorf("error creating %s %s request: %w", method, url, err)
 	}
 	return util.Invoke(req, d.logger)
 }
 
-func newPennsieveRequest(method string, url string, structBody any) (*http.Request, error) {
+func newPennsieveRequest(ctx context.Context, method string, url string, structBody any) (*http.Request, error) {
 	body, err := makeJSONBody(structBody)
 	if err != nil {
 		return nil, fmt.Errorf("error for %s %s request: %w",
 			method, url, err)
 	}
-	request, err := http.NewRequest(method, url, body)
+	request, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("error creating %s %s request: %w", method, url, err)
 	}

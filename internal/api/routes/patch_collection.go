@@ -76,7 +76,7 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 	// For now, no external DOIs, so we ignore that part of the return value
 	// GetUpdateRequest will have failed if there were any external DOIs
 	if pennsieveToAdd, _ := GroupByDatasource(updateCollectionRequest.DOIs.Add); len(pennsieveToAdd) > 0 {
-		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(pennsieveToAdd)
+		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(ctx, pennsieveToAdd)
 		if err != nil {
 			return dto.GetCollectionResponse{}, apierrors.NewInternalServerError(
 				"error querying Discover for DOIs to add during update",
@@ -96,7 +96,7 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 			"error updating collection",
 			err)
 	}
-	return params.StoreToDTOCollection(updateCollectionResponse)
+	return params.StoreToDTOCollection(ctx, updateCollectionResponse)
 }
 
 func NewPatchCollectionRouteHandler() Handler[dto.GetCollectionResponse] {

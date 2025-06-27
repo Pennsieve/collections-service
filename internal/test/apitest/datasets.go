@@ -1,6 +1,7 @@
 package apitest
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
@@ -111,7 +112,7 @@ func (e *ExpectedPennsieveDatasets) ExpectedContributorsForDOIs(t require.Testin
 }
 
 func (e *ExpectedPennsieveDatasets) GetDatasetsByDOIFunc(t require.TestingT) mocks.GetDatasetsByDOIFunc {
-	return func(dois []string) (service.DatasetsByDOIResponse, error) {
+	return func(ctx context.Context, dois []string) (service.DatasetsByDOIResponse, error) {
 		test.Helper(t)
 		response := service.DatasetsByDOIResponse{
 			Published:   map[string]dto.PublicDataset{},

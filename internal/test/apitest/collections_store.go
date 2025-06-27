@@ -335,7 +335,7 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 type PublishDOICollectionRequestVerification func(t require.TestingT, request service.PublishDOICollectionRequest)
 
 func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, expectedPublishedID, expectedPublishedVersion int64, expectedPublishStatus string, verifications ...PublishDOICollectionRequestVerification) mocks.PublishCollectionFunc {
-	return func(collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
+	return func(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		require.NotNil(t, c.NodeID, "expected collection does not have nodeID set")

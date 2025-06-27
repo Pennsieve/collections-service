@@ -188,7 +188,7 @@ func testCreateCollectionUnpublishedDOIs(t *testing.T) {
 	}
 
 	mockDiscoverService := mocks.NewDiscover().
-		WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
+		WithGetDatasetsByDOIFunc(func(ctx context.Context, dois []string) (service.DatasetsByDOIResponse, error) {
 			test.Helper(t)
 			require.Equal(t, []string{publishedDOI.Value, unpublishedDOI.Value}, dois)
 			return service.DatasetsByDOIResponse{
@@ -268,7 +268,7 @@ func testCreateCollection(t *testing.T) {
 	}
 
 	mockDiscoverService := mocks.NewDiscover().
-		WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
+		WithGetDatasetsByDOIFunc(func(ctx context.Context, dois []string) (service.DatasetsByDOIResponse, error) {
 			t.Helper()
 			require.Equal(t, []string{publishedDOI1.Value, publishedDOI2.Value}, dois)
 			return service.DatasetsByDOIResponse{

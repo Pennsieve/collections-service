@@ -1,11 +1,12 @@
 package mocks
 
 import (
+	"context"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 )
 
-type PublishCollectionFunc func(collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error)
+type PublishCollectionFunc func(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error)
 
 type InternalDiscover struct {
 	PublishCollectionFunc
@@ -20,9 +21,9 @@ func (i *InternalDiscover) WithPublishCollectionFunc(publishCollectionFunc Publi
 	return i
 }
 
-func (i *InternalDiscover) PublishCollection(collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
+func (i *InternalDiscover) PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
 	if i.PublishCollectionFunc == nil {
 		panic("mock PublishCollection function not set")
 	}
-	return i.PublishCollectionFunc(collectionID, userRole, request)
+	return i.PublishCollectionFunc(ctx, collectionID, userRole, request)
 }

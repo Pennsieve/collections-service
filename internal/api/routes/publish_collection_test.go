@@ -96,8 +96,8 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	expectedDiscoverPublishStatus := uuid.NewString()
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
-		WithGetDatasetsByDOIFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(t, expectedCollection.PublishCollectionFunc(
+		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
+		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(
 			t,
 			expectedPublishedDatasetID,
 			expectedPublishedVersion,

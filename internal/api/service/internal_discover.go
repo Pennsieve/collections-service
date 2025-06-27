@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
@@ -20,7 +21,7 @@ import (
 // needs to call an internal Discover endpoint.
 
 type InternalDiscover interface {
-	PublishCollection(collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
+	PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
 }
 
 type HTTPInternalDiscover struct {
@@ -39,14 +40,14 @@ func NewHTTPInternalDiscover(host, jwtSecretKey string, collectionNamespaceID in
 	}
 }
 
-func (d *HTTPInternalDiscover) PublishCollection(collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error) {
+func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error) {
 	requestURL := fmt.Sprintf("%s/collection/%d/publish", d.host, collectionID)
 	collectionClaim := &dataset.Claim{
 		Role:   userRole,
 		NodeId: request.CollectionNodeID,
 		IntId:  collectionID,
 	}
-	response, err := d.InvokePennsieve(collectionClaim, http.MethodPost, requestURL, request)
+	response, err := d.InvokePennsieve(ctx, collectionClaim, http.MethodPost, requestURL, request)
 	if err != nil {
 		return PublishDOICollectionResponse{}, err
 	}
@@ -69,8 +70,8 @@ func (d *HTTPInternalDiscover) PublishCollection(collectionID int64, userRole ro
 
 }
 
-func (d *HTTPInternalDiscover) InvokePennsieve(collectionClaim *dataset.Claim, method string, url string, structBody any) (*http.Response, error) {
-	req, err := newPennsieveRequest(method, url, structBody)
+func (d *HTTPInternalDiscover) InvokePennsieve(ctx context.Context, collectionClaim *dataset.Claim, method string, url string, structBody any) (*http.Response, error) {
+	req, err := newPennsieveRequest(ctx, method, url, structBody)
 	if err != nil {
 		return nil, fmt.Errorf("error creating %s %s request: %w", method, url, err)
 	}

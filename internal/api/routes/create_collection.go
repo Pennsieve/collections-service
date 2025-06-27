@@ -54,7 +54,7 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 	}
 	var doisToAdd []collections.DOI
 	if len(pennsieveDOIs) > 0 {
-		datasetResults, err := ccParams.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
+		datasetResults, err := ccParams.Container.Discover().GetDatasetsByDOI(ctx, pennsieveDOIs)
 		if err != nil {
 			return dto.CreateCollectionResponse{}, apierrors.NewInternalServerError("error looking up DOIs in Discover", err)
 		}

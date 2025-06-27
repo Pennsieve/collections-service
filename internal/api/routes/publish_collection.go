@@ -102,7 +102,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 
 	banners := make([]string, 0)
 	if len(pennsieveDOIs) > 0 {
-		discoverDOIRes, err := params.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
+		discoverDOIRes, err := params.Container.Discover().GetDatasetsByDOI(ctx, pennsieveDOIs)
 		if err != nil {
 			return dto.PublishCollectionResponse{},
 				cleanupOnError(ctx,
@@ -154,7 +154,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
 			)
 	}
-	discoverPubResp, err := internalDiscover.PublishCollection(collection.ID, collection.UserRole, discoverPubReq)
+	discoverPubResp, err := internalDiscover.PublishCollection(ctx, collection.ID, collection.UserRole, discoverPubReq)
 	if err != nil {
 		return dto.PublishCollectionResponse{},
 			cleanupOnError(ctx,

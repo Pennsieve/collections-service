@@ -71,7 +71,7 @@ func testPatchCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB
 	newName := uuid.NewString()
 	update := dto.PatchCollectionRequest{Name: &newName}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -125,7 +125,7 @@ func testPatchCollectionDescription(t *testing.T, expectationDB *fixtures.Expect
 	newDescription := uuid.NewString()
 	update := dto.PatchCollectionRequest{Description: &newDescription}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -180,7 +180,7 @@ func testPatchCollectionNameAndDescription(t *testing.T, expectationDB *fixtures
 	newDescription := uuid.NewString()
 	update := dto.PatchCollectionRequest{Name: &newName, Description: &newDescription}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -236,7 +236,7 @@ func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expecta
 
 	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Remove: []string{datasetToRemove2.DOI, datasetToRemove1.DOI}}}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -291,7 +291,7 @@ func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectatio
 
 	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{datasetToAdd1.DOI, datasetToAdd2.DOI}}}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -356,7 +356,7 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		},
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -413,7 +413,7 @@ func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.Exp
 
 	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{publishedToAdd.DOI, unpublishedToAdd.DOI}}}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -475,7 +475,7 @@ func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtur
 		DOIs: &dto.PatchDOIs{Remove: []string{datasetToRemove2.DOI, datasetToRemove1.DOI, uuid.NewString()}},
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -536,7 +536,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 		},
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -769,7 +769,7 @@ func testHandlePatchCollectionEmptyArraysInPublicDataset(t *testing.T) {
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
 		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
-	mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
+	mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(func(ctx context.Context, dois []string) (service.DatasetsByDOIResponse, error) {
 		return service.DatasetsByDOIResponse{Published: map[string]dto.PublicDataset{
 			expectedDOI.Value: apitest.NewPublicDataset(expectedDOI.Value, apitest.NewBanner(), apitest.NewPublicContributor()),
 		}}, nil
@@ -1037,7 +1037,7 @@ func testRejectAddingCollectionDOI(t *testing.T) {
 
 	claims := apitest.DefaultClaims(callingUser)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	config := apitest.NewConfigBuilder().

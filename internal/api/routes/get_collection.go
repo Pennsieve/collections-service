@@ -37,7 +37,7 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 			err)
 	}
 
-	return params.StoreToDTOCollection(storeResp)
+	return params.StoreToDTOCollection(ctx, storeResp)
 }
 
 func NewGetCollectionRouteHandler() Handler[dto.GetCollectionResponse] {
