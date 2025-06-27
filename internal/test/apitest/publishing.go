@@ -101,7 +101,7 @@ func RequireManifestsEqual(t require.TestingT, expected, actual publishing.Manif
 	require.Equal(t, expected.Keywords, actual.Keywords)
 	require.Equal(t, expected.License, actual.License)
 	require.Equal(t, expected.Name, actual.Name)
-	require.Equal(t, expected.PennsieveDatasetId, actual.PennsieveDatasetId)
+	require.Equal(t, expected.PennsieveDatasetID, actual.PennsieveDatasetID)
 	require.Equal(t, expected.PennsieveSchemaVersion, actual.PennsieveSchemaVersion)
 	require.Equal(t, expected.Publisher, actual.Publisher)
 	require.Equal(t, expected.References, actual.References)

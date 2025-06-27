@@ -154,7 +154,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	var actualManifest publishing.ManifestV5
 	minio.GetObject(ctx, t, pennsieveConfig.PublishBucket, manifestKey, headManifest.VersionId).As(t, &actualManifest)
 
-	assert.Equal(t, expectedPublishedDatasetID, actualManifest.PennsieveDatasetId)
+	assert.Equal(t, expectedPublishedDatasetID, actualManifest.PennsieveDatasetID)
 	assert.Equal(t, expectedPublishedVersion, actualManifest.Version)
 	assert.Zero(t, actualManifest.Revision)
 	assert.Equal(t, expectedCollection.Name, actualManifest.Name)
@@ -672,7 +672,7 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 
 			mockManifestStore := mocks.NewManifestStore().WithSaveManifestFunc(func(ctx context.Context, key string, manifest publishing.ManifestV5) (manifests.SaveManifestResponse, error) {
 				require.Equal(t, publishing.S3Key(expectedPublishedID), key)
-				require.Equal(t, expectedPublishedID, manifest.PennsieveDatasetId)
+				require.Equal(t, expectedPublishedID, manifest.PennsieveDatasetID)
 				require.Equal(t, expectedCollection.Name, manifest.Name)
 				require.Equal(t, callingUser.LastName, manifest.Creator.LastName)
 				return manifests.SaveManifestResponse{

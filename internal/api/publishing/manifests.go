@@ -29,7 +29,7 @@ const ManifestSchemaVersion = "http://schema.org/version/3.7/"
 const ManifestPennsieveSchemaVersion = "5.0"
 
 type ManifestV5 struct {
-	PennsieveDatasetId int64                  `json:"pennsieveDatasetId"`
+	PennsieveDatasetID int64                  `json:"pennsieveDatasetId"`
 	Version            int64                  `json:"version"`
 	Revision           int                    `json:"revision,omitempty"`
 	Name               string                 `json:"name,omitempty"`
@@ -63,7 +63,7 @@ func (m ManifestV5) Marshal() ([]byte, error) {
 }
 
 func (m ManifestV5) S3Key() string {
-	return S3Key(m.PennsieveDatasetId)
+	return S3Key(m.PennsieveDatasetID)
 }
 
 func S3Key(publishedDatasetID int64) string {
@@ -103,7 +103,7 @@ func NewManifestBuilder() *ManifestBuilder {
 }
 
 func (b *ManifestBuilder) WithPennsieveDatasetID(id int64) *ManifestBuilder {
-	b.m.PennsieveDatasetId = id
+	b.m.PennsieveDatasetID = id
 	return b
 }
 

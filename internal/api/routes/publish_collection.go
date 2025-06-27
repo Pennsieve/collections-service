@@ -80,7 +80,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	// Make sure there is no in-progress publish for this collection
 	if err := params.Container.CollectionsStore().StartPublish(ctx, collection.ID, userClaim.Id, publishing.PublicationType); err != nil {
 		if errors.Is(err, collections.ErrPublishInProgress) {
-			// deliberately leave publish status alone
+			// deliberately leave publish status alone, i.e., no cleanup
 			return dto.PublishCollectionResponse{}, apierrors.NewConflictError(err.Error())
 		}
 		return dto.PublishCollectionResponse{},
