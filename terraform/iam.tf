@@ -103,9 +103,9 @@ data "aws_iam_policy_document" "collections_service_api_iam_policy_document" {
     sid    = "S3BucketAccess"
     effect = "Allow"
     actions = [
-      "s3:Get*",
-      "s3:Put*",
-      "s3:List*"
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:ListBucket",
     ]
 
     resources = [

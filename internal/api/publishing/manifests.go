@@ -157,6 +157,8 @@ func (b *ManifestBuilder) Build() (ManifestV5, error) {
 	}
 	b.m.Files = append(b.m.Files, manifestEntry)
 
+	// prefer to have empty arrays for these in json rather than null
+
 	if b.m.References == nil {
 		b.m.References = make([]string, 0)
 	}

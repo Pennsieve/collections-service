@@ -22,6 +22,10 @@ func (d Date) EqualToTime(other time.Time) bool {
 	return thisYear == otherYear && thisMonth == otherMonth && thisDay == otherDay
 }
 
+func (d Date) String() string {
+	return time.Time(d).Format(time.DateOnly)
+}
+
 func (d Date) MarshalText() (text []byte, err error) {
 	dateOnly := time.Time(d).Format(time.DateOnly)
 	return []byte(dateOnly), nil

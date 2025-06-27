@@ -251,7 +251,7 @@ func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, 
 
 // requireTimeWithinEpsilon will fail test if absolute value of diff between expected and actual is more
 // than epsilon.
-// For times when cannot use time.Equal because one value goes through a serialization process that
+// For occasions when one cannot use time.Equal because one value goes through a deserialization process that
 // creates small differences, for example, coming out of the DB.
 func requireTimeWithinEpsilon(t require.TestingT, expected, actual time.Time, epsilon time.Duration) {
 	delta := expected.Sub(actual)

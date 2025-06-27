@@ -18,7 +18,7 @@ const DefaultMinIOPort = "9000"
 // localhost
 const DefaultMinIOHost = "127.0.0.1"
 
-// defaultMinIOS3Client can be shared. Get
+// defaultMinIOS3Client can be shared. Get with DefaultMinIOS3Client
 var defaultMinIOS3Client *s3.Client
 
 func DefaultMinIOS3Client(ctx context.Context, t require.TestingT) *s3.Client {

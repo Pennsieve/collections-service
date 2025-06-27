@@ -168,8 +168,10 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	assert.Equal(t, expectedKeywords, actualManifest.Keywords)
 	assert.Equal(t, expectedLicense, actualManifest.License)
 
-	expectedDatePublished := apijson.Date(time.Now())
-	assert.True(t, expectedDatePublished.Equal(actualManifest.DatePublished))
+	expectedDatePublished := apijson.Date(time.Now().UTC())
+	assert.True(t, expectedDatePublished.Equal(actualManifest.DatePublished),
+		"expected date published: %s, actual date published: %s",
+		expectedDatePublished, actualManifest.DatePublished)
 
 	assert.NotEmpty(t, actualManifest.ID)
 

@@ -1,6 +1,9 @@
-package publishing
+package publishing_test
 
 import (
+	"encoding/json"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"slices"
@@ -21,20 +24,23 @@ func TestManifestBuilder_Build(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
-			builder := NewManifestBuilder().WithDescription(tt.description)
-			manifest, err := builder.Build()
-			require.NoError(t, err)
+			expectedManifest := apitest.NewExpectedManifest(t, apitest.WithManifestDescription(tt.description))
 
-			require.Len(t, manifest.Files, 1)
-			manifestEntry := manifest.Files[0]
-			assert.Equal(t, ManifestFileName, manifestEntry.Name)
-			assert.Equal(t, ManifestFileName, manifestEntry.Path)
-			assert.Equal(t, ManifestFileType, manifestEntry.FileType)
+			require.Len(t, expectedManifest.Files, 1)
+			manifestEntry := expectedManifest.Files[0]
+			assert.Equal(t, publishing.ManifestFileName, manifestEntry.Name)
+			assert.Equal(t, publishing.ManifestFileName, manifestEntry.Path)
+			assert.Equal(t, publishing.ManifestFileType, manifestEntry.FileType)
 			assert.NotZero(t, manifestEntry.Size)
 
-			asBytes, err := manifest.Marshal()
+			asBytes, err := expectedManifest.Marshal()
 			require.NoError(t, err)
 			assert.Equal(t, manifestEntry.Size, int64(len(asBytes)))
+
+			var decodedManifest publishing.ManifestV5
+			require.NoError(t, json.Unmarshal(asBytes, &decodedManifest))
+
+			apitest.RequireManifestsEqual(t, expectedManifest, decodedManifest)
 		})
 	}
 
@@ -42,7 +48,7 @@ func TestManifestBuilder_Build(t *testing.T) {
 
 func TestManifestBuilder_Build_EdgeCase_OrderOfMagnitudeChange(t *testing.T) {
 	// Get the size a base manifest
-	tempManifest, err := NewManifestBuilder().Build()
+	tempManifest, err := publishing.NewManifestBuilder().Build()
 	require.NoError(t, err)
 	tempManifestBytes, err := tempManifest.Marshal()
 	tempSize := len(tempManifestBytes)
@@ -59,14 +65,14 @@ func TestManifestBuilder_Build_EdgeCase_OrderOfMagnitudeChange(t *testing.T) {
 	}
 
 	// Create the test manifest with a power of 10 size.
-	manifest, err := NewManifestBuilder().WithDescription(strings.Repeat("a", powerOfTen-tempSize)).Build()
+	manifest, err := publishing.NewManifestBuilder().WithDescription(strings.Repeat("a", powerOfTen-tempSize)).Build()
 	require.NoError(t, err)
 	manifestBytes, err := manifest.Marshal()
 	require.NoError(t, err)
 	manifestSize := int64(len(manifestBytes))
 
-	manifestEntryIdx := slices.IndexFunc(manifest.Files, func(fileManifest FileManifest) bool {
-		return fileManifest.Path == ManifestFileName
+	manifestEntryIdx := slices.IndexFunc(manifest.Files, func(fileManifest publishing.FileManifest) bool {
+		return fileManifest.Path == publishing.ManifestFileName
 	})
 	require.True(t, manifestEntryIdx >= 0)
 	sizeInManifest := manifest.Files[manifestEntryIdx].Size

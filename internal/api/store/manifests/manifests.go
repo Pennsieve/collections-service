@@ -50,6 +50,15 @@ func (s *S3Store) SaveManifest(ctx context.Context, key string, manifest publish
 }
 
 func (s *S3Store) DeleteManifestVersion(ctx context.Context, key string, s3VersionID string) error {
-	//TODO implement me
-	panic("implement me")
+	deleteIn := s3.DeleteObjectInput{
+		Bucket:    aws.String(s.publishBucket),
+		Key:       aws.String(key),
+		VersionId: aws.String(s3VersionID),
+	}
+	_, err := s.s3.DeleteObject(ctx, &deleteIn)
+	if err != nil {
+		return fmt.Errorf("error deleting manifest version %s at %s/%s: %w",
+			s3VersionID, s.publishBucket, key, err)
+	}
+	return nil
 }
