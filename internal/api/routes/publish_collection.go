@@ -10,6 +10,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/manifests"
 	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/api/validate"
 	"github.com/pennsieve/collections-service/internal/shared/util"
@@ -199,10 +200,11 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
 			)
 	}
+	manifestS3VersionID := saveManifestResp.S3VersionID
 
 	params.Container.Logger().Info("wrote manifest to S3",
 		slog.String("key", manifestKey),
-		slog.String("s3VersionId", saveManifestResp.S3VersionID))
+		slog.String("s3VersionId", manifestS3VersionID))
 
 	// TODO: Finalize publish with Discover
 
@@ -212,6 +214,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			cleanupOnError(ctx,
 				apierrors.NewInternalServerError("error marking publish as complete", err),
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+				cleanupManifest(params.Container.ManifestStore(), manifestKey, manifestS3VersionID),
 			)
 	}
 
@@ -268,6 +271,12 @@ func cleanupStatus(collectionsStore collections.Store, collectionID int64) clean
 func cleanupStatusIfExists(collectionsStore collections.Store, collectionID int64) cleanupFunc {
 	return func(ctx context.Context) error {
 		return collectionsStore.FinishPublish(ctx, collectionID, publishing.FailedStatus, false)
+	}
+}
+
+func cleanupManifest(manifestStore manifests.Store, key string, s3VersionID string) cleanupFunc {
+	return func(ctx context.Context) error {
+		return manifestStore.DeleteManifestVersion(ctx, key, s3VersionID)
 	}
 }
 
