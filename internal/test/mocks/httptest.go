@@ -113,6 +113,19 @@ func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t r
 	return m
 }
 
+func (m *DiscoverMux) WithFailingFinalizeCollectionPublishFunc(t require.TestingT, expectedHTTPStatusCode int, errorResponse any) *DiscoverMux {
+	m.HandleFunc("POST /collection/{collectionId}/finalize", func(writer http.ResponseWriter, request *http.Request) {
+		test.Helper(t)
+
+		writer.WriteHeader(expectedHTTPStatusCode)
+		resBytes, err := json.Marshal(errorResponse)
+		require.NoError(t, err)
+		_, err = writer.Write(resBytes)
+		require.NoError(t, err)
+	})
+	return m
+}
+
 func (m *DiscoverMux) RequireExpectedAuthorization(t require.TestingT, collectionIDParam string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole, request *http.Request) (actualOrgRole jwtdiscover.ServiceRole, actualDatasetRole jwtdiscover.ServiceRole) {
 	authHeader := request.Header.Get("Authorization")
 	require.NotEmpty(t, authHeader)

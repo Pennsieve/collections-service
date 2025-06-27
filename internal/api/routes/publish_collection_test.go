@@ -38,6 +38,7 @@ func TestPublishCollection(t *testing.T) {
 		{"should return a 409 Conflict error if publish already in progress", testPublishNoConcurrent},
 		{"should return Bad Request if description is empty", testPublishNoDescription},
 		{"should return Bad Request if collection contains unpublished datasets", testPublishContainsTombstones},
+		{"should clean up S3 and publish status if Discover finalize fails", testPublishFinalizeFails},
 	}
 
 	ctx := context.Background()
@@ -373,6 +374,98 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 	assert.Contains(t, apiError.UserMessage, tombstone.DOI)
 
 	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+
+}
+
+func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO) {
+	ctx := context.Background()
+
+	publishBucket := minio.CreatePublishBucket(ctx, t)
+
+	callingUser := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	// The dataset that will be in the collection
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	dataset := expectedDatasets.NewPublished()
+
+	// The collection
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(*callingUser.ID, pgdb.Owner).
+		WithPublicDatasets(dataset)
+
+	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.FailedStatus, publishing.PublicationType, *callingUser.ID).
+		WithCollectionID(createCollectionResp.ID)
+
+	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
+
+	expectedPublishedDatasetID := int64(26)
+	expectedPublishedVersion := int64(1)
+	s3Key := publishing.S3Key(expectedPublishedDatasetID)
+
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID)
+	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
+	expectedFinalizeErrorStatus := http.StatusInternalServerError
+
+	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
+		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
+		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(
+			t,
+			expectedPublishedDatasetID,
+			expectedPublishedVersion,
+			uuid.NewString(),
+			apitest.VerifyPublishingUser(callingUser),
+		),
+			expectedOrgServiceRole,
+			expectedDatasetServiceRole,
+		).
+		WithFailingFinalizeCollectionPublishFunc(t, expectedFinalizeErrorStatus, `{"error":"error finalizing"}`)
+
+	mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
+	defer mockDiscoverServer.Close()
+
+	pennsieveConfig.DiscoverServiceURL = mockDiscoverServer.URL
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(pennsieveConfig).
+		Build()
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, dto.PublishCollectionRequest{
+				License: "Creative Commons",
+				Tags:    []string{"test1, test2"},
+			}).
+			Build(),
+		Container: apitest.NewTestContainer().
+			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+			WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+			WithUsersStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+			WithHTTPTestDiscover(mockDiscoverServer.URL).
+			WithHTTPTestInternalDiscover(pennsieveConfig).
+			WithMinIOManifestStore(ctx, t, apiConfig.PennsieveConfig.PublishBucket),
+		Config: apiConfig,
+		Claims: &claims,
+	}
+
+	_, err := PublishCollection(ctx, params)
+	var apiError *apierrors.Error
+	require.ErrorAs(t, err, &apiError)
+
+	assert.Equal(t, http.StatusInternalServerError, apiError.StatusCode)
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+
+	minio.RequireNoObject(ctx, t, publishBucket, s3Key)
 
 }
 
