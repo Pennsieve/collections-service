@@ -3,6 +3,8 @@ package mocks
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -53,11 +55,7 @@ func (m *DiscoverMux) WithGetDatasetsByDOIFunc(ctx context.Context, t require.Te
 		require.Contains(t, query, "doi")
 		dois := query["doi"]
 		res, err := f(ctx, dois)
-		require.NoError(t, err)
-		resBytes, err := json.Marshal(res)
-		require.NoError(t, err)
-		_, err = writer.Write(resBytes)
-		require.NoError(t, err)
+		respond(t, writer, res, err)
 	})
 	return m
 }
@@ -77,17 +75,12 @@ func (m *DiscoverMux) WithPublishCollectionFunc(ctx context.Context, t require.T
 		datasetRoleRole, _ := role.RoleFromString(actualDatasetRole.Role)
 
 		publishResponse, err := f(ctx, collectionID, datasetRoleRole, publishRequest)
-		require.NoError(t, err)
-
-		resBytes, err := json.Marshal(publishResponse)
-		require.NoError(t, err)
-		_, err = writer.Write(resBytes)
-		require.NoError(t, err)
+		respond(t, writer, publishResponse, err)
 	})
 	return m
 }
 
-func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t require.TestingT, f FinalizeCollectionPublishFunc, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
+func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t require.TestingT, f FinalizeCollectionPublishFunc, expectedCollectionNodeID string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
 	m.HandleFunc("POST /collection/{collectionId}/finalize", func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
 
@@ -99,31 +92,32 @@ func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t r
 		require.NoError(t, json.NewDecoder(request.Body).Decode(&finalizeRequest))
 
 		_, actualDatasetRole := m.RequireExpectedAuthorization(t, collectionIDParam, expectedOrgServiceRole, expectedDatasetServiceRole, request)
+		require.Equal(t, expectedCollectionNodeID, actualDatasetRole.NodeId)
 
 		datasetRoleRole, _ := role.RoleFromString(actualDatasetRole.Role)
-
-		finalizeResponse, err := f(ctx, collectionID, datasetRoleRole, finalizeRequest)
-		require.NoError(t, err)
-
-		resBytes, err := json.Marshal(finalizeResponse)
-		require.NoError(t, err)
-		_, err = writer.Write(resBytes)
-		require.NoError(t, err)
+		finalizeResponse, err := f(ctx, collectionID, expectedCollectionNodeID, datasetRoleRole, finalizeRequest)
+		respond(t, writer, finalizeResponse, err)
 	})
 	return m
 }
 
-func (m *DiscoverMux) WithFailingFinalizeCollectionPublishFunc(t require.TestingT, expectedHTTPStatusCode int, errorResponse any) *DiscoverMux {
-	m.HandleFunc("POST /collection/{collectionId}/finalize", func(writer http.ResponseWriter, request *http.Request) {
-		test.Helper(t)
-
-		writer.WriteHeader(expectedHTTPStatusCode)
-		resBytes, err := json.Marshal(errorResponse)
-		require.NoError(t, err)
-		_, err = writer.Write(resBytes)
-		require.NoError(t, err)
-	})
-	return m
+func respond(t require.TestingT, writer http.ResponseWriter, mockResponse any, mockErr error) {
+	test.Helper(t)
+	var httpResponse any
+	switch e := mockErr.(type) {
+	case nil:
+		httpResponse = mockResponse
+	case *apierrors.Error:
+		writer.WriteHeader(e.StatusCode)
+		httpResponse = e
+	default:
+		writer.WriteHeader(http.StatusInternalServerError)
+		httpResponse = fmt.Sprintf(`{"error":%q}`, e.Error())
+	}
+	resBytes, err := json.Marshal(httpResponse)
+	require.NoError(t, err)
+	_, err = writer.Write(resBytes)
+	require.NoError(t, err)
 }
 
 func (m *DiscoverMux) RequireExpectedAuthorization(t require.TestingT, collectionIDParam string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole, request *http.Request) (actualOrgRole jwtdiscover.ServiceRole, actualDatasetRole jwtdiscover.ServiceRole) {

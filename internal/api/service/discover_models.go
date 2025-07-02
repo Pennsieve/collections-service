@@ -30,7 +30,11 @@ type PublishDOICollectionResponse struct {
 type FinalizeDOICollectionPublishRequest struct {
 	PublishedDatasetID int64  `json:"publishedDatasetId"`
 	PublishedVersion   int64  `json:"publishedVersion"`
-	CollectionNodeID   string `json:"collectionNodeId"`
+	PublishSuccess     bool   `json:"publishSuccess"`
+	FileCount          int    `json:"fileCount"`
+	TotalSize          int64  `json:"totalSize"`
+	ManifestKey        string `json:"manifestKey"`
+	ManifestVersionID  string `json:"manifestVersionId"`
 }
 
 type FinalizeDOICollectionPublishResponse struct {

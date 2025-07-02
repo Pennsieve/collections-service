@@ -188,6 +188,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			cleanupOnError(ctx,
 				apierrors.NewInternalServerError("error creating manifest", err),
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+				finalizeDiscoverFailure(internalDiscover, discoverPubResp.PublishedDatasetID, discoverPubResp.PublishedVersion, collection),
 			)
 	}
 
@@ -195,9 +196,11 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	saveManifestResp, err := params.Container.ManifestStore().SaveManifest(ctx, manifestKey, manifest)
 	if err != nil {
 		return dto.PublishCollectionResponse{},
+			// assuming if this failed then there is nothing to clean up in S3
 			cleanupOnError(ctx,
 				apierrors.NewInternalServerError("error publishing manifest", err),
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+				finalizeDiscoverFailure(internalDiscover, discoverPubResp.PublishedDatasetID, discoverPubResp.PublishedVersion, collection),
 			)
 	}
 	manifestS3VersionID := saveManifestResp.S3VersionID
@@ -206,19 +209,23 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		slog.String("key", manifestKey),
 		slog.String("s3VersionId", manifestS3VersionID))
 
-	// TODO: Update this with actual Discover finalize request fields once they are known
 	discoverFinalizeReq := service.FinalizeDOICollectionPublishRequest{
 		PublishedDatasetID: discoverPubResp.PublishedDatasetID,
 		PublishedVersion:   discoverPubResp.PublishedVersion,
-		CollectionNodeID:   collection.NodeID,
+		PublishSuccess:     true,
+		FileCount:          len(manifest.Files),
+		TotalSize:          manifest.TotalSize(),
+		ManifestKey:        manifestKey,
+		ManifestVersionID:  manifestS3VersionID,
 	}
-	discoverFinalizeResp, err := internalDiscover.FinalizeCollectionPublish(ctx, collection.ID, collection.UserRole, discoverFinalizeReq)
+	discoverFinalizeResp, err := internalDiscover.FinalizeCollectionPublish(ctx, collection.ID, collection.NodeID, collection.UserRole, discoverFinalizeReq)
 	if err != nil {
 		return dto.PublishCollectionResponse{},
 			cleanupOnError(ctx,
 				apierrors.NewInternalServerError("error finalizing publish with Discover", err),
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
 				cleanupManifest(params.Container.ManifestStore(), manifestKey, manifestS3VersionID),
+				finalizeDiscoverFailure(internalDiscover, discoverPubResp.PublishedDatasetID, discoverPubResp.PublishedVersion, collection),
 			)
 	}
 	// Mark publish as finished
@@ -229,6 +236,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 				apierrors.NewInternalServerError("error marking publish as complete", err),
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
 				cleanupManifest(params.Container.ManifestStore(), manifestKey, manifestS3VersionID),
+				finalizeDiscoverFailure(internalDiscover, discoverPubResp.PublishedDatasetID, discoverPubResp.PublishedVersion, collection),
 			)
 	}
 
@@ -290,6 +298,18 @@ func cleanupStatusIfExists(collectionsStore collections.Store, collectionID int6
 func cleanupManifest(manifestStore manifests.Store, key string, s3VersionID string) cleanupFunc {
 	return func(ctx context.Context) error {
 		return manifestStore.DeleteManifestVersion(ctx, key, s3VersionID)
+	}
+}
+
+func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDatasetID, publishedVersion int64, collection collections.GetCollectionResponse) cleanupFunc {
+	return func(ctx context.Context) error {
+		request := service.FinalizeDOICollectionPublishRequest{
+			PublishedDatasetID: publishedDatasetID,
+			PublishedVersion:   publishedVersion,
+			PublishSuccess:     false,
+		}
+		_, err := discover.FinalizeCollectionPublish(ctx, collection.ID, collection.NodeID, collection.UserRole, request)
+		return err
 	}
 }
 

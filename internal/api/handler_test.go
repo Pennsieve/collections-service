@@ -569,21 +569,19 @@ func testPublishCollection(t *testing.T) {
 	expectedPublishedDatasetID := int64(12)
 	expectedPublishedVersion := int64(3)
 	expectedDiscoverPublishStatus := "InProgress"
-	expectedDiscoverFinalizeStatus := "Complete"
+	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
+		PublishedDatasetID: expectedPublishedDatasetID,
+		PublishedVersion:   expectedPublishedVersion,
+		Status:             expectedDiscoverPublishStatus,
+	}
+	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: "Complete"}
 
 	mockInternalDiscover := mocks.NewInternalDiscover().
-		WithPublishCollectionFunc(expectedCollection.PublishCollectionFunc(
-			t,
-			expectedPublishedDatasetID,
-			expectedPublishedVersion,
-			expectedDiscoverPublishStatus),
-		).
+		WithPublishCollectionFunc(expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse)).
 		WithFinalizeCollectionPublishFunc(
-			expectedCollection.FinalizeCollectionPublishFunc(
-				t,
-				expectedPublishedDatasetID,
-				expectedPublishedVersion,
-				expectedDiscoverFinalizeStatus),
+			expectedCollection.FinalizeCollectionPublishFunc(t,
+				mockFinalizeDOICollectionResponse,
+				apitest.VerifyFinalizeDOICollectionRequest(expectedPublishedDatasetID, expectedPublishedVersion)),
 		)
 
 	mockManifestStore := mocks.NewManifestStore().WithSaveManifestFunc(func(_ context.Context, _ string, _ publishing.ManifestV5) (manifests.SaveManifestResponse, error) {
@@ -622,5 +620,5 @@ func testPublishCollection(t *testing.T) {
 
 	assert.Equal(t, expectedPublishedDatasetID, responseDTO.PublishedDatasetID)
 	assert.Equal(t, expectedPublishedVersion, responseDTO.PublishedVersion)
-	assert.Equal(t, expectedDiscoverFinalizeStatus, responseDTO.Status)
+	assert.Equal(t, mockFinalizeDOICollectionResponse.Status, responseDTO.Status)
 }

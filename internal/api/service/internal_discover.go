@@ -22,7 +22,7 @@ import (
 
 type InternalDiscover interface {
 	PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
-	FinalizeCollectionPublish(ctx context.Context, collectionID int64, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error)
+	FinalizeCollectionPublish(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error)
 }
 
 type HTTPInternalDiscover struct {
@@ -71,11 +71,11 @@ func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collection
 
 }
 
-func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, collectionID int64, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error) {
+func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error) {
 	requestURL := fmt.Sprintf("%s/collection/%d/finalize", d.host, collectionID)
 	collectionClaim := &dataset.Claim{
 		Role:   userRole,
-		NodeId: request.CollectionNodeID,
+		NodeId: collectionNodeID,
 		IntId:  collectionID,
 	}
 	response, err := d.InvokePennsieve(ctx, collectionClaim, http.MethodPost, requestURL, request)

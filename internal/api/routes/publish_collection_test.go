@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"errors"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
@@ -9,6 +10,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/api/store/manifests"
 	"github.com/pennsieve/collections-service/internal/api/store/users"
@@ -38,7 +40,8 @@ func TestPublishCollection(t *testing.T) {
 		{"should return a 409 Conflict error if publish already in progress", testPublishNoConcurrent},
 		{"should return Bad Request if description is empty", testPublishNoDescription},
 		{"should return Bad Request if collection contains unpublished datasets", testPublishContainsTombstones},
-		{"should clean up S3 and publish status if Discover finalize fails", testPublishFinalizeFails},
+		{"should clean up publish status and Discover if SaveManifest fails", testPublishSaveManifestFails},
+		{"should clean up S3, publish status, and Discover if Discover finalize fails", testPublishFinalizeFails},
 	}
 
 	ctx := context.Background()
@@ -95,30 +98,31 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	expectedPublishedDatasetID := rand.Int63n(5000) + 1
 	expectedPublishedVersion := rand.Int63n(20) + 1
 	expectedDiscoverPublishStatus := uuid.NewString()
-	expectedDiscoverFinalizeStatus := uuid.NewString()
+	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
+		PublishedDatasetID: expectedPublishedDatasetID,
+		PublishedVersion:   expectedPublishedVersion,
+		Status:             expectedDiscoverPublishStatus,
+	}
 
 	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
+
+	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: uuid.NewString()}
+
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(
-			t,
-			expectedPublishedDatasetID,
-			expectedPublishedVersion,
-			expectedDiscoverPublishStatus,
-			apitest.VerifyPublishingUser(callingUser),
-		),
+		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).
-		WithFinalizeCollectionPublishFunc(ctx, t, expectedCollection.FinalizeCollectionPublishFunc(
-			t,
-			expectedPublishedDatasetID,
-			expectedPublishedVersion,
-			expectedDiscoverFinalizeStatus),
+		WithFinalizeCollectionPublishFunc(ctx, t,
+			expectedCollection.FinalizeCollectionPublishFunc(t,
+				mockFinalizeDOICollectionResponse,
+				apitest.VerifyFinalizeDOICollectionRequest(expectedPublishedDatasetID, expectedPublishedVersion),
+			),
+			*expectedCollection.NodeID,
 			expectedOrgServiceRole,
-			expectedDatasetServiceRole,
-		)
+			expectedDatasetServiceRole)
 
 	mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
 	defer mockDiscoverServer.Close()
@@ -157,11 +161,11 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	assert.Equal(t, expectedPublishedDatasetID, resp.PublishedDatasetID)
 	assert.Equal(t, expectedPublishedVersion, resp.PublishedVersion)
-	assert.Equal(t, expectedDiscoverFinalizeStatus, resp.Status)
+	assert.Equal(t, mockFinalizeDOICollectionResponse.Status, resp.Status)
 
 	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
 
-	manifestKey := publishing.S3Key(resp.PublishedDatasetID)
+	manifestKey := publishing.ManifestS3Key(resp.PublishedDatasetID)
 	headManifest := minio.RequireObjectExists(ctx, t, pennsieveConfig.PublishBucket, manifestKey)
 	var actualManifest publishing.ManifestV5
 	minio.GetObject(ctx, t, pennsieveConfig.PublishBucket, manifestKey, headManifest.VersionId).As(t, &actualManifest)
@@ -377,6 +381,109 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 
 }
 
+func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.ExpectationDB, _ *fixtures.MinIO) {
+	ctx := context.Background()
+
+	callingUser := userstest.NewTestUser(
+		userstest.WithFirstName(uuid.NewString()),
+		userstest.WithLastName(uuid.NewString()),
+		userstest.WithORCID(uuid.NewString()),
+		userstest.WithMiddleInitial("F"),
+		userstest.WithDegree("B.S."),
+	)
+	expectationDB.CreateTestUser(ctx, t, callingUser)
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	// The dataset that will be in the collection
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	dataset := expectedDatasets.NewPublished()
+
+	// The collection
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
+	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(
+		publishing.FailedStatus,
+		publishing.PublicationType,
+		*callingUser.ID).WithCollectionID(createCollectionResp.ID)
+
+	pennsieveConfig := apitest.PennsieveConfigWithOptions()
+
+	expectedPublishedDatasetID := rand.Int63n(5000) + 1
+	expectedPublishedVersion := rand.Int63n(20) + 1
+	expectedDiscoverPublishStatus := uuid.NewString()
+	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
+		PublishedDatasetID: expectedPublishedDatasetID,
+		PublishedVersion:   expectedPublishedVersion,
+		Status:             expectedDiscoverPublishStatus,
+	}
+
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID)
+	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
+
+	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
+		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
+		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
+			expectedOrgServiceRole,
+			expectedDatasetServiceRole,
+		).
+		WithFinalizeCollectionPublishFunc(ctx, t,
+			expectedCollection.FinalizeCollectionPublishFunc(t,
+				service.FinalizeDOICollectionPublishResponse{Status: uuid.NewString()},
+				apitest.VerifyFailedFinalizeDOICollectionRequest(expectedPublishedDatasetID, expectedPublishedVersion),
+			),
+			*expectedCollection.NodeID,
+			expectedOrgServiceRole,
+			expectedDatasetServiceRole)
+
+	mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
+	defer mockDiscoverServer.Close()
+
+	pennsieveConfig.DiscoverServiceURL = mockDiscoverServer.URL
+
+	mockManifestStore := mocks.NewManifestStore().WithSaveManifestFunc(func(ctx context.Context, key string, manifest publishing.ManifestV5) (manifests.SaveManifestResponse, error) {
+		return manifests.SaveManifestResponse{}, errors.New("unexpected S3 error")
+	})
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(pennsieveConfig).
+		Build()
+
+	expectedLicense := "Creative Commons"
+	expectedKeywords := []string{"test1, test2"}
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, dto.PublishCollectionRequest{
+				License: expectedLicense,
+				Tags:    expectedKeywords,
+			}).
+			Build(),
+		Container: apitest.NewTestContainer().
+			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+			WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+			WithUsersStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+			WithHTTPTestDiscover(mockDiscoverServer.URL).
+			WithHTTPTestInternalDiscover(pennsieveConfig).
+			WithManifestStore(mockManifestStore),
+		Config: apiConfig,
+		Claims: &claims,
+	}
+
+	_, err := PublishCollection(ctx, params)
+
+	var apiError *apierrors.Error
+	require.ErrorAs(t, err, &apiError)
+
+	assert.Equal(t, http.StatusInternalServerError, apiError.StatusCode)
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+
+}
+
 func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO) {
 	ctx := context.Background()
 
@@ -407,25 +514,28 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 
 	expectedPublishedDatasetID := int64(26)
 	expectedPublishedVersion := int64(1)
-	s3Key := publishing.S3Key(expectedPublishedDatasetID)
+	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
+		PublishedDatasetID: expectedPublishedDatasetID,
+		PublishedVersion:   expectedPublishedVersion,
+		Status:             uuid.NewString(),
+	}
+
+	s3Key := publishing.ManifestS3Key(expectedPublishedDatasetID)
 
 	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
-	expectedFinalizeErrorStatus := http.StatusInternalServerError
 
+	var actualFinalizeRequests []service.FinalizeDOICollectionPublishRequest
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(
-			t,
-			expectedPublishedDatasetID,
-			expectedPublishedVersion,
-			uuid.NewString(),
-			apitest.VerifyPublishingUser(callingUser),
-		),
+		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).
-		WithFailingFinalizeCollectionPublishFunc(t, expectedFinalizeErrorStatus, `{"error":"error finalizing"}`)
+		WithFinalizeCollectionPublishFunc(ctx, t, func(_ context.Context, _ int64, _ string, _ role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
+			actualFinalizeRequests = append(actualFinalizeRequests, request)
+			return service.FinalizeDOICollectionPublishResponse{}, errors.New("unexpected Discover error")
+		}, *expectedCollection.NodeID, expectedOrgServiceRole, expectedDatasetServiceRole)
 
 	mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
 	defer mockDiscoverServer.Close()
@@ -466,6 +576,10 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
 
 	minio.RequireNoObject(ctx, t, publishBucket, s3Key)
+
+	require.Len(t, actualFinalizeRequests, 2)
+	assert.True(t, actualFinalizeRequests[0].PublishSuccess)
+	assert.False(t, actualFinalizeRequests[1].PublishSuccess)
 
 }
 
@@ -756,20 +870,40 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 
 			expectedPublishedID := int64(14)
 			expectedPublishedVersion := int64(1)
+			mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
+				PublishedDatasetID: expectedPublishedID,
+				PublishedVersion:   expectedPublishedVersion,
+				Status:             uuid.NewString(),
+			}
+
+			mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: uuid.NewString()}
+			expectedManifestS3VersionID := uuid.NewString()
+
+			var capturedManifestTotalSize int64
+			mockManifestStore := mocks.NewManifestStore().WithSaveManifestFunc(func(ctx context.Context, key string, manifest publishing.ManifestV5) (manifests.SaveManifestResponse, error) {
+				require.Equal(t, publishing.ManifestS3Key(expectedPublishedID), key)
+				require.Equal(t, expectedPublishedID, manifest.PennsieveDatasetID)
+				require.Equal(t, expectedCollection.Name, manifest.Name)
+				require.Equal(t, callingUser.LastName, manifest.Creator.LastName)
+				capturedManifestTotalSize = manifest.TotalSize()
+				return manifests.SaveManifestResponse{
+					S3VersionID: expectedManifestS3VersionID,
+				}, nil
+			})
+
 			mockInternalDiscover := mocks.NewInternalDiscover().
 				WithPublishCollectionFunc(
-					expectedCollection.PublishCollectionFunc(t,
-						expectedPublishedID,
-						expectedPublishedVersion,
-						"PublishInProgress",
+					expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse,
 						apitest.VerifyPublishingUser(callingUser)),
 				).
 				WithFinalizeCollectionPublishFunc(
-					expectedCollection.FinalizeCollectionPublishFunc(
-						t,
-						expectedPublishedID,
-						expectedPublishedVersion,
-						"PublishComplete"),
+					expectedCollection.FinalizeCollectionPublishFunc(t, mockFinalizeDOICollectionResponse,
+						apitest.VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion),
+						apitest.VerifyFinalizeDOICollectionRequestS3VersionID(expectedManifestS3VersionID),
+						apitest.VerifyFinalizeDOICollectionRequestTotalSize(func() int64 {
+							return capturedManifestTotalSize
+						}),
+					),
 				)
 
 			mockUsersStore := mocks.NewUsersStore().WithGetUserFunc(func(ctx context.Context, userID int64) (users.GetUserResponse, error) {
@@ -782,16 +916,6 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			})
 
 			pennsieveConfig := apitest.PennsieveConfigWithFakeURL()
-
-			mockManifestStore := mocks.NewManifestStore().WithSaveManifestFunc(func(ctx context.Context, key string, manifest publishing.ManifestV5) (manifests.SaveManifestResponse, error) {
-				require.Equal(t, publishing.S3Key(expectedPublishedID), key)
-				require.Equal(t, expectedPublishedID, manifest.PennsieveDatasetID)
-				require.Equal(t, expectedCollection.Name, manifest.Name)
-				require.Equal(t, callingUser.LastName, manifest.Creator.LastName)
-				return manifests.SaveManifestResponse{
-					S3VersionID: uuid.NewString(),
-				}, nil
-			})
 
 			params := Params{
 				Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).

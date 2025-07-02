@@ -334,7 +334,8 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 // by reference to the ExpectedCollection
 type PublishDOICollectionRequestVerification func(t require.TestingT, request service.PublishDOICollectionRequest)
 
-func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, expectedPublishedID, expectedPublishedVersion int64, expectedPublishStatus string, verifications ...PublishDOICollectionRequestVerification) mocks.PublishCollectionFunc {
+// PublishCollectionFunc will overwrite fields in mockResponse with values from this ExpectedCollection
+func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, mockResponse service.PublishDOICollectionResponse, verifications ...PublishDOICollectionRequestVerification) mocks.PublishCollectionFunc {
 	return func(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
@@ -350,14 +351,10 @@ func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, expectedP
 			verification(t, request)
 		}
 
-		return service.PublishDOICollectionResponse{
-			Name:               c.Name,
-			SourceCollectionID: *c.ID,
-			PublishedDatasetID: expectedPublishedID,
-			PublishedVersion:   expectedPublishedVersion,
-			Status:             expectedPublishStatus,
-			PublicID:           *c.NodeID,
-		}, nil
+		mockResponse.Name = c.Name
+		mockResponse.SourceCollectionID = *c.ID
+		mockResponse.PublicID = *c.NodeID
+		return mockResponse, nil
 	}
 }
 
@@ -365,25 +362,70 @@ func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, expectedP
 // by reference to the ExpectedCollection
 type FinalizeDOICollectionPublishRequestVerification func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest)
 
-func (c *ExpectedCollection) FinalizeCollectionPublishFunc(t require.TestingT, expectedPublishedID, expectedPublishedVersion int64, expectedPublishStatus string, verifications ...FinalizeDOICollectionPublishRequestVerification) mocks.FinalizeCollectionPublishFunc {
-	return func(ctx context.Context, collectionID int64, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
+// VerifyFinalizeDOICollectionRequest checks that the request has PublishSuccess == true and other expected values
+func VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int64) FinalizeDOICollectionPublishRequestVerification {
+	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
+		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
+		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
+		expectedS3Key := publishing.ManifestS3Key(expectedPublishedID)
+		require.Equal(t, expectedS3Key, request.ManifestKey)
+
+		require.True(t, request.PublishSuccess)
+
+		// right now, only one file, the manifest itself
+		require.Equal(t, 1, request.FileCount)
+
+		// don't know these values with the given info, but they shouldn't be zero
+		require.NotEmpty(t, request.ManifestVersionID)
+		require.Positive(t, request.TotalSize)
+	}
+}
+
+// VerifyFailedFinalizeDOICollectionRequest checks that the request has PublishSuccess == false and empty values where expected
+func VerifyFailedFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int64) FinalizeDOICollectionPublishRequestVerification {
+	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
+		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
+		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
+
+		require.False(t, request.PublishSuccess)
+
+		// all these values should be empty or zero if we are reporting a failed publishing attempt back to discover
+		require.Empty(t, request.ManifestKey)
+		require.Zero(t, request.FileCount)
+		require.Empty(t, request.ManifestVersionID)
+		require.Zero(t, request.TotalSize)
+	}
+}
+
+func VerifyFinalizeDOICollectionRequestS3VersionID(expectedS3VersionID string) FinalizeDOICollectionPublishRequestVerification {
+	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
+		require.Equal(t, expectedS3VersionID, request.ManifestVersionID)
+	}
+}
+
+// VerifyFinalizeDOICollectionRequestTotalSize takes a function rather than int64, since we will have to capture this value in a closure
+// since we won't know the correct value when this function is called during mock setup.
+func VerifyFinalizeDOICollectionRequestTotalSize(expectedTotalSize func() int64) FinalizeDOICollectionPublishRequestVerification {
+	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
+		require.Equal(t, expectedTotalSize(), request.TotalSize)
+	}
+}
+
+func (c *ExpectedCollection) FinalizeCollectionPublishFunc(t require.TestingT, mockResponse service.FinalizeDOICollectionPublishResponse, verifications ...FinalizeDOICollectionPublishRequestVerification) mocks.FinalizeCollectionPublishFunc {
+	return func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		require.NotNil(t, c.NodeID, "expected collection does not have nodeID set")
 
 		require.Equal(t, *c.ID, collectionID, "requested collection id %d does not match expected collection id %d", collectionID, *c.ID)
+		require.Equal(t, *c.NodeID, collectionNodeID, "requested collection node id %s does not match expected collection node id %s", collectionNodeID, *c.NodeID)
 		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
-
-		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
-		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
 
 		for _, verification := range verifications {
 			verification(t, request)
 		}
 
-		return service.FinalizeDOICollectionPublishResponse{
-			Status: expectedPublishStatus,
-		}, nil
+		return mockResponse, nil
 	}
 }
 

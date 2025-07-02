@@ -71,7 +71,7 @@ func testSaveManifestVersions(t *testing.T, minio *fixtures.MinIO) {
 	manifestStore := manifests.NewS3Store(test.DefaultMinIOS3Client(ctx, t), bucket, logging.Default)
 
 	expectedDatasetID := int64(48)
-	key := publishing.S3Key(expectedDatasetID)
+	key := publishing.ManifestS3Key(expectedDatasetID)
 
 	expectedManifestV1 := apitest.NewExpectedManifest(t,
 		apitest.WithManifestPennsieveDatasetID(expectedDatasetID),
@@ -116,7 +116,7 @@ func testDeleteManifestVersion(t *testing.T, minio *fixtures.MinIO) {
 	manifestStore := manifests.NewS3Store(test.DefaultMinIOS3Client(ctx, t), bucket, logging.Default)
 
 	expectedDatasetID := int64(48)
-	key := publishing.S3Key(expectedDatasetID)
+	key := publishing.ManifestS3Key(expectedDatasetID)
 
 	expectedManifestV1 := apitest.NewExpectedManifest(t,
 		apitest.WithManifestPennsieveDatasetID(expectedDatasetID),

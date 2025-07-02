@@ -63,10 +63,18 @@ func (m ManifestV5) Marshal() ([]byte, error) {
 }
 
 func (m ManifestV5) S3Key() string {
-	return S3Key(m.PennsieveDatasetID)
+	return ManifestS3Key(m.PennsieveDatasetID)
 }
 
-func S3Key(publishedDatasetID int64) string {
+func (m ManifestV5) TotalSize() int64 {
+	totalSize := int64(0)
+	for _, file := range m.Files {
+		totalSize += file.Size
+	}
+	return totalSize
+}
+
+func ManifestS3Key(publishedDatasetID int64) string {
 	return fmt.Sprintf("%d/%s", publishedDatasetID, ManifestFileName)
 }
 

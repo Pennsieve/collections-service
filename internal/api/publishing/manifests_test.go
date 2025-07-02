@@ -6,7 +6,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -27,7 +26,7 @@ func TestManifestBuilder_Build(t *testing.T) {
 			expectedManifest := apitest.NewExpectedManifest(t, apitest.WithManifestDescription(tt.description))
 
 			require.Len(t, expectedManifest.Files, 1)
-			manifestEntry := expectedManifest.Files[0]
+			manifestEntry := apitest.FindManifestEntry(t, expectedManifest)
 			assert.Equal(t, publishing.ManifestFileName, manifestEntry.Name)
 			assert.Equal(t, publishing.ManifestFileName, manifestEntry.Path)
 			assert.Equal(t, publishing.ManifestFileType, manifestEntry.FileType)
@@ -71,11 +70,21 @@ func TestManifestBuilder_Build_EdgeCase_OrderOfMagnitudeChange(t *testing.T) {
 	require.NoError(t, err)
 	manifestSize := int64(len(manifestBytes))
 
-	manifestEntryIdx := slices.IndexFunc(manifest.Files, func(fileManifest publishing.FileManifest) bool {
-		return fileManifest.Path == publishing.ManifestFileName
-	})
-	require.True(t, manifestEntryIdx >= 0)
-	sizeInManifest := manifest.Files[manifestEntryIdx].Size
+	sizeInManifest := apitest.FindManifestEntry(t, manifest).Size
 	assert.Equal(t, manifestSize, sizeInManifest)
 
+}
+
+func TestManifestV5_TotalSize(t *testing.T) {
+	// this test really depends on the fact that apitest.NewExpectedManifest uses
+	// the Builder which sets the manifestEntry for us.
+	manifest := apitest.NewExpectedManifest(t)
+
+	// right now there is only one file, the manifest itself,
+	// so TotalSize() should equal size of manifest.
+	require.Len(t, manifest.Files, 1)
+
+	manifestBytes, err := manifest.Marshal()
+	require.NoError(t, err)
+	assert.Equal(t, int64(len(manifestBytes)), manifest.TotalSize())
 }
