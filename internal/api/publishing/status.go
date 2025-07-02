@@ -1,6 +1,9 @@
 package publishing
 
-import "time"
+import (
+	"github.com/pennsieve/collections-service/internal/api/dto"
+	"time"
+)
 
 type PublishStatus struct {
 	CollectionID int64      `db:"collection_id"`
@@ -23,3 +26,16 @@ type Type string
 const PublicationType Type = "Publication"
 const RevisionType Type = "Revision"
 const RemovalType Type = "Removal"
+
+func FromDiscoverPublishStatus(discoverStatus dto.PublishStatus) Status {
+	switch discoverStatus {
+	case dto.PublishSucceeded, dto.Unpublished:
+		return CompletedStatus
+	case dto.PublishFailed:
+		return FailedStatus
+		// Don't think we should see any other PublishStatus than those listed in the first two cases.
+		// Fail if we get an unexpected PublishStatus
+	default:
+		return FailedStatus
+	}
+}

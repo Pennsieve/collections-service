@@ -283,10 +283,29 @@ type PublishCollectionRequest struct {
 	Tags    []string `json:"tags"`
 }
 
+// PublishStatus values here are copied from com.pennsieve.models.PublishStatus in pennsieve-api core-models
+// A lot of these don't apply to collections.
+type PublishStatus string
+
+const NotPublished PublishStatus = "NOT_PUBLISHED"
+
+const PublishInProgress PublishStatus = "PUBLISH_IN_PROGRESS"
+const PublishSucceeded PublishStatus = "PUBLISH_SUCCEEDED"
+const PublishFailed PublishStatus = "PUBLISH_FAILED"
+
+const EmbargoInProgress PublishStatus = "EMBARGO_IN_PROGRESS"
+const EmbargoSucceeded PublishStatus = "EMBARGO_SUCCEEDED"
+const EmbargoFailed PublishStatus = "EMBARGO_FAILED"
+
+const ReleaseInProgress PublishStatus = "RELEASE_IN_PROGRESS"
+const ReleaseFailed PublishStatus = "RELEASE_FAILED"
+
+const Unpublished PublishStatus = "UNPUBLISHED"
+
 type PublishCollectionResponse struct {
-	PublishedDatasetID int64  `json:"publishedDatasetId"`
-	PublishedVersion   int64  `json:"publishedVersion"`
-	Status             string `json:"status"`
+	PublishedDatasetID int64         `json:"publishedDatasetId"`
+	PublishedVersion   int64         `json:"publishedVersion"`
+	Status             PublishStatus `json:"status"`
 }
 
 func (r PublishCollectionResponse) Marshal() (string, error) {

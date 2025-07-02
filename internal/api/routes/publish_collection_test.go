@@ -97,7 +97,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	expectedPublishedDatasetID := rand.Int63n(5000) + 1
 	expectedPublishedVersion := rand.Int63n(20) + 1
-	expectedDiscoverPublishStatus := uuid.NewString()
+	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
 		PublishedVersion:   expectedPublishedVersion,
@@ -107,7 +107,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionNamespaceID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
 
-	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: uuid.NewString()}
+	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: dto.PublishSucceeded}
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
@@ -412,7 +412,7 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 
 	expectedPublishedDatasetID := rand.Int63n(5000) + 1
 	expectedPublishedVersion := rand.Int63n(20) + 1
-	expectedDiscoverPublishStatus := uuid.NewString()
+	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
 		PublishedVersion:   expectedPublishedVersion,
@@ -430,7 +430,7 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 		).
 		WithFinalizeCollectionPublishFunc(ctx, t,
 			expectedCollection.FinalizeCollectionPublishFunc(t,
-				service.FinalizeDOICollectionPublishResponse{Status: uuid.NewString()},
+				service.FinalizeDOICollectionPublishResponse{Status: dto.PublishSucceeded},
 				apitest.VerifyFailedFinalizeDOICollectionRequest(expectedPublishedDatasetID, expectedPublishedVersion),
 			),
 			*expectedCollection.NodeID,
@@ -517,7 +517,7 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
 		PublishedVersion:   expectedPublishedVersion,
-		Status:             uuid.NewString(),
+		Status:             dto.PublishInProgress,
 	}
 
 	s3Key := publishing.ManifestS3Key(expectedPublishedDatasetID)
@@ -873,10 +873,10 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 				PublishedDatasetID: expectedPublishedID,
 				PublishedVersion:   expectedPublishedVersion,
-				Status:             uuid.NewString(),
+				Status:             dto.PublishInProgress,
 			}
 
-			mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: uuid.NewString()}
+			mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: dto.PublishSucceeded}
 			expectedManifestS3VersionID := uuid.NewString()
 
 			var capturedManifestTotalSize int64

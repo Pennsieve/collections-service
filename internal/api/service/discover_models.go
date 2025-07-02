@@ -1,5 +1,7 @@
 package service
 
+import "github.com/pennsieve/collections-service/internal/api/dto"
+
 // Some Discover models, such as PublicDatasetDTO live in api/dto because we use them as DTOs as well.
 // Here we just have types that are only used internally by us.
 
@@ -19,12 +21,12 @@ type PublishDOICollectionRequest struct {
 }
 
 type PublishDOICollectionResponse struct {
-	Name               string `json:"name"`
-	SourceCollectionID int64  `json:"sourceCollectionId"`
-	PublishedDatasetID int64  `json:"publishedDatasetId"`
-	PublishedVersion   int64  `json:"publishedVersion"`
-	Status             string `json:"status"`
-	PublicID           string `json:"publicId"`
+	Name               string            `json:"name"`
+	SourceCollectionID int64             `json:"sourceCollectionId"`
+	PublishedDatasetID int64             `json:"publishedDatasetId"`
+	PublishedVersion   int64             `json:"publishedVersion"`
+	Status             dto.PublishStatus `json:"status"`
+	PublicID           string            `json:"publicId"`
 }
 
 type FinalizeDOICollectionPublishRequest struct {
@@ -38,5 +40,5 @@ type FinalizeDOICollectionPublishRequest struct {
 }
 
 type FinalizeDOICollectionPublishResponse struct {
-	Status string `json:"status"`
+	Status dto.PublishStatus `json:"status"`
 }

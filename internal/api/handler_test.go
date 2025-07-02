@@ -568,13 +568,13 @@ func testPublishCollection(t *testing.T) {
 
 	expectedPublishedDatasetID := int64(12)
 	expectedPublishedVersion := int64(3)
-	expectedDiscoverPublishStatus := "InProgress"
+	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
 		PublishedVersion:   expectedPublishedVersion,
 		Status:             expectedDiscoverPublishStatus,
 	}
-	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: "Complete"}
+	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: dto.PublishSucceeded}
 
 	mockInternalDiscover := mocks.NewInternalDiscover().
 		WithPublishCollectionFunc(expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse)).

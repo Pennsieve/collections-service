@@ -165,7 +165,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	params.Container.Logger().Info("publish started on Discover",
 		slog.Int64("publishedDatasetId", discoverPubResp.PublishedDatasetID),
 		slog.Int64("publishedVersion", discoverPubResp.PublishedVersion),
-		slog.String("status", discoverPubResp.Status),
+		slog.Any("status", discoverPubResp.Status),
 		slog.String("ownerFirstName", discoverPubReq.OwnerFirstName),
 		slog.String("ownerLastName", discoverPubReq.OwnerLastName),
 		slog.String("ownerOrcid", discoverPubReq.OwnerORCID),
@@ -228,9 +228,14 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 				finalizeDiscoverFailure(internalDiscover, discoverPubResp.PublishedDatasetID, discoverPubResp.PublishedVersion, collection),
 			)
 	}
+	collectionsServiceStatus := publishing.FromDiscoverPublishStatus(discoverFinalizeResp.Status)
+	params.Container.Logger().Info("publish finalized on Discover",
+		slog.Any("discoverServiceStatus", discoverFinalizeResp.Status),
+		slog.Any("collectionsServiceStatus", collectionsServiceStatus),
+	)
+
 	// Mark publish as finished
-	// TODO: Make the final status a function of the status returned by Discover finalize instead of just assuming Completed
-	if err := params.Container.CollectionsStore().FinishPublish(ctx, collection.ID, publishing.CompletedStatus, true); err != nil {
+	if err := params.Container.CollectionsStore().FinishPublish(ctx, collection.ID, collectionsServiceStatus, true); err != nil {
 		return dto.PublishCollectionResponse{},
 			cleanupOnError(ctx,
 				apierrors.NewInternalServerError("error marking publish as complete", err),
