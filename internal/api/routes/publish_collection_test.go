@@ -197,7 +197,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	assert.Equal(t, publishing.ManifestType, actualManifest.Type)
 	assert.Equal(t, publishing.ManifestPennsieveSchemaVersion, actualManifest.PennsieveSchemaVersion)
 
-	assert.Equal(t, expectedCollection.DOIs.Strings(), actualManifest.References)
+	assert.Equal(t, expectedCollection.DOIs.Strings(), actualManifest.References.IDs)
 
 	expectedFileManifest := publishing.FileManifest{
 		Name:     publishing.ManifestFileName,

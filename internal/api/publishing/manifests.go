@@ -19,6 +19,10 @@ type FileManifest struct {
 	SHA256          string `json:"sha256,omitempty"`
 }
 
+type References struct {
+	IDs []string `json:"ids"`
+}
+
 const ManifestFileName = "manifest.json"
 const ManifestFileType = "Json"
 
@@ -53,7 +57,7 @@ type ManifestV5 struct {
 	Collections         []PublishedCollection          `json:"collections,omitempty"`
 	RelatedPublications []PublishedExternalPublication `json:"relatedPublications,omitempty"`
 	Files               []FileManifest                 `json:"files"`
-	References          []string                       `json:"references"`
+	References          References                     `json:"references"`
 	// PennsieveSchemaVersion is "5.0"
 	PennsieveSchemaVersion string `json:"pennsieveSchemaVersion"`
 }
@@ -107,6 +111,7 @@ func NewManifestBuilder() *ManifestBuilder {
 		Type:                   ManifestType,
 		SchemaVersion:          ManifestSchemaVersion,
 		PennsieveSchemaVersion: ManifestPennsieveSchemaVersion,
+		References:             References{},
 	}}
 }
 
@@ -152,7 +157,7 @@ func (b *ManifestBuilder) WithID(doi string) *ManifestBuilder {
 }
 
 func (b *ManifestBuilder) WithReferences(dois []string) *ManifestBuilder {
-	b.m.References = append(b.m.References, dois...)
+	b.m.References.IDs = append(b.m.References.IDs, dois...)
 	return b
 }
 
@@ -167,8 +172,8 @@ func (b *ManifestBuilder) Build() (ManifestV5, error) {
 
 	// prefer to have empty arrays for these in json rather than null
 
-	if b.m.References == nil {
-		b.m.References = make([]string, 0)
+	if b.m.References.IDs == nil {
+		b.m.References.IDs = make([]string, 0)
 	}
 	if b.m.Keywords == nil {
 		b.m.Keywords = make([]string, 0)

@@ -69,12 +69,12 @@ func NewExpectedManifest(t require.TestingT, opts ...ManifestOption) publishing.
 			uuid.NewString(),
 			uuid.NewString(),
 		}).
-		WithLicense(uuid.NewString()).
+		WithLicense(licenses[rand.IntN(len(licenses))]).
 		WithCreator(ToPublishedContributor(
 			userstest.NewTestUser(
 				userstest.WithFirstName(uuid.NewString()),
 				userstest.WithLastName(uuid.NewString()),
-				userstest.WithDegree(uuid.NewString()[:3]),
+				userstest.WithDegree(degrees[rand.IntN(len(degrees))]),
 				userstest.WithMiddleInitial(uuid.NewString()[:1]),
 				userstest.WithORCID(uuid.NewString()),
 			)))
@@ -111,4 +111,42 @@ func RequireManifestsEqual(t require.TestingT, expected, actual publishing.Manif
 	require.Equal(t, expected.SourceOrganization, actual.SourceOrganization)
 	require.Equal(t, expected.Type, actual.Type)
 	require.Equal(t, expected.Version, actual.Version)
+}
+
+var degrees = []string{
+	"Ph.D.",
+	"M.D.",
+	"M.S.",
+	"B.S.",
+	"Pharm.D.",
+	"D.V.M.",
+	"D.O.",
+}
+
+var licenses = []string{
+	`Apache 2.0`,
+	`Apache License 2.0`,
+	`BSD 2-Clause "Simplified" License`,
+	`BSD 3-Clause "New" or "Revised" License`,
+	`Boost Software License 1.0`,
+	`Community Data License Agreement – Permissive`,
+	`Community Data License Agreement – Sharing`,
+	`Creative Commons Zero 1.0 Universal`,
+	`Creative Commons Attribution`,
+	`Creative Commons Attribution - ShareAlike`,
+	`Creative Commons Attribution - NonCommercial-ShareAlike`,
+	`Eclipse Public License 2.0`,
+	`GNU Affero General Public License v3.0`,
+	`GNU General Public License v2.0`,
+	`GNU General Public License v3.0`,
+	`GNU Lesser General Public License`,
+	`GNU Lesser General Public License v2.1`,
+	`GNU Lesser General Public License v3.0`,
+	`MIT`,
+	`MIT License`,
+	`Mozilla Public License 2.0`,
+	`Open Data Commons Open Database`,
+	`Open Data Commons Attribution`,
+	`Open Data Commons Public Domain Dedication and License`,
+	`The Unlicense`,
 }

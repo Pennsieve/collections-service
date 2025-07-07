@@ -87,4 +87,5 @@ func TestManifestV5_TotalSize(t *testing.T) {
 	manifestBytes, err := manifest.Marshal()
 	require.NoError(t, err)
 	assert.Equal(t, int64(len(manifestBytes)), manifest.TotalSize())
+
 }
