@@ -5,13 +5,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/rand/v2"
 	"slices"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // ExpectedCollection is what we expect the collection to look like
@@ -35,6 +44,11 @@ func NewExpectedCollection() *ExpectedCollection {
 		Name:        uuid.NewString(),
 		Description: uuid.NewString(),
 	}
+}
+
+func (c *ExpectedCollection) WithDescription(description string) *ExpectedCollection {
+	c.Description = description
+	return c
 }
 
 func (c *ExpectedCollection) WithNodeID() *ExpectedCollection {
@@ -74,7 +88,7 @@ type ExpectedDOI struct {
 }
 
 // WithDOIs adds to the current ExpectedDOI slice
-func (c *ExpectedCollection) WithDOIs(dois ...store.DOI) *ExpectedCollection {
+func (c *ExpectedCollection) WithDOIs(dois ...collections.DOI) *ExpectedCollection {
 	for _, doi := range dois {
 		c.DOIs = append(c.DOIs, ExpectedDOI{DOI: doi.Value, Datasource: doi.Datasource})
 	}
@@ -82,7 +96,7 @@ func (c *ExpectedCollection) WithDOIs(dois ...store.DOI) *ExpectedCollection {
 }
 
 // SetDOIs replaces the current ExpectedDOI slice with the given DOIs
-func (c *ExpectedCollection) SetDOIs(dois ...store.DOI) *ExpectedCollection {
+func (c *ExpectedCollection) SetDOIs(dois ...collections.DOI) *ExpectedCollection {
 	var newDOIs []ExpectedDOI
 	for _, doi := range dois {
 		newDOIs = append(newDOIs, ExpectedDOI{DOI: doi.Value, Datasource: doi.Datasource})
@@ -92,7 +106,7 @@ func (c *ExpectedCollection) SetDOIs(dois ...store.DOI) *ExpectedCollection {
 }
 
 func (c *ExpectedCollection) WithNPennsieveDOIs(n int) *ExpectedCollection {
-	var dois []store.DOI
+	var dois []collections.DOI
 	for i := 0; i < n; i++ {
 		dois = append(dois, NewPennsieveDOI())
 	}
@@ -138,13 +152,13 @@ func (d ExpectedDOIs) Strings() []string {
 	return strs
 }
 
-func (d ExpectedDOIs) AsDOIs() []store.DOI {
+func (d ExpectedDOIs) AsDOIs() collections.DOIs {
 	if len(d) == 0 {
 		return nil
 	}
-	strs := make([]store.DOI, len(d))
+	strs := make([]collections.DOI, len(d))
 	for i, doi := range d {
-		strs[i] = store.DOI{
+		strs[i] = collections.DOI{
 			Value:      doi.DOI,
 			Datasource: doi.Datasource,
 		}
@@ -152,7 +166,89 @@ func (d ExpectedDOIs) AsDOIs() []store.DOI {
 	return strs
 }
 
-func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) store.GetCollectionResponse {
+type ExpectedPublishStatus struct {
+	CollectionID *int64
+	// PreCondition is an optional status that already exists prior to
+	// the test
+	PreCondition *publishing.PublishStatus
+	// ExpectedStatus and other Expected* fields are what we expect
+	// the status fields to be after the test
+	ExpectedStatus publishing.Status
+	ExpectedType   publishing.Type
+	ExpectedUserID int64
+}
+
+func NewExpectedPublishStatus(pubStatus publishing.Status, pubType publishing.Type, pubUser int64) *ExpectedPublishStatus {
+	return &ExpectedPublishStatus{
+		ExpectedStatus: pubStatus,
+		ExpectedType:   pubType,
+		ExpectedUserID: pubUser,
+	}
+}
+
+// NewExpectedInProgressPublishStatus returns an ExpectedPublishStatus that makes sense if we are
+// expecting an InProgress status at the end of a test. This status should only be temporary, so if we expect this
+// status at the end of the test, there must be an existing pre-condition of that status already
+// existing.
+func NewExpectedInProgressPublishStatus(pubUser int64) *ExpectedPublishStatus {
+	return NewExpectedPublishStatus(publishing.InProgressStatus, publishing.PublicationType, pubUser).WithExistingInProgressPublishStatus(pubUser)
+}
+
+func (s *ExpectedPublishStatus) WithCollectionID(collectionID int64) *ExpectedPublishStatus {
+	s.CollectionID = &collectionID
+	if s.PreCondition != nil {
+		s.PreCondition.CollectionID = collectionID
+	}
+	return s
+}
+
+func (s *ExpectedPublishStatus) WithExistingInProgressPublishStatus(userID int64) *ExpectedPublishStatus {
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
+	s.PreCondition = &publishing.PublishStatus{
+		Status:    publishing.InProgressStatus,
+		Type:      publishing.PublicationType,
+		StartedAt: startedAt,
+		UserID:    &userID,
+	}
+	if s.CollectionID != nil {
+		s.PreCondition.CollectionID = *s.CollectionID
+	}
+	return s
+}
+
+func (s *ExpectedPublishStatus) WithExistingCompletedPublishStatus(userID int64) *ExpectedPublishStatus {
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
+	finishedAt := startedAt.Add(time.Minute)
+	s.PreCondition = &publishing.PublishStatus{
+		Status:     publishing.CompletedStatus,
+		Type:       publishing.PublicationType,
+		StartedAt:  startedAt,
+		FinishedAt: &finishedAt,
+		UserID:     &userID,
+	}
+	if s.CollectionID != nil {
+		s.PreCondition.CollectionID = *s.CollectionID
+	}
+	return s
+}
+
+func (s *ExpectedPublishStatus) WithExistingFailedPublishStatus(userID int64) *ExpectedPublishStatus {
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
+	finishedAt := startedAt.Add(time.Minute)
+	s.PreCondition = &publishing.PublishStatus{
+		Status:     publishing.FailedStatus,
+		Type:       publishing.PublicationType,
+		StartedAt:  startedAt,
+		FinishedAt: &finishedAt,
+		UserID:     &userID,
+	}
+	if s.CollectionID != nil {
+		s.PreCondition.CollectionID = *s.CollectionID
+	}
+	return s
+}
+
+func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) collections.GetCollectionResponse {
 	test.Helper(t)
 	require.NotNil(t, c.ID, "expected collection does not have ID set")
 	require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
@@ -161,7 +257,7 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 	})
 	require.NotEqual(t, -1, userIdx, "given user %d has no permission for expected collection", expectedUserID)
 	user := c.Users[userIdx]
-	collectionBase := store.CollectionBase{
+	collectionBase := collections.CollectionBase{
 		ID:          *c.ID,
 		NodeID:      *c.NodeID,
 		Name:        c.Name,
@@ -169,7 +265,7 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 		Size:        len(c.DOIs),
 		UserRole:    user.PermissionBit.ToRole(),
 	}
-	return store.GetCollectionResponse{
+	return collections.GetCollectionResponse{
 		CollectionBase: collectionBase,
 		DOIs:           c.DOIs.AsDOIs(),
 	}
@@ -177,14 +273,14 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 
 func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetCollectionFunc {
 	test.Helper(t)
-	return func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
 		return c.ToGetCollectionResponse(t, userID), nil
 	}
 }
 
 func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.UpdateCollectionFunc {
-	return func(ctx context.Context, userID int64, collectionID int64, update store.UpdateCollectionRequest) (store.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int64, collectionID int64, update collections.UpdateCollectionRequest) (collections.GetCollectionResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
@@ -210,7 +306,7 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 			toDeleteSet[toDelete] = true
 		}
 
-		var updatedDOIs []store.DOI
+		var updatedDOIs []collections.DOI
 		for _, doi := range c.DOIs.AsDOIs() {
 			if _, deleted := toDeleteSet[doi.Value]; !deleted {
 				updatedDOIs = append(updatedDOIs, doi)
@@ -219,7 +315,7 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 
 		updatedDOIs = append(updatedDOIs, update.DOIs.Add...)
 
-		collectionBase := store.CollectionBase{
+		collectionBase := collections.CollectionBase{
 			NodeID:      *c.NodeID,
 			ID:          *c.ID,
 			Name:        updatedName,
@@ -227,9 +323,151 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 			Size:        len(updatedDOIs),
 			UserRole:    user.PermissionBit.ToRole(),
 		}
-		return store.GetCollectionResponse{
+		return collections.GetCollectionResponse{
 			CollectionBase: collectionBase,
 			DOIs:           updatedDOIs,
 		}, nil
+	}
+}
+
+// PublishDOICollectionRequestVerification should contain assertions to verify request fields that cannot be verified
+// by reference to the ExpectedCollection
+type PublishDOICollectionRequestVerification func(t require.TestingT, request service.PublishDOICollectionRequest)
+
+// PublishCollectionFunc will overwrite fields in mockResponse with values from this ExpectedCollection
+func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, mockResponse service.PublishDOICollectionResponse, verifications ...PublishDOICollectionRequestVerification) mocks.PublishCollectionFunc {
+	return func(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.NotNil(t, c.NodeID, "expected collection does not have nodeID set")
+
+		require.Equal(t, *c.ID, collectionID, "requested collection id %d does not match expected collection id %d", collectionID, *c.ID)
+		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
+
+		require.Equal(t, c.Description, request.Description)
+		require.Equal(t, c.DOIs.Strings(), request.DOIs)
+
+		for _, verification := range verifications {
+			verification(t, request)
+		}
+
+		mockResponse.Name = c.Name
+		mockResponse.SourceCollectionID = *c.ID
+		mockResponse.PublicID = *c.NodeID
+		return mockResponse, nil
+	}
+}
+
+// FinalizeDOICollectionPublishRequestVerification should contain assertions to verify request fields that cannot be verified
+// by reference to the ExpectedCollection
+type FinalizeDOICollectionPublishRequestVerification func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest)
+
+// VerifyFinalizeDOICollectionRequest checks that the request has PublishSuccess == true and other expected values
+func VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int64) FinalizeDOICollectionPublishRequestVerification {
+	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
+		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
+		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
+		expectedS3Key := publishing.ManifestS3Key(expectedPublishedID)
+		require.Equal(t, expectedS3Key, request.ManifestKey)
+
+		require.True(t, request.PublishSuccess)
+
+		// right now, only one file, the manifest itself
+		require.Equal(t, 1, request.FileCount)
+
+		// don't know these values with the given info, but they shouldn't be zero
+		require.NotEmpty(t, request.ManifestVersionID)
+		require.Positive(t, request.TotalSize)
+	}
+}
+
+// VerifyFailedFinalizeDOICollectionRequest checks that the request has PublishSuccess == false and empty values where expected
+func VerifyFailedFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int64) FinalizeDOICollectionPublishRequestVerification {
+	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
+		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
+		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
+
+		require.False(t, request.PublishSuccess)
+
+		// all these values should be empty or zero if we are reporting a failed publishing attempt back to discover
+		require.Empty(t, request.ManifestKey)
+		require.Zero(t, request.FileCount)
+		require.Empty(t, request.ManifestVersionID)
+		require.Zero(t, request.TotalSize)
+	}
+}
+
+func VerifyFinalizeDOICollectionRequestS3VersionID(expectedS3VersionID string) FinalizeDOICollectionPublishRequestVerification {
+	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
+		require.Equal(t, expectedS3VersionID, request.ManifestVersionID)
+	}
+}
+
+// VerifyFinalizeDOICollectionRequestTotalSize takes a function rather than int64, since we will have to capture this value in a closure
+// since we won't know the correct value when this function is called during mock setup.
+func VerifyFinalizeDOICollectionRequestTotalSize(expectedTotalSize func() int64) FinalizeDOICollectionPublishRequestVerification {
+	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
+		require.Equal(t, expectedTotalSize(), request.TotalSize)
+	}
+}
+
+func (c *ExpectedCollection) FinalizeCollectionPublishFunc(t require.TestingT, mockResponse service.FinalizeDOICollectionPublishResponse, verifications ...FinalizeDOICollectionPublishRequestVerification) mocks.FinalizeCollectionPublishFunc {
+	return func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.NotNil(t, c.NodeID, "expected collection does not have nodeID set")
+
+		require.Equal(t, *c.ID, collectionID, "requested collection id %d does not match expected collection id %d", collectionID, *c.ID)
+		require.Equal(t, *c.NodeID, collectionNodeID, "requested collection node id %s does not match expected collection node id %s", collectionNodeID, *c.NodeID)
+		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
+
+		for _, verification := range verifications {
+			verification(t, request)
+		}
+
+		return mockResponse, nil
+	}
+}
+
+func (c *ExpectedCollection) DatasetServiceRole(expectedRole role.Role) jwtdiscover.ServiceRole {
+	return jwtdiscover.ServiceRole{
+		Type:   jwtdiscover.DatasetServiceRoleType,
+		Id:     strconv.FormatInt(*c.ID, 10),
+		NodeId: *c.NodeID,
+		Role:   strings.ToLower(expectedRole.String()),
+	}
+}
+
+func (c *ExpectedCollection) StartPublishFunc(t require.TestingT, expectedUserID int64, expectedType publishing.Type) mocks.StartPublishFunc {
+	return func(_ context.Context, collectionID int64, userID int64, publishingType publishing.Type) error {
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.Equal(t, *c.ID, collectionID)
+		require.Equal(t, expectedUserID, userID)
+		require.Equal(t, expectedType, publishingType)
+		return nil
+	}
+}
+
+func (c *ExpectedCollection) FinishPublishFunc(t require.TestingT, expectedStatus publishing.Status) mocks.FinishPublishFunc {
+	return func(_ context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error {
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		require.Equal(t, *c.ID, collectionID)
+		require.Equal(t, expectedStatus, publishingStatus)
+		return nil
+	}
+}
+
+func VerifyPublishingUser(expectedUser userstest.User) PublishDOICollectionRequestVerification {
+	return func(t require.TestingT, request service.PublishDOICollectionRequest) {
+		test.Helper(t)
+		assert.Equal(t, expectedUser.GetID(), request.OwnerID)
+		assert.Equal(t, expectedUser.GetNodeID(), request.OwnerNodeID)
+		assert.Equal(t, expectedUser.GetFirstName(), request.OwnerFirstName)
+		assert.Equal(t, expectedUser.GetLastName(), request.OwnerLastName)
+		if expectedUser.GetORCIDAuthorization() == nil {
+			assert.Empty(t, request.OwnerORCID)
+		} else {
+			assert.Equal(t, expectedUser.GetORCIDAuthorization().ORCID, request.OwnerORCID)
+		}
 	}
 }

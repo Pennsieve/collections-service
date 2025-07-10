@@ -52,7 +52,7 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	// For now we are assuming only PennsieveDOIs will be present in collections
 	pennsieveDOIs, _ := CategorizeDOIs(params.Config.PennsieveConfig.DOIPrefix, dois)
 	if len(pennsieveDOIs) > 0 {
-		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
+		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(ctx, pennsieveDOIs)
 		if err != nil {
 			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error looking up DOIs in Discover for user %s", userClaim.NodeId), err)
 		}

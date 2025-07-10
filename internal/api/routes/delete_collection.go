@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"log/slog"
 	"net/http"
@@ -26,7 +26,7 @@ func DeleteCollection(ctx context.Context, params Params) (dto.NoContent, error)
 
 	storeResp, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
 	if err != nil {
-		if errors.Is(err, store.ErrCollectionNotFound) {
+		if errors.Is(err, collections.ErrCollectionNotFound) {
 			return dto.NoContent{}, apierrors.NewCollectionNotFoundError(nodeID)
 		}
 		return dto.NoContent{}, apierrors.NewInternalServerError(

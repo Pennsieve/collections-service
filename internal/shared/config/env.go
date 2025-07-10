@@ -62,3 +62,16 @@ func (e EnvironmentSetting) GetInt() (int, error) {
 	}
 	return value, nil
 }
+
+// GetInt64 returns a value in the same way as Get, but converted from string to int64.
+func (e EnvironmentSetting) GetInt64() (int64, error) {
+	valueStr, err := e.Get()
+	if err != nil {
+		return 0, err
+	}
+	value, err := strconv.ParseInt(valueStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("error converting '%s' value '%s' to int64: %w", e.Key, valueStr, err)
+	}
+	return value, nil
+}

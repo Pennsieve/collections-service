@@ -1,20 +1,23 @@
-package store
+package collections
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
 
-type CollectionsStore interface {
+type Store interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
 	// GetCollections returns a paginated list of collection summaries that the given user has at least guest permission on.
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
@@ -22,23 +25,29 @@ type CollectionsStore interface {
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
 	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
+	// StartPublish returns a collections.ErrPublishInProgress error if the status of the given collection is InProgress
+	StartPublish(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error
+	// FinishPublish updates the existing publish status of collection with the given status.
+	// If strict is true, will return an error if no status is found
+	// otherwise, no error for this situation
+	FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error
 }
 
-type PostgresCollectionsStore struct {
+type PostgresStore struct {
 	db           postgres.DB
 	databaseName string
 	logger       *slog.Logger
 }
 
-func NewPostgresCollectionsStore(db postgres.DB, collectionsDatabaseName string, logger *slog.Logger) *PostgresCollectionsStore {
-	return &PostgresCollectionsStore{
+func NewPostgresStore(db postgres.DB, collectionsDatabaseName string, logger *slog.Logger) *PostgresStore {
+	return &PostgresStore{
 		db:           db,
 		databaseName: collectionsDatabaseName,
-		logger:       logger.With(slog.String("type", "PostgresCollectionsStore")),
+		logger:       logger.With(slog.String("type", "collections.PostgresStore")),
 	}
 }
 
-func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error) {
+func (s *PostgresStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return CreateCollectionResponse{}, fmt.Errorf("CreateCollection error connecting to database %s: %w", s.databaseName, err)
@@ -94,7 +103,7 @@ func (s *PostgresCollectionsStore) CreateCollection(ctx context.Context, userID 
 	}, nil
 }
 
-func (s *PostgresCollectionsStore) GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error) {
+func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error) {
 	if limit < 0 {
 		return GetCollectionsResponse{}, fmt.Errorf("limit cannot be negative: %d", limit)
 	}
@@ -272,7 +281,7 @@ func getCollectionByID(ctx context.Context, conn *pgx.Conn, userID int64, collec
 }
 
 // GetCollection returns the error ErrCollectionNotFound if no collection with the given node id exists for the given user id.
-func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
+func (s *PostgresStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return GetCollectionResponse{}, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
@@ -281,7 +290,7 @@ func (s *PostgresCollectionsStore) GetCollection(ctx context.Context, userID int
 	return getCollectionByNodeID(ctx, conn, userID, nodeID)
 }
 
-func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collectionID int64) error {
+func (s *PostgresStore) DeleteCollection(ctx context.Context, collectionID int64) error {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return fmt.Errorf("DeleteCollection error connecting to database %s: %w", s.databaseName, err)
@@ -302,7 +311,7 @@ func (s *PostgresCollectionsStore) DeleteCollection(ctx context.Context, collect
 	return nil
 }
 
-func (s *PostgresCollectionsStore) UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error) {
+func (s *PostgresStore) UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error) {
 
 	// Create SQL for name and description update if necessary
 	var collectionUpdateSQL string
@@ -397,8 +406,81 @@ func (s *PostgresCollectionsStore) UpdateCollection(ctx context.Context, userID,
 	return updatedCollection, nil
 }
 
-func (s *PostgresCollectionsStore) closeConn(ctx context.Context, conn *pgx.Conn) {
+func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error {
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return fmt.Errorf("StartPublish error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+
+	query := `INSERT INTO collections.publish_status (collection_id, status, type, user_id, started_at)
+              VALUES (@collection_id, @status, @type, @user_id, @started_at)
+              ON CONFLICT (collection_id) DO UPDATE
+                SET status = EXCLUDED.status,
+                    type = EXCLUDED.type,
+                    user_id = EXCLUDED.user_id,
+                    started_at = EXCLUDED.started_at,
+                    finished_at = NULL
+                WHERE collections.publish_status.status != @in_progress`
+
+	args := pgx.NamedArgs{
+		"collection_id": collectionID,
+		"status":        publishing.InProgressStatus,
+		"type":          publishingType,
+		"user_id":       userID,
+		"started_at":    time.Now().UTC(),
+		"in_progress":   publishing.InProgressStatus,
+	}
+
+	tag, err := conn.Exec(ctx, query, args)
+	if err != nil {
+		return fmt.Errorf("error starting publish of collection %d for user %d: %w",
+			collectionID,
+			userID,
+			err)
+	}
+	if tag.RowsAffected() == int64(0) {
+		return ErrPublishInProgress
+	}
+
+	return nil
+
+}
+
+func (s *PostgresStore) FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error {
+	conn, err := s.db.Connect(ctx, s.databaseName)
+	if err != nil {
+		return fmt.Errorf("FinishPublish error connecting to database %s: %w", s.databaseName, err)
+	}
+	defer s.closeConn(ctx, conn)
+
+	query := `UPDATE collections.publish_status
+              SET status = @status,
+                  finished_at = @finished_at
+              WHERE collection_id = @collection_id`
+
+	args := pgx.NamedArgs{
+		"collection_id": collectionID,
+		"status":        publishingStatus,
+		"finished_at":   time.Now().UTC(),
+	}
+
+	tag, err := conn.Exec(ctx, query, args)
+	if err != nil {
+		return fmt.Errorf("error finishing publish of collection %d: %w",
+			collectionID,
+			err)
+	}
+	if strict && tag.RowsAffected() == int64(0) {
+		return errors.New("no publish status found for collection")
+	}
+
+	return nil
+
+}
+
+func (s *PostgresStore) closeConn(ctx context.Context, conn *pgx.Conn) {
 	if err := conn.Close(ctx); err != nil {
-		s.logger.Warn("error closing DB connection", slog.Any("error", err))
+		s.logger.Warn("error closing collections.PostgresStore DB connection", slog.Any("error", err))
 	}
 }

@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestCreateCollection(t *testing.T) {
 func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedCollection := apitest.NewExpectedCollection().
@@ -66,7 +67,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -93,7 +94,7 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -110,7 +111,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 		DOIs:        expectedCollection.DOIs.Strings(),
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -123,7 +124,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
 		WithHTTPTestDiscover(mockDiscoverServer.URL).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -151,7 +152,7 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -171,7 +172,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 		DOIs:        expectedCollection.DOIs.Strings(),
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -184,7 +185,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
 		WithHTTPTestDiscover(mockDiscoverServer.URL).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -213,7 +214,7 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -237,7 +238,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 		DOIs:        expectedCollection.DOIs.Strings(),
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -250,7 +251,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
 		WithHTTPTestDiscover(mockDiscoverServer.URL).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -279,7 +280,7 @@ func testCreateCollectionSomeMissingBanners(t *testing.T, expectationDB *fixture
 func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	callingUser := apitest.NewTestUser()
+	callingUser := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -298,7 +299,7 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 		DOIs:        []string{fmt.Sprintf(" %s", published1.DOI), fmt.Sprintf("%s ", published2.DOI)},
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -311,7 +312,7 @@ func testCreateCollectionRemoveWhitespace(t *testing.T, expectationDB *fixtures.
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, config.PostgresDB)).
 		WithHTTPTestDiscover(mockDiscoverServer.URL).
-		WithContainerStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(config.PostgresDB.CollectionsDatabase)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
@@ -365,7 +366,7 @@ func TestHandleCreateCollection(t *testing.T) {
 func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner)
@@ -379,10 +380,10 @@ func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewMockCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []store.DOI) (store.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
 		t.Helper()
 		collectionNodeID = nodeID
-		return store.CreateCollectionResponse{
+		return collections.CreateCollectionResponse{
 			ID:          1,
 			CreatorRole: role.Owner,
 		}, nil
@@ -420,7 +421,7 @@ func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 func testRejectUnknownFields(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	unknownFieldName := uuid.NewString()
 	badRequest := fmt.Sprintf(`{"name": "bad request collection", %q: ["test-doi"]}`, unknownFieldName)
@@ -455,7 +456,7 @@ func testRejectUnknownFields(t *testing.T) {
 func testRejectCollectionDOI(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
@@ -475,7 +476,7 @@ func testRejectCollectionDOI(t *testing.T) {
 
 	claims := apitest.DefaultClaims(callingUser)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	config := apitest.NewConfigBuilder().

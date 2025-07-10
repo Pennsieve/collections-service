@@ -1,17 +1,26 @@
 package apitest
 
 import (
+	"context"
+	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/manifests"
+	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
+	"github.com/pennsieve/collections-service/internal/test"
+	"github.com/stretchr/testify/require"
 	"log/slog"
 )
 
 type TestContainer struct {
 	TestPostgresDB       postgres.DB
 	TestDiscover         service.Discover
-	TestCollectionsStore store.CollectionsStore
+	TestInternalDiscover service.InternalDiscover
+	TestCollectionsStore collections.Store
+	TestUsersStore       users.Store
+	TestManifestStore    manifests.Store
 	logger               *slog.Logger
 }
 
@@ -29,11 +38,32 @@ func (c *TestContainer) Discover() service.Discover {
 	return c.TestDiscover
 }
 
-func (c *TestContainer) CollectionsStore() store.CollectionsStore {
+func (c *TestContainer) CollectionsStore() collections.Store {
 	if c.TestCollectionsStore == nil {
-		panic("no store.CollectionsStore set for this TestContainer")
+		panic("no collections.Store set for this TestContainer")
 	}
 	return c.TestCollectionsStore
+}
+
+func (c *TestContainer) InternalDiscover(_ context.Context) (service.InternalDiscover, error) {
+	if c.TestInternalDiscover == nil {
+		panic("no service.InternalDiscover set for this TestContainer")
+	}
+	return c.TestInternalDiscover, nil
+}
+
+func (c *TestContainer) UsersStore() users.Store {
+	if c.TestUsersStore == nil {
+		panic("no users.Store set for this TestContainer")
+	}
+	return c.TestUsersStore
+}
+
+func (c *TestContainer) ManifestStore() manifests.Store {
+	if c.TestManifestStore == nil {
+		panic("no manifests.Store set for this TestContainer")
+	}
+	return c.TestManifestStore
 }
 
 func (c *TestContainer) Logger() *slog.Logger {
@@ -70,15 +100,53 @@ func (c *TestContainer) WithHTTPTestDiscover(mockServerURL string) *TestContaine
 	return c
 }
 
-func (c *TestContainer) WithCollectionsStore(collectionsStore store.CollectionsStore) *TestContainer {
+func (c *TestContainer) WithCollectionsStore(collectionsStore collections.Store) *TestContainer {
 	c.TestCollectionsStore = collectionsStore
 	return c
 }
 
-func (c *TestContainer) WithContainerStoreFromPostgresDB(collectionsDBName string) *TestContainer {
+func (c *TestContainer) WithCollectionsStoreFromPostgresDB(collectionsDBName string) *TestContainer {
 	if c.TestPostgresDB == nil {
 		panic("cannot create ContainerStore from nil PostgresDB; call WithPostgresDB first")
 	}
-	c.TestCollectionsStore = store.NewPostgresCollectionsStore(c.TestPostgresDB, collectionsDBName, c.Logger())
+	c.TestCollectionsStore = collections.NewPostgresStore(c.TestPostgresDB, collectionsDBName, c.Logger())
+	return c
+}
+
+func (c *TestContainer) WithInternalDiscover(internalDiscover service.InternalDiscover) *TestContainer {
+	c.TestInternalDiscover = internalDiscover
+	return c
+}
+
+func (c *TestContainer) WithHTTPTestInternalDiscover(pennsieveConfig config.PennsieveConfig) *TestContainer {
+	c.TestInternalDiscover = service.NewHTTPInternalDiscover(
+		pennsieveConfig.DiscoverServiceURL,
+		*pennsieveConfig.JWTSecretKey.Value,
+		pennsieveConfig.CollectionNamespaceID,
+		c.Logger())
+	return c
+}
+
+func (c *TestContainer) WithUsersStore(usersStore users.Store) *TestContainer {
+	c.TestUsersStore = usersStore
+	return c
+}
+
+func (c *TestContainer) WithUsersStoreFromPostgresDB(collectionsDBName string) *TestContainer {
+	if c.TestPostgresDB == nil {
+		panic("cannot create users.Store from nil PostgresDB; call WithPostgresDB first")
+	}
+	c.TestUsersStore = users.NewPostgresStore(c.TestPostgresDB, collectionsDBName, c.Logger())
+	return c
+}
+
+func (c *TestContainer) WithManifestStore(manifestStore manifests.Store) *TestContainer {
+	c.TestManifestStore = manifestStore
+	return c
+}
+
+func (c *TestContainer) WithMinIOManifestStore(ctx context.Context, t require.TestingT, publishBucket string) *TestContainer {
+	s3Client := test.DefaultMinIOS3Client(ctx, t)
+	c.TestManifestStore = manifests.NewS3Store(s3Client, publishBucket, c.Logger())
 	return c
 }

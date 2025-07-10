@@ -5,26 +5,30 @@ services:
       dockerfile: Dockerfile.test
     depends_on:
       - pennsievedb-collections
+      - minio
     environment:
-      - AWS_ACCESS_KEY_ID=TestAWSKey
-      - AWS_SECRET_ACCESS_KEY=TestAWSSecret
       - POSTGRES_HOST=pennsievedb-collections
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
       - POSTGRES_COLLECTIONS_DATABASE=postgres
+      - MINIO_HOST=minio
       # This var needs to be set to 'host.docker.internal' if the Docker server is Desktop and not Engine.
       # On Jenkins it is Engine and so, not needed, but if you run the test container
       # locally you will probably need it. Run the 'test-ci-local' Make target instead of 'test-ci'
       # and it will be set for you. See: https://golang.testcontainers.org/system_requirements/ci/dind_patterns/
       - TESTCONTAINERS_HOST_OVERRIDE
     volumes:
-      # one of the tests uses testcontainers-go to start
+      # the dbmigrate tests uses testcontainers-go to start
       # a container. For this to work inside of Docker we
       # need to set this. See: https://golang.testcontainers.org/system_requirements/ci/dind_patterns/
       - /var/run/docker.sock:/var/run/docker.sock
-
   pennsievedb-collections:
-    image: pennsieve/pennsievedb-collections:20250515223535-seed
+    image: pennsieve/pennsievedb-collections:20250624123226-seed
     restart: always
-#    command: [ "postgres", "-c", "log_statement=all" ]
-
+  #    command: [ "postgres", "-c", "log_statement=all" ]
+  minio:
+    image: minio/minio:RELEASE.2025-05-24T17-08-30Z
+    environment:
+      - MINIO_ROOT_USER=TestAWSKey
+      - MINIO_ROOT_PASSWORD=TestAWSSecret
+    command: server --console-address ":9001" /data

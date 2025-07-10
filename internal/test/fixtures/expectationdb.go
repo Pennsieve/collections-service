@@ -3,21 +3,24 @@ package fixtures
 import (
 	"context"
 	"github.com/jackc/pgx/v5"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/require"
 	"log/slog"
 	"maps"
 	"slices"
+	"time"
 )
 
 type ExpectationDB struct {
 	db                     *test.PostgresDB
 	dbName                 string
-	internalStore          *store.PostgresCollectionsStore
+	internalStore          *collections.PostgresStore
 	createdUsers           map[int64]bool
 	knownCollectionIDs     map[int64]bool
 	knownCollectionNodeIDs map[string]bool
@@ -33,9 +36,9 @@ func NewExpectationDB(db *test.PostgresDB, dbName string) *ExpectationDB {
 	}
 }
 
-func (e *ExpectationDB) collectionsStore() store.CollectionsStore {
+func (e *ExpectationDB) collectionsStore() collections.Store {
 	if e.internalStore == nil {
-		e.internalStore = store.NewPostgresCollectionsStore(e.db, e.dbName, logging.Default.With(slog.String("source", "ExpectationDB")))
+		e.internalStore = collections.NewPostgresStore(e.db, e.dbName, logging.Default.With(slog.String("source", "ExpectationDB")))
 	}
 	return e.internalStore
 }
@@ -80,7 +83,53 @@ func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
-func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection) store.CreateCollectionResponse {
+func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.TestingT, expected *apitest.ExpectedPublishStatus) {
+	test.Helper(t)
+	require.NotNil(t, expected.CollectionID, "expected collectionID not set")
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	actual := GetPublishStatus(ctx, t, conn, *expected.CollectionID)
+	require.Equal(t, expected.ExpectedStatus, actual.Status)
+	require.Equal(t, expected.ExpectedType, actual.Type)
+	require.Equal(t, expected.ExpectedUserID, *actual.UserID)
+	require.NotZero(t, actual.StartedAt)
+	if expected.ExpectedStatus == publishing.InProgressStatus {
+		require.Nil(t, actual.FinishedAt)
+		if preCondition := expected.PreCondition; preCondition != nil {
+			switch preCondition.Status {
+			// If we expected InProgress with an InProgress pre-condition, then we should expect that there are no changes to the pre-condition
+			case publishing.InProgressStatus:
+				require.Equal(t, *preCondition.UserID, expected.ExpectedUserID)
+				requireTimeWithinEpsilon(t, preCondition.StartedAt, actual.StartedAt, time.Second)
+			default:
+				// but if the pre-condition is not InProgress, then StartedAt should have been reset
+				require.True(t, actual.StartedAt.After(preCondition.StartedAt), "updated started_at %v <= previous started_at %v", actual.StartedAt, preCondition.StartedAt)
+			}
+		}
+	} else {
+		require.NotNil(t, actual.FinishedAt)
+		require.False(t, (*actual.FinishedAt).Before(actual.StartedAt))
+		if preCondition := expected.PreCondition; preCondition != nil {
+			requireTimeWithinEpsilon(t, preCondition.StartedAt, actual.StartedAt, time.Second)
+		}
+	}
+}
+
+func (e *ExpectationDB) RequireNoPublishStatus(ctx context.Context, t require.TestingT, expectedCollectionID int64) {
+	test.Helper(t)
+	e.knownCollectionIDs[expectedCollectionID] = true
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	rows, _ := conn.Query(ctx, "SELECT * from collections.publish_status where collection_id = @collection_id", pgx.NamedArgs{"collection_id": expectedCollectionID})
+	unexpected, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (map[string]any, error) {
+		return pgx.RowToMap(row)
+	})
+	require.ErrorIs(t, err, pgx.ErrNoRows, "expected no row, got %v", unexpected)
+}
+
+func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection) collections.CreateCollectionResponse {
 	test.Helper(t)
 	ownerIdx := slices.IndexFunc(expected.Users, func(user apitest.ExpectedUser) bool {
 		return user.PermissionBit == pgdb.Owner
@@ -113,12 +162,26 @@ func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT
 	return response
 }
 
-func (e *ExpectationDB) CreateTestUser(ctx context.Context, t require.TestingT, testUser *apitest.TestUser) {
+func (e *ExpectationDB) CreateTestUser(ctx context.Context, t require.TestingT, testUser *userstest.TestUser) {
 	test.Helper(t)
 	conn := e.connect(ctx, t)
 	defer test.CloseConnection(ctx, t, conn)
 	CreateTestUser(ctx, t, conn, testUser)
 	e.createdUsers[*testUser.ID] = true
+}
+
+func (e *ExpectationDB) CreatePublishStatusPreCondition(ctx context.Context, t require.TestingT, expectedPublishStatus *apitest.ExpectedPublishStatus) {
+	test.Helper(t)
+	require.NotNil(t, expectedPublishStatus.PreCondition, "the given ExpectedPublishStatus does not have a precondition")
+	require.NotNil(t, expectedPublishStatus.PreCondition.CollectionID, "collectionID not set on PreCondition")
+	require.Equal(t, expectedPublishStatus.PreCondition.CollectionID, *expectedPublishStatus.CollectionID,
+		"PreCondition.CollectionID %d does not match CollectionID %d",
+		expectedPublishStatus.PreCondition.CollectionID,
+		*expectedPublishStatus.CollectionID)
+	conn := e.connect(ctx, t)
+	defer test.CloseConnection(ctx, t, conn)
+
+	AddPublishStatus(ctx, t, conn, *expectedPublishStatus.PreCondition)
 }
 
 func (e *ExpectationDB) CleanUp(ctx context.Context, t require.TestingT) {
@@ -154,7 +217,7 @@ func (e *ExpectationDB) CleanUp(ctx context.Context, t require.TestingT) {
 	}
 }
 
-func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, expected *apitest.ExpectedCollection, actual store.Collection) {
+func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, expected *apitest.ExpectedCollection, actual collections.Collection) {
 	require.Equal(t, expected.Name, actual.Name)
 	require.Equal(t, expected.Description, actual.Description)
 	if expected.NodeID != nil {
@@ -184,4 +247,18 @@ func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, 
 		require.NotZero(t, actualDOI.CreatedAt)
 		require.NotZero(t, actualDOI.UpdatedAt)
 	}
+}
+
+// requireTimeWithinEpsilon will fail test if absolute value of diff between expected and actual is more
+// than epsilon.
+// For occasions when one cannot use time.Equal because one value goes through a deserialization process that
+// creates small differences, for example, coming out of the DB.
+func requireTimeWithinEpsilon(t require.TestingT, expected, actual time.Time, epsilon time.Duration) {
+	delta := expected.Sub(actual)
+	require.LessOrEqual(t, delta.Abs(), epsilon,
+		"actual %v more than %v away from expected %v: %v",
+		actual,
+		epsilon,
+		expected,
+		delta.Abs())
 }

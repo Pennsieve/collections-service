@@ -2,3 +2,13 @@ services:
   pennsievedb-collections:
     ports:
       - "5432:5432"
+  minio:
+    environment:
+      # MINIO_DOMAIN needs to be set to get server to accept virtual host style requests:
+      # https://min.io/docs/minio/linux/reference/minio-server/settings/core.html#envvar.MINIO_DOMAIN
+      # Only doing this in local tests for now, since can't get virtual-host style to work
+      # when tests are running in Docker
+      - MINIO_DOMAIN=localhost:9000
+    ports:
+      - "9000:9000"
+      - "9001:9001"

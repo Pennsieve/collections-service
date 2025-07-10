@@ -6,7 +6,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"strings"
 )
 
@@ -31,7 +31,7 @@ func CategorizeDOIs(pennsieveDOIPrefix string, dois []string) (pennsieveDOIs []s
 	return
 }
 
-func GroupByDatasource(dois []store.DOI) (pennsieveDOIs []string, externalDOIs []string) {
+func GroupByDatasource(dois []collections.DOI) (pennsieveDOIs []string, externalDOIs []string) {
 	for _, doi := range dois {
 		if doi.Datasource == datasource.Pennsieve {
 			pennsieveDOIs = append(pennsieveDOIs, doi.Value)

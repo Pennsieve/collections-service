@@ -2,11 +2,12 @@ package routes
 
 import (
 	"context"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +50,7 @@ func testGetCollectionsNone(t *testing.T, _ *fixtures.ExpectationDB) {
 
 	// Test route
 	// use a different user with no collections
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -59,7 +60,7 @@ func testGetCollectionsNone(t *testing.T, _ *fixtures.ExpectationDB) {
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
 
 	limit, offset := 100, 10
 
@@ -87,7 +88,7 @@ func testGetCollectionsNone(t *testing.T, _ *fixtures.ExpectationDB) {
 func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user1 := apitest.NewTestUser()
+	user1 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user1)
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -104,7 +105,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		WithPublicDatasets(expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished())
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
-	user2 := apitest.NewTestUser()
+	user2 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user2)
 	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user2.ID, pgdb.Owner).
 		WithPublicDatasets(expectedDatasets.NewPublished(), expectedDatasets.NewPublished())
@@ -113,7 +114,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	// Test route
 	user1Claims := apitest.DefaultClaims(user1)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
@@ -123,7 +124,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	user1Params := Params{
@@ -178,7 +179,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 	totalCollections := 12
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
@@ -198,7 +199,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	offset := 0
 
 	userClaims := apitest.DefaultClaims(user)
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
@@ -208,7 +209,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	for ; offset < totalCollections; offset += limit {
@@ -283,11 +284,11 @@ func TestHandleGetCollections(t *testing.T) {
 
 func testHandleGetCollectionsEmptyCollectionsArray(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
-		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
-			return store.GetCollectionsResponse{
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
+			return collections.GetCollectionsResponse{
 				Limit:  DefaultGetCollectionsLimit,
 				Offset: DefaultGetCollectionsOffset,
 			}, nil
@@ -315,18 +316,18 @@ func testHandleGetCollectionsEmptyCollectionsArray(t *testing.T) {
 
 func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
-		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (store.GetCollectionsResponse, error) {
-			return store.GetCollectionsResponse{
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
+			return collections.GetCollectionsResponse{
 				Limit:      DefaultGetCollectionsLimit,
 				Offset:     DefaultGetCollectionsOffset,
 				TotalCount: 1,
-				Collections: []store.CollectionSummary{{
-					CollectionBase: store.CollectionBase{
+				Collections: []collections.CollectionSummary{{
+					CollectionBase: collections.CollectionBase{
 						NodeID:      *expectedCollection.NodeID,
 						Name:        expectedCollection.Name,
 						Description: expectedCollection.Description,

@@ -98,4 +98,19 @@ data "aws_iam_policy_document" "collections_service_api_iam_policy_document" {
       "arn:aws:ssm:${data.aws_region.current_region.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.environment_name}/${var.service_name}/*"
     ]
   }
+
+  statement {
+    sid    = "S3BucketAccess"
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:ListBucket",
+    ]
+
+    resources = [
+      data.terraform_remote_state.platform_infrastructure.outputs.discover_publish50_bucket_arn,
+      "${data.terraform_remote_state.platform_infrastructure.outputs.discover_publish50_bucket_arn}/*",
+    ]
+  }
 }

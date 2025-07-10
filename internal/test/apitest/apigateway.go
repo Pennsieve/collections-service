@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/user"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func (b *APIGatewayRequestBuilder) WithClaims(claims authorizer.Claims) *APIGate
 	return b
 }
 
-func (b *APIGatewayRequestBuilder) WithDefaultClaims(testUser User) *APIGatewayRequestBuilder {
+func (b *APIGatewayRequestBuilder) WithDefaultClaims(testUser userstest.User) *APIGatewayRequestBuilder {
 	return b.WithClaims(DefaultClaims(testUser))
 }
 
@@ -69,7 +70,7 @@ func (b *APIGatewayRequestBuilder) Build() events.APIGatewayV2HTTPRequest {
 	return *b.r
 }
 
-func DefaultClaims(testUser User) authorizer.Claims {
+func DefaultClaims(testUser userstest.User) authorizer.Claims {
 	return authorizer.Claims{
 		UserClaim: &user.Claim{
 			Id:           testUser.GetID(),

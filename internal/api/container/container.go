@@ -2,21 +2,35 @@ package container
 
 import (
 	"context"
+	"fmt"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/api/store/manifests"
+	"github.com/pennsieve/collections-service/internal/api/store/users"
+	"github.com/pennsieve/collections-service/internal/shared/clients/ssm"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	awsSSM "github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/pennsieve/collections-service/internal/shared/clients/postgres"
 )
 
 type DependencyContainer interface {
 	PostgresDB() postgres.DB
 	Discover() service.Discover
-	CollectionsStore() store.CollectionsStore
+	// InternalDiscover returns a Discover service for calling
+	// the internal endpoints. Since these require authz, the setup
+	// is a little different and requires calling SSM. So it is separated
+	// out from Discover so that we only do this setup if the internal
+	// endpoints will be used.
+	InternalDiscover(ctx context.Context) (service.InternalDiscover, error)
+	CollectionsStore() collections.Store
+	UsersStore() users.Store
+	ManifestStore() manifests.Store
 	Logger() *slog.Logger
 	SetLogger(logger *slog.Logger)
 	AddLoggingContext(args ...any)
@@ -27,7 +41,11 @@ type Container struct {
 	Config           config.Config
 	postgresdb       *postgres.RDSProxy
 	discover         *service.HTTPDiscover
-	collectionsStore *store.PostgresCollectionsStore
+	internalDiscover *service.HTTPInternalDiscover
+	collectionsStore *collections.PostgresStore
+	usersStore       *users.PostgresStore
+	manifestStore    *manifests.S3Store
+	parameterStore   *ssm.AWSParameterStore
 	logger           *slog.Logger
 }
 
@@ -88,11 +106,51 @@ func (c *Container) Discover() service.Discover {
 	return c.discover
 }
 
-func (c *Container) CollectionsStore() store.CollectionsStore {
+func (c *Container) CollectionsStore() collections.Store {
 	if c.collectionsStore == nil {
-		c.collectionsStore = store.NewPostgresCollectionsStore(c.PostgresDB(),
+		c.collectionsStore = collections.NewPostgresStore(c.PostgresDB(),
 			c.Config.PostgresDB.CollectionsDatabase,
 			c.Logger())
 	}
 	return c.collectionsStore
+}
+
+func (c *Container) UsersStore() users.Store {
+	if c.usersStore == nil {
+		c.usersStore = users.NewPostgresStore(c.PostgresDB(), c.Config.PostgresDB.CollectionsDatabase, c.Logger())
+	}
+	return c.usersStore
+}
+
+func (c *Container) ManifestStore() manifests.Store {
+	if c.manifestStore == nil {
+		s3Client := s3.NewFromConfig(c.AwsConfig)
+		c.manifestStore = manifests.NewS3Store(s3Client, c.Config.PennsieveConfig.PublishBucket, c.Logger())
+	}
+	return c.manifestStore
+}
+
+// ParameterStore is not part of the interface, since right now it is only used internally by Config.
+func (c *Container) ParameterStore() ssm.ParameterStore {
+	if c.parameterStore == nil {
+		c.parameterStore = ssm.NewAWSParameterStore(awsSSM.NewFromConfig(c.AwsConfig))
+	}
+	return c.parameterStore
+}
+
+func (c *Container) InternalDiscover(ctx context.Context) (service.InternalDiscover, error) {
+	if c.internalDiscover == nil {
+		jwtSecretKey, err := c.Config.PennsieveConfig.JWTSecretKey.Load(
+			ctx,
+			c.ParameterStore().GetParameter)
+		if err != nil {
+			return nil, fmt.Errorf("error creating internal discover service; cannot get JWT secret Key from SSM: %w", err)
+		}
+		c.internalDiscover = service.NewHTTPInternalDiscover(
+			c.Config.PennsieveConfig.DiscoverServiceURL,
+			jwtSecretKey,
+			c.Config.PennsieveConfig.CollectionNamespaceID,
+			c.Logger())
+	}
+	return c.internalDiscover, nil
 }

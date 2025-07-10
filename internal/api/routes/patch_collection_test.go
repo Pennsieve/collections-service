@@ -6,11 +6,12 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
+	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,7 +61,7 @@ func testPatchCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
@@ -70,7 +71,7 @@ func testPatchCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB
 	newName := uuid.NewString()
 	update := dto.PatchCollectionRequest{Name: &newName}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -82,7 +83,7 @@ func testPatchCollectionName(t *testing.T, expectationDB *fixtures.ExpectationDB
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -110,7 +111,7 @@ func testPatchCollectionDescription(t *testing.T, expectationDB *fixtures.Expect
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
@@ -124,7 +125,7 @@ func testPatchCollectionDescription(t *testing.T, expectationDB *fixtures.Expect
 	newDescription := uuid.NewString()
 	update := dto.PatchCollectionRequest{Description: &newDescription}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -136,7 +137,7 @@ func testPatchCollectionDescription(t *testing.T, expectationDB *fixtures.Expect
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -164,7 +165,7 @@ func testPatchCollectionNameAndDescription(t *testing.T, expectationDB *fixtures
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
@@ -179,7 +180,7 @@ func testPatchCollectionNameAndDescription(t *testing.T, expectationDB *fixtures
 	newDescription := uuid.NewString()
 	update := dto.PatchCollectionRequest{Name: &newName, Description: &newDescription}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -191,7 +192,7 @@ func testPatchCollectionNameAndDescription(t *testing.T, expectationDB *fixtures
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -220,7 +221,7 @@ func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expecta
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToRemove1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -235,7 +236,7 @@ func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expecta
 
 	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Remove: []string{datasetToRemove2.DOI, datasetToRemove1.DOI}}}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -247,7 +248,7 @@ func testPatchCollectionRemoveDOIs(t *testing.T, expectationDB *fixtures.Expecta
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -275,7 +276,7 @@ func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectatio
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -290,7 +291,7 @@ func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectatio
 
 	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{datasetToAdd1.DOI, datasetToAdd2.DOI}}}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -302,7 +303,7 @@ func testPatchCollectionAddDOIs(t *testing.T, expectationDB *fixtures.Expectatio
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -330,7 +331,7 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -355,7 +356,7 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		},
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -367,7 +368,7 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -397,7 +398,7 @@ func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.Exp
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	publishedToAdd := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -412,7 +413,7 @@ func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.Exp
 
 	update := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{publishedToAdd.DOI, unpublishedToAdd.DOI}}}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -424,7 +425,7 @@ func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.Exp
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -456,7 +457,7 @@ func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtur
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToRemove1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -474,7 +475,7 @@ func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtur
 		DOIs: &dto.PatchDOIs{Remove: []string{datasetToRemove2.DOI, datasetToRemove1.DOI, uuid.NewString()}},
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -486,7 +487,7 @@ func testPatchCollectionRemoveNonExistentDOI(t *testing.T, expectationDB *fixtur
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -515,7 +516,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	datasetToAdd1 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
@@ -535,7 +536,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 		},
 	}
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	claims := apitest.DefaultClaims(user)
@@ -547,7 +548,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
 		WithHTTPTestDiscover(mockDiscoverServer.URL)
 
 	params := Params{
@@ -573,7 +574,7 @@ func testPatchCollectionAddExistingDOI(t *testing.T, expectationDB *fixtures.Exp
 func testPatchCollectionNonExistent(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	nonExistentNodeID := uuid.NewString()
@@ -590,7 +591,7 @@ func testPatchCollectionNonExistent(t *testing.T, expectationDB *fixtures.Expect
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
@@ -612,7 +613,7 @@ func testPatchCollectionNonExistent(t *testing.T, expectationDB *fixtures.Expect
 func testPatchCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	user := apitest.NewTestUser()
+	user := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user)
 
 	nonExistentNodeID := uuid.NewString()
@@ -629,7 +630,7 @@ func testPatchCollectionNonExistentDOIUpdateOnly(t *testing.T, expectationDB *fi
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-		WithContainerStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 			WithClaims(claims).
@@ -653,18 +654,18 @@ func TestGetUpdateRequestAddDOIs(t *testing.T) {
 	doiToAdd2 := apitest.NewPennsieveDOI()
 	doi2 := apitest.NewPennsieveDOI()
 
-	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(apitest.SeedUser1.ID, pgdb.Owner).
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(userstest.SeedUser1.ID, pgdb.Owner).
 		WithDOIs(doi1, doi2)
 
 	patchCollectionRequest := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{doiToAdd1.Value, doiToAdd2.Value}}}
 
-	updateRequest, err := GetUpdateRequest(apitest.PennsieveDOIPrefix, patchCollectionRequest, expectedCollection.ToGetCollectionResponse(t, apitest.SeedUser1.ID))
+	updateRequest, err := GetUpdateRequest(apitest.PennsieveDOIPrefix, patchCollectionRequest, expectedCollection.ToGetCollectionResponse(t, userstest.SeedUser1.ID))
 	require.NoError(t, err)
 
 	assert.Nil(t, updateRequest.Name)
 	assert.Nil(t, updateRequest.Description)
 	assert.Empty(t, updateRequest.DOIs.Remove)
-	assert.Equal(t, []store.DOI{doiToAdd1, doiToAdd2}, updateRequest.DOIs.Add)
+	assert.Equal(t, []collections.DOI{doiToAdd1, doiToAdd2}, updateRequest.DOIs.Add)
 
 }
 
@@ -721,11 +722,11 @@ func TestHandlePatchCollection(t *testing.T) {
 
 func testHandlePatchCollectionEmptyArrays(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().WithMockID(1).WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
+	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
 		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
@@ -759,16 +760,16 @@ func testHandlePatchCollectionEmptyArrays(t *testing.T) {
 
 func testHandlePatchCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedDOI := apitest.NewPennsieveDOI()
 	expectedCollection := apitest.NewExpectedCollection().WithMockID(2).WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().
+	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
 		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
-	mockDiscover := mocks.NewMockDiscover().WithGetDatasetsByDOIFunc(func(dois []string) (service.DatasetsByDOIResponse, error) {
+	mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(func(ctx context.Context, dois []string) (service.DatasetsByDOIResponse, error) {
 		return service.DatasetsByDOIResponse{Published: map[string]dto.PublicDataset{
 			expectedDOI.Value: apitest.NewPublicDataset(expectedDOI.Value, apitest.NewBanner(), apitest.NewPublicContributor()),
 		}}, nil
@@ -797,9 +798,9 @@ func testHandlePatchCollectionEmptyArraysInPublicDataset(t *testing.T) {
 
 func testHandlePatchCollectionNoBody(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -823,9 +824,9 @@ func testHandlePatchCollectionNoBody(t *testing.T) {
 
 func testHandlePatchCollectionEmptyName(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -855,9 +856,9 @@ func testHandlePatchCollectionEmptyName(t *testing.T) {
 
 func testHandlePatchCollectionNameTooLong(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -887,9 +888,9 @@ func testHandlePatchCollectionNameTooLong(t *testing.T) {
 
 func testHandlePatchCollectionDescriptionTooLong(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
-	mockCollectionStore := mocks.NewMockCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore()
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -919,14 +920,14 @@ func testHandlePatchCollectionDescriptionTooLong(t *testing.T) {
 
 func testHandlePatchCollectionNotFound(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (store.GetCollectionResponse, error) {
+	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
 		test.Helper(t)
 		require.Equal(t, callingUser.ID, userID)
 		require.Equal(t, nonExistentNodeID, nodeID)
-		return store.GetCollectionResponse{}, store.ErrCollectionNotFound
+		return collections.GetCollectionResponse{}, collections.ErrCollectionNotFound
 	})
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -953,18 +954,18 @@ func testHandlePatchCollectionNotFound(t *testing.T) {
 
 func testHandlePatchCollectionAuthz(t *testing.T) {
 	ctx := context.Background()
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 	claims := apitest.DefaultClaims(callingUser)
 
 	for _, tooLowPerm := range []pgdb.DbPermission{pgdb.Guest, pgdb.Read} {
 		t.Run(tooLowPerm.String(), func(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
 
-			mockCollectionStore := mocks.NewMockCollectionsStore().
+			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
 			params := Params{
-				Request: apitest.NewAPIGatewayRequestBuilder(DeleteCollectionRouteKey).
+				Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 					WithBody(t, dto.PatchCollectionRequest{}).
@@ -989,12 +990,12 @@ func testHandlePatchCollectionAuthz(t *testing.T) {
 		t.Run(okPerm.String(), func(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm)
 
-			mockCollectionStore := mocks.NewMockCollectionsStore().
+			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
 				WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
 			params := Params{
-				Request: apitest.NewAPIGatewayRequestBuilder(DeleteCollectionRouteKey).
+				Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 					WithBody(t, dto.PatchCollectionRequest{}).
@@ -1016,14 +1017,14 @@ func testHandlePatchCollectionAuthz(t *testing.T) {
 func testRejectAddingCollectionDOI(t *testing.T) {
 	ctx := context.Background()
 
-	callingUser := apitest.SeedUser1
+	callingUser := userstest.SeedUser1
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithRandomID().
 		WithNodeID().
 		WithUser(callingUser.ID, pgdb.Owner)
 
-	mockCollectionStore := mocks.NewMockCollectionsStore().WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	researchDataset := expectedDatasets.NewPublishedWithOptions(apitest.WithDatasetType("research"))
@@ -1036,7 +1037,7 @@ func testRejectAddingCollectionDOI(t *testing.T) {
 
 	claims := apitest.DefaultClaims(callingUser)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
 	defer mockDiscoverServer.Close()
 
 	config := apitest.NewConfigBuilder().

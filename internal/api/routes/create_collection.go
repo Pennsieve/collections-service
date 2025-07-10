@@ -8,7 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/store"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/api/validate"
 	"log/slog"
 	"net/http"
@@ -52,9 +52,9 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 		Description: createRequest.Description,
 		Size:        len(pennsieveDOIs),
 	}
-	var doisToAdd []store.DOI
+	var doisToAdd []collections.DOI
 	if len(pennsieveDOIs) > 0 {
-		datasetResults, err := ccParams.Container.Discover().GetDatasetsByDOI(pennsieveDOIs)
+		datasetResults, err := ccParams.Container.Discover().GetDatasetsByDOI(ctx, pennsieveDOIs)
 		if err != nil {
 			return dto.CreateCollectionResponse{}, apierrors.NewInternalServerError("error looking up DOIs in Discover", err)
 		}
@@ -66,7 +66,7 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 		response.Banners = collectBanners(pennsieveDOIs, datasetResults.Published)
 
 		for _, pennsieveDOI := range pennsieveDOIs {
-			doisToAdd = append(doisToAdd, store.DOI{
+			doisToAdd = append(doisToAdd, collections.DOI{
 				Value:      pennsieveDOI,
 				Datasource: datasource.Pennsieve,
 			})
