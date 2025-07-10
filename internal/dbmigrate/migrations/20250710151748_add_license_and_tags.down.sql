@@ -1,0 +1,3 @@
+ALTER TABLE collections
+    DROP COLUMN IF EXISTS license,
+    DROP COLUMN IF EXISTS tags;
