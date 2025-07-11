@@ -553,7 +553,13 @@ func testPublishCollection(t *testing.T) {
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDatasets.NewPublished())
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished()).
+		WithRandomLicense().
+		WithNTags(2)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
@@ -588,11 +594,6 @@ func testPublishCollection(t *testing.T) {
 		return manifests.SaveManifestResponse{S3VersionID: uuid.NewString()}, nil
 	})
 
-	publishRequest := dto.PublishCollectionRequest{
-		License: apitest.ValidRandomLicense(),
-		Tags:    []string{"test1"},
-	}
-
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().
 			WithCollectionsStore(mockCollectionStore).
@@ -607,7 +608,6 @@ func testPublishCollection(t *testing.T) {
 	req := apitest.NewAPIGatewayRequestBuilder(routes.PublishCollectionRouteKey).
 		WithDefaultClaims(callingUser).
 		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
-		WithBody(t, publishRequest).
 		Build()
 
 	response, err := handler(context.Background(), req)

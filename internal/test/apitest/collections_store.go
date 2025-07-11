@@ -308,6 +308,8 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 		NodeID:      *c.NodeID,
 		Name:        c.Name,
 		Description: c.Description,
+		License:     c.License,
+		Tags:        c.Tags,
 		Size:        len(c.DOIs),
 		UserRole:    user.PermissionBit.ToRole(),
 	}

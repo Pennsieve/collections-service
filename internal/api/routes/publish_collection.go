@@ -2,7 +2,6 @@ package routes
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
@@ -36,26 +35,6 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		slog.String(NodeIDPathParamKey, nodeID),
 		slog.String("userNodeId", userClaim.NodeId))
 
-	requestBody := params.Request.Body
-	if len(requestBody) == 0 {
-		return dto.PublishCollectionResponse{}, apierrors.NewBadRequestError("missing request body")
-	}
-	if logger := params.Container.Logger(); logger.Enabled(ctx, slog.LevelDebug) {
-		logger.Debug("publish collection request body", slog.String("body", requestBody))
-	}
-
-	var publishRequest dto.PublishCollectionRequest
-	decoder := json.NewDecoder(strings.NewReader(requestBody))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&publishRequest); err != nil {
-		return dto.PublishCollectionResponse{}, apierrors.NewRequestUnmarshallError(publishRequest, err)
-	}
-
-	// Validate the request body
-	if err := validatePublishRequest(&publishRequest); err != nil {
-		return dto.PublishCollectionResponse{}, err
-	}
-
 	// Lookup info for the initial publish request to Discover
 	collection, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
 	if err != nil {
@@ -80,7 +59,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	// Make sure there is no in-progress publish for this collection
 	if err := params.Container.CollectionsStore().StartPublish(ctx, collection.ID, userClaim.Id, publishing.PublicationType); err != nil {
 		if errors.Is(err, collections.ErrPublishInProgress) {
-			// deliberately leave publish status alone, i.e., no cleanup
+			// deliberately leave publish status alone, i.e., no cleanupStatus
 			return dto.PublishCollectionResponse{}, apierrors.NewConflictError(err.Error())
 		}
 		return dto.PublishCollectionResponse{},
@@ -90,10 +69,10 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			)
 	}
 
-	if len(collection.Description) == 0 {
+	if err := validateCollection(collection); err != nil {
 		return dto.PublishCollectionResponse{}, cleanupOnError(
 			ctx,
-			apierrors.NewBadRequestError("published description cannot be empty"),
+			err,
 			cleanupStatus(params.Container.CollectionsStore(), collection.ID),
 		)
 	}
@@ -135,8 +114,8 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		Description:      collection.Description,
 		Banners:          banners,
 		DOIs:             collection.DOIs.Strings(),
-		License:          publishRequest.License,
-		Tags:             publishRequest.Tags,
+		License:          *collection.License,
+		Tags:             collection.Tags,
 		OwnerID:          userClaim.Id,
 		OwnerNodeID:      userClaim.NodeId,
 		OwnerFirstName:   util.SafeDeref(userResp.FirstName),
@@ -179,8 +158,8 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		WithName(collection.Name).
 		WithDescription(collection.Description).
 		WithCreator(creator(userResp)).
-		WithLicense(publishRequest.License).
-		WithKeywords(publishRequest.Tags).
+		WithLicense(*collection.License).
+		WithKeywords(collection.Tags).
 		WithReferences(pennsieveDOIs).
 		Build()
 	if err != nil {
@@ -261,13 +240,14 @@ func NewPublishCollectionRouteHandler() Handler[dto.PublishCollectionResponse] {
 	}
 }
 
-func validatePublishRequest(publishRequest *dto.PublishCollectionRequest) error {
-	trimmedLic := strings.TrimSpace(publishRequest.License)
-	publishRequest.License = trimmedLic
-	if err := validate.License(&trimmedLic, true); err != nil {
+func validateCollection(collection collections.GetCollectionResponse) error {
+	if len(collection.Description) == 0 {
+		return apierrors.NewBadRequestError("published description cannot be empty")
+	}
+	if err := validate.License(collection.License, true); err != nil {
 		return err
 	}
-	if err := validate.Tags(publishRequest.Tags); err != nil {
+	if err := validate.Tags(collection.Tags); err != nil {
 		return err
 	}
 	return nil
@@ -318,7 +298,7 @@ func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDataset
 	}
 }
 
-func cleanupOnError(ctx context.Context, originalErr *apierrors.Error, cleanups ...cleanupFunc) error {
+func cleanupOnError(ctx context.Context, originalErr error, cleanups ...cleanupFunc) error {
 	var cleanupErrs []string
 	for _, cleanup := range cleanups {
 		if cleanupErr := cleanup(ctx); cleanupErr != nil {
@@ -331,11 +311,18 @@ func cleanupOnError(ctx context.Context, originalErr *apierrors.Error, cleanups 
 		return originalErr
 	}
 	joined := strings.Join(cleanupErrs, "; ")
-	var cause error
-	if origCause := originalErr.Cause; origCause == nil {
-		cause = fmt.Errorf("cleanup errors: %s", joined)
-	} else {
-		cause = fmt.Errorf("%w; %s", originalErr, joined)
+
+	// Ideally all errors will be *apierrors.Error, but just in case
+	var originalAPIError *apierrors.Error
+	if errors.As(originalErr, &originalAPIError) {
+		var cause error
+		if origCause := originalAPIError.Cause; origCause == nil {
+			cause = fmt.Errorf("cleanup errors not related to cause: %s", joined)
+		} else {
+			cause = fmt.Errorf("%w; %s", originalErr, joined)
+		}
+		return apierrors.NewError(originalAPIError.UserMessage, cause, originalAPIError.StatusCode)
 	}
-	return apierrors.NewError(originalErr.UserMessage, cause, originalErr.StatusCode)
+	return fmt.Errorf("%w: with cleanup errors: %s", originalErr, joined)
+
 }
