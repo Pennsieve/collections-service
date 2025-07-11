@@ -6,6 +6,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/shared/util"
 )
 
 func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collections.GetCollectionResponse) (dto.GetCollectionResponse, error) {
@@ -16,6 +17,8 @@ func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collec
 			Description: storeCollection.Description,
 			Size:        storeCollection.Size,
 			UserRole:    storeCollection.UserRole.String(),
+			License:     util.SafeDeref(storeCollection.License),
+			Tags:        storeCollection.Tags,
 		},
 	}
 

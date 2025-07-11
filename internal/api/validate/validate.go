@@ -3,6 +3,8 @@ package validate
 import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/dto"
+	"slices"
 	"strings"
 )
 
@@ -29,11 +31,16 @@ func IntQueryParamValue(key string, value int, requiredMin int) error {
 	return nil
 }
 
-func License(value string) error {
-	if valueLen := len(value); valueLen == 0 {
-		return apierrors.NewBadRequestError("license cannot be empty")
-	} else if valueLen > 255 {
-		return apierrors.NewBadRequestError("license cannot have more than 255 characters")
+func License(value *string, required bool) error {
+	if value == nil {
+		if required {
+			return apierrors.NewBadRequestError("missing required license")
+		}
+		return nil
+	}
+	idx := slices.Index(dto.ValidLicenses, *value)
+	if idx == -1 {
+		return apierrors.NewBadRequestError(fmt.Sprintf("invalid license: %q", *value))
 	}
 	return nil
 }

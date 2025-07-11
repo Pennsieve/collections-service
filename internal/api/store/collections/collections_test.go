@@ -30,6 +30,7 @@ func TestStore(t *testing.T) {
 		{"create collection, one DOI", testCreateCollectionOneDOI},
 		{"create collection, many DOIs", testCreateCollectionManyDOIs},
 		{"create collection, empty description", testCreateCollectionEmptyDescription},
+		{"create collection, nil license", testCreateCollectionNilLicense},
 		{"get collections, none", testGetCollectionsNone},
 		{"get collections", testGetCollections},
 		{"get collections, user with no permission on the collection should not see it", testGetCollectionsNoPerms},
@@ -78,9 +79,9 @@ func testCreateCollectionNilDOIs(t *testing.T, store *collections.PostgresStore,
 	ctx := context.Background()
 	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithRandomLicense().WithNTags(3)
 
-	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, nil)
+	resp, err := store.CreateCollection(ctx, expectedCollection.CreateCollectionRequest(t))
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -93,9 +94,9 @@ func testCreateCollectionEmptyDOIs(t *testing.T, collectionsStore *collections.P
 	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
 
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithRandomLicense().WithNTags(1)
 
-	resp, err := collectionsStore.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, []collections.DOI{})
+	resp, err := collectionsStore.CreateCollection(ctx, expectedCollection.CreateCollectionRequest(t))
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -107,9 +108,9 @@ func testCreateCollectionOneDOI(t *testing.T, store *collections.PostgresStore, 
 	ctx := context.Background()
 	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI()).WithNTags(2)
 
-	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.AsDOIs())
+	resp, err := store.CreateCollection(ctx, expectedCollection.CreateCollectionRequest(t))
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -122,9 +123,9 @@ func testCreateCollectionManyDOIs(t *testing.T, store *collections.PostgresStore
 	ctx := context.Background()
 	expectedOwner := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, expectedOwner)
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI()).WithRandomLicense()
 
-	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.AsDOIs())
+	resp, err := store.CreateCollection(ctx, expectedCollection.CreateCollectionRequest(t))
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -140,7 +141,22 @@ func testCreateCollectionEmptyDescription(t *testing.T, store *collections.Postg
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectedCollection.Description = ""
 
-	resp, err := store.CreateCollection(ctx, *expectedOwner.ID, *expectedCollection.NodeID, expectedCollection.Name, expectedCollection.Description, expectedCollection.DOIs.AsDOIs())
+	resp, err := store.CreateCollection(ctx, expectedCollection.CreateCollectionRequest(t))
+	require.NoError(t, err)
+	assert.Positive(t, resp.ID)
+	assert.Equal(t, role.Owner, resp.CreatorRole)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, resp.ID)
+
+}
+
+func testCreateCollectionNilLicense(t *testing.T, store *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+	expectedOwner := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, expectedOwner)
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*expectedOwner.ID, pgdb.Owner)
+
+	resp, err := store.CreateCollection(ctx, expectedCollection.CreateCollectionRequest(t))
 	require.NoError(t, err)
 	assert.Positive(t, resp.ID)
 	assert.Equal(t, role.Owner, resp.CreatorRole)
@@ -176,12 +192,12 @@ func testGetCollections(t *testing.T, store *collections.PostgresStore, expectat
 
 	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
-	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI()).WithRandomLicense()
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
-	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI()).WithNTags(5)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
-	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI()).WithRandomLicense().WithNTags(3)
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
 	// Test with store
@@ -296,7 +312,7 @@ func testGetCollectionsLimitOffset(t *testing.T, store *collections.PostgresStor
 	totalCollections := 11
 	var expectedCollections []*apitest.ExpectedCollection
 	for i := 0; i < totalCollections; i++ {
-		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithNPennsieveDOIs(i)
+		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithNPennsieveDOIs(i).WithRandomLicense().WithNTags(i)
 		expectationDB.CreateCollection(ctx, t, expectedCollection)
 		expectedCollections = append(expectedCollections, expectedCollection)
 	}
@@ -353,11 +369,28 @@ func testGetCollection(t *testing.T, store *collections.PostgresStore, expectati
 	user2 := userstest.NewTestUser()
 	expectationDB.CreateTestUser(ctx, t, user2)
 
-	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithRandomLicense()
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
-	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+	user1CollectionOneDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithDOIs(apitest.NewPennsieveDOI()).
+		WithNTags(2)
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
-	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithDOIs(
+			apitest.NewPennsieveDOI(),
+			apitest.NewPennsieveDOI(),
+			apitest.NewPennsieveDOI(),
+			apitest.NewPennsieveDOI(),
+			apitest.NewPennsieveDOI(),
+		).WithRandomLicense().
+		WithNTags(6)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
 	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user2.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
@@ -891,6 +924,8 @@ func assertExpectedEqualCollectionBase(t *testing.T, expected *apitest.ExpectedC
 	assert.Equal(t, *expected.NodeID, actual.NodeID)
 	assert.Equal(t, expected.Name, actual.Name)
 	assert.Equal(t, expected.Description, actual.Description)
+	assert.Equal(t, expected.License, actual.License)
+	assert.Equal(t, expected.Tags, actual.Tags)
 	assert.Equal(t, expected.Users[0].PermissionBit.ToRole(), actual.UserRole)
 	assert.Equal(t, len(expected.DOIs), actual.Size)
 }

@@ -34,9 +34,11 @@ type ExpectedCollection struct {
 	// on the level we are testing. We can have an expected nodeID
 	// if testing collection creation at the store level, but not at the route handling level
 	// for example
-	NodeID *string
-	Users  []ExpectedUser
-	DOIs   ExpectedDOIs
+	NodeID  *string
+	License *string
+	Tags    []string
+	Users   []ExpectedUser
+	DOIs    ExpectedDOIs
 }
 
 func NewExpectedCollection() *ExpectedCollection {
@@ -69,6 +71,30 @@ func (c *ExpectedCollection) WithMockID(mockID int64) *ExpectedCollection {
 func (c *ExpectedCollection) WithRandomID() *ExpectedCollection {
 	id := rand.Int64() + 1
 	c.ID = &id
+	return c
+}
+
+func (c *ExpectedCollection) WithLicense(license string) *ExpectedCollection {
+	c.License = &license
+	return c
+}
+
+func (c *ExpectedCollection) WithRandomLicense() *ExpectedCollection {
+	license := dto.ValidLicenses[rand.IntN(len(dto.ValidLicenses))]
+	c.License = &license
+	return c
+}
+
+// WithTags adds the given tags to any existing tags on this ExpectedCollection
+func (c *ExpectedCollection) WithTags(tags []string) *ExpectedCollection {
+	c.Tags = append(c.Tags, tags...)
+	return c
+}
+
+func (c *ExpectedCollection) WithNTags(n int) *ExpectedCollection {
+	for i := 0; i < n; i++ {
+		c.Tags = append(c.Tags, uuid.NewString())
+	}
 	return c
 }
 
@@ -142,7 +168,7 @@ func (c *ExpectedCollection) SetPublicDatasets(publicDatasets ...dto.PublicDatas
 type ExpectedDOIs []ExpectedDOI
 
 func (d ExpectedDOIs) Strings() []string {
-	if len(d) == 0 {
+	if d == nil {
 		return nil
 	}
 	strs := make([]string, len(d))
@@ -153,7 +179,7 @@ func (d ExpectedDOIs) Strings() []string {
 }
 
 func (d ExpectedDOIs) AsDOIs() collections.DOIs {
-	if len(d) == 0 {
+	if d == nil {
 		return nil
 	}
 	strs := make([]collections.DOI, len(d))
@@ -164,6 +190,26 @@ func (d ExpectedDOIs) AsDOIs() collections.DOIs {
 		}
 	}
 	return strs
+}
+
+func (c *ExpectedCollection) CreateCollectionRequest(t require.TestingT) collections.CreateCollectionRequest {
+	test.Helper(t)
+	ownerIdx := slices.IndexFunc(c.Users, func(user ExpectedUser) bool {
+		return user.PermissionBit == pgdb.Owner
+	})
+	require.True(t, ownerIdx > -1, "ExpectedCollection.CreateCollectionRequest can only be called with at least one expected owner")
+	expectedOwner := c.Users[ownerIdx]
+	require.NotNil(t, c.NodeID, "ExpectedCollection.CreateCollectionRequest can only be called with a non-nil node id; call WithNodeID() on ExpectedCollection")
+
+	return collections.CreateCollectionRequest{
+		NodeID:      *c.NodeID,
+		Name:        c.Name,
+		Description: c.Description,
+		DOIs:        c.DOIs.AsDOIs(),
+		UserID:      expectedOwner.UserID,
+		License:     c.License,
+		Tags:        c.Tags,
+	}
 }
 
 type ExpectedPublishStatus struct {

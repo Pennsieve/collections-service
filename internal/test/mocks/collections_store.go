@@ -6,7 +6,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 )
 
-type CreateCollectionsFunc func(ctx context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error)
+type CreateCollectionsFunc func(ctx context.Context, request collections.CreateCollectionRequest) (collections.CreateCollectionResponse, error)
 
 type GetCollectionsFunc func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error)
 
@@ -69,11 +69,11 @@ func (c *CollectionsStore) WithFinishPublishFunc(f FinishPublishFunc) *Collectio
 	return c
 }
 
-func (c *CollectionsStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
+func (c *CollectionsStore) CreateCollection(ctx context.Context, request collections.CreateCollectionRequest) (collections.CreateCollectionResponse, error) {
 	if c.CreateCollectionsFunc == nil {
 		panic("mock CreateCollections function not set")
 	}
-	return c.CreateCollectionsFunc(ctx, userID, nodeID, name, description, dois)
+	return c.CreateCollectionsFunc(ctx, request)
 }
 
 func (c *CollectionsStore) GetCollections(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {

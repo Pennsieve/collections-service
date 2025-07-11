@@ -280,13 +280,13 @@ func testCreateCollection(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, storeRequest collections.CreateCollectionRequest) (collections.CreateCollectionResponse, error) {
 		t.Helper()
-		require.Equal(t, callingUser.ID, userID)
-		require.NotEmpty(t, nodeID)
-		collectionNodeID = nodeID
-		require.Equal(t, createCollectionRequest.Name, name)
-		require.Equal(t, createCollectionRequest.Description, description)
+		require.Equal(t, callingUser.ID, storeRequest.UserID)
+		require.NotEmpty(t, storeRequest.Name)
+		collectionNodeID = storeRequest.NodeID
+		require.Equal(t, createCollectionRequest.Name, storeRequest.Name)
+		require.Equal(t, createCollectionRequest.Description, storeRequest.Description)
 		var expectedDOIs []collections.DOI
 		for _, doi := range createCollectionRequest.DOIs {
 			expectedDOIs = append(expectedDOIs, collections.DOI{
@@ -294,7 +294,7 @@ func testCreateCollection(t *testing.T) {
 				Datasource: datasource.Pennsieve,
 			})
 		}
-		require.Equal(t, expectedDOIs, dois)
+		require.Equal(t, expectedDOIs, storeRequest.DOIs)
 		return collections.CreateCollectionResponse{
 			ID:          1,
 			CreatorRole: role.Owner,
@@ -589,7 +589,7 @@ func testPublishCollection(t *testing.T) {
 	})
 
 	publishRequest := dto.PublishCollectionRequest{
-		License: "Creative Commons",
+		License: apitest.ValidRandomLicense(),
 		Tags:    []string{"test1"},
 	}
 

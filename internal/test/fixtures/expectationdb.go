@@ -131,14 +131,8 @@ func (e *ExpectationDB) RequireNoPublishStatus(ctx context.Context, t require.Te
 
 func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection) collections.CreateCollectionResponse {
 	test.Helper(t)
-	ownerIdx := slices.IndexFunc(expected.Users, func(user apitest.ExpectedUser) bool {
-		return user.PermissionBit == pgdb.Owner
-	})
-	require.True(t, ownerIdx > -1, "ExpectationDB.CreateCollection can only be called with at least one expected owner")
-	expectedOwner := expected.Users[ownerIdx]
-	require.NotNil(t, expected.NodeID, "ExpectationDB.CreateCollection can only be called with a non-nil node id; call WithNodeID() on ExpectedCollection")
-
-	response, err := e.collectionsStore().CreateCollection(ctx, expectedOwner.UserID, *expected.NodeID, expected.Name, expected.Description, expected.DOIs.AsDOIs())
+	createCollectionRequest := expected.CreateCollectionRequest(t)
+	response, err := e.collectionsStore().CreateCollection(ctx, createCollectionRequest)
 	require.NoError(t, err)
 	expected.ID = &response.ID
 	e.knownCollectionIDs[response.ID] = true
@@ -150,8 +144,8 @@ func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT
 
 	// otherwise, add other users
 	otherUsers := map[int64]pgdb.DbPermission{}
-	for i, user := range expected.Users {
-		if i != ownerIdx {
+	for _, user := range expected.Users {
+		if user.UserID != createCollectionRequest.UserID {
 			otherUsers[user.UserID] = user.PermissionBit
 		}
 	}
@@ -225,6 +219,8 @@ func requireCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, 
 	}
 	require.NotZero(t, actual.CreatedAt)
 	require.NotZero(t, actual.UpdatedAt)
+	require.Equal(t, expected.License, actual.License)
+	require.Equal(t, expected.Tags, actual.Tags)
 
 	actualUsers := GetCollectionUsers(ctx, t, conn, actual.ID)
 	require.Len(t, actualUsers, len(expected.Users))

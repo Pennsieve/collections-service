@@ -3,6 +3,7 @@ package routes
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
@@ -134,7 +135,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 		WithPennsieveConfig(pennsieveConfig).
 		Build()
 
-	expectedLicense := "Creative Commons"
+	expectedLicense := apitest.ValidRandomLicense()
 	expectedKeywords := []string{"test1, test2"}
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
@@ -244,7 +245,7 @@ func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
+				License: apitest.ValidRandomLicense(),
 				Tags:    []string{"test1, test2"},
 			}).
 			Build(),
@@ -300,7 +301,7 @@ func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationD
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
+				License: apitest.ValidRandomLicense(),
 				Tags:    []string{"test1, test2"},
 			}).
 			Build(),
@@ -357,7 +358,7 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
+				License: apitest.ValidRandomLicense(),
 				Tags:    []string{"test1, test2"},
 			}).
 			Build(),
@@ -451,7 +452,7 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 		WithPennsieveConfig(pennsieveConfig).
 		Build()
 
-	expectedLicense := "Creative Commons"
+	expectedLicense := apitest.ValidRandomLicense()
 	expectedKeywords := []string{"test1, test2"}
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
@@ -552,7 +553,7 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
+				License: apitest.ValidRandomLicense(),
 				Tags:    []string{"test1, test2"},
 			}).
 			Build(),
@@ -681,7 +682,7 @@ func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 
-	assert.Contains(t, response.Body, "license cannot be empty")
+	assert.Contains(t, response.Body, `invalid license: \"\"`)
 }
 
 func testHandlePublishCollectionLicenseTooLong(t *testing.T) {
@@ -712,7 +713,7 @@ func testHandlePublishCollectionLicenseTooLong(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 
-	assert.Contains(t, response.Body, "license cannot have more than 255 characters")
+	assert.Contains(t, response.Body, fmt.Sprintf(`invalid license: \"%s\"`, publishRequest.License))
 
 }
 
@@ -721,7 +722,7 @@ func testHandlePublishCollectionNoTags(t *testing.T) {
 	callingUser := userstest.SeedUser1
 
 	publishRequest := dto.PublishCollectionRequest{
-		License: "Creative Commons something",
+		License: apitest.ValidRandomLicense(),
 	}
 
 	mockCollectionStore := mocks.NewCollectionsStore()
@@ -752,7 +753,7 @@ func testHandlePublishCollectionEmptyTags(t *testing.T) {
 	callingUser := userstest.SeedUser1
 
 	publishRequest := dto.PublishCollectionRequest{
-		License: "Creative Commons something",
+		License: apitest.ValidRandomLicense(),
 		Tags:    []string{},
 	}
 
@@ -797,7 +798,7 @@ func testHandlePublishCollectionNotFound(t *testing.T) {
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
 			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
+				License: apitest.ValidRandomLicense(),
 				Tags:    []string{"test"},
 			}).
 			WithPathParam(NodeIDPathParamKey, nonExistentNodeID).
@@ -833,7 +834,7 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 					WithBody(t, dto.PublishCollectionRequest{
-						License: "Creative Commons",
+						License: apitest.ValidRandomLicense(),
 						Tags:    []string{"test"},
 					}).
 					Build(),
@@ -922,7 +923,7 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 					WithBody(t, dto.PublishCollectionRequest{
-						License: "Creative Commons",
+						License: apitest.ValidRandomLicense(),
 						Tags:    []string{"test"},
 					}).
 					Build(),
@@ -950,7 +951,7 @@ func testHandlePublishCollectionPublishAlreadyInProgress(t *testing.T) {
 	callingUser := userstest.SeedUser1
 
 	publishRequest := dto.PublishCollectionRequest{
-		License: "Creative Commons",
+		License: apitest.ValidRandomLicense(),
 		Tags:    []string{"test"},
 	}
 

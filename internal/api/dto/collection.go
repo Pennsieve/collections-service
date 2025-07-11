@@ -17,6 +17,8 @@ import (
 type CreateCollectionRequest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
+	License     *string  `json:"license"`
+	Tags        []string `json:"tags"`
 	DOIs        []string `json:"dois"`
 }
 
@@ -107,6 +109,8 @@ type CollectionSummary struct {
 	Banners     []string `json:"banners"`
 	Size        int      `json:"size"`
 	UserRole    string   `json:"userRole"`
+	License     string   `json:"license,omitempty"`
+	Tags        []string `json:"tags"`
 }
 
 func (r CollectionSummary) MarshalJSON() ([]byte, error) {
@@ -114,6 +118,9 @@ func (r CollectionSummary) MarshalJSON() ([]byte, error) {
 	type CollectionSummaryAlias CollectionSummary
 	if r.Banners == nil {
 		r.Banners = []string{}
+	}
+	if r.Tags == nil {
+		r.Tags = []string{}
 	}
 	return json.Marshal(CollectionSummaryAlias(r))
 }

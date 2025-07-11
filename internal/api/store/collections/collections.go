@@ -18,10 +18,10 @@ import (
 const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
 
 type Store interface {
-	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
+	CreateCollection(ctx context.Context, request CreateCollectionRequest) (CreateCollectionResponse, error)
 	// GetCollections returns a paginated list of collection summaries that the given user has at least guest permission on.
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
-	// GetCollection returns a the given collection if it exists and if the given user has at least guest permission on it.
+	// GetCollection returns the given collection if it exists and if the given user has at least guest permission on it.
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
 	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
@@ -47,7 +47,7 @@ func NewPostgresStore(db postgres.DB, collectionsDatabaseName string, logger *sl
 	}
 }
 
-func (s *PostgresStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error) {
+func (s *PostgresStore) CreateCollection(ctx context.Context, request CreateCollectionRequest) (CreateCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return CreateCollectionResponse{}, fmt.Errorf("CreateCollection error connecting to database %s: %w", s.databaseName, err)
@@ -56,16 +56,18 @@ func (s *PostgresStore) CreateCollection(ctx context.Context, userID int64, node
 	creatorPermission := pgdb.Owner
 
 	insertCollectionArgs := pgx.NamedArgs{
-		"name":           name,
-		"description":    description,
-		"node_id":        nodeID,
-		"user_id":        userID,
+		"name":           request.Name,
+		"description":    request.Description,
+		"node_id":        request.NodeID,
+		"license":        request.License,
+		"tags":           request.Tags,
+		"user_id":        request.UserID,
 		"permission_bit": creatorPermission,
 		"role":           PgxRole(creatorPermission.ToRole()),
 	}
 	insertCollectionSQLFormat := `WITH new_collection AS (
-      INSERT INTO collections.collections (name, description, node_id) 
-                                VALUES (@name, @description, @node_id) RETURNING id
+      INSERT INTO collections.collections (name, description, node_id, license, tags) 
+                                VALUES (@name, @description, @node_id, @license, @tags) RETURNING id
     ) %s
 	INSERT INTO collections.collection_user (collection_id, user_id, permission_bit, role)
 	SELECT id, @user_id, @permission_bit, @role
@@ -73,9 +75,9 @@ func (s *PostgresStore) CreateCollection(ctx context.Context, userID int64, node
 	RETURNING (select id from new_collection);`
 
 	var insertDOISQL string
-	if len(dois) > 0 {
+	if len(request.DOIs) > 0 {
 		var values []string
-		for i, doi := range dois {
+		for i, doi := range request.DOIs {
 			doiKey := fmt.Sprintf("doi_%d", i)
 			datasourceKey := fmt.Sprintf("datasource_%d", i)
 			values = append(values, fmt.Sprintf("(@%s, @%s)", doiKey, datasourceKey))
@@ -92,11 +94,11 @@ func (s *PostgresStore) CreateCollection(ctx context.Context, userID int64, node
 	insertCollectionSQL := fmt.Sprintf(insertCollectionSQLFormat, insertDOISQL)
 	var collectionID int64
 	if err := conn.QueryRow(ctx, insertCollectionSQL, insertCollectionArgs).Scan(&collectionID); err != nil {
-		return CreateCollectionResponse{}, fmt.Errorf("error inserting new collection %s: %w", name, err)
+		return CreateCollectionResponse{}, fmt.Errorf("error inserting new collection %s: %w", request.Name, err)
 	}
 	s.logger.Debug("inserted new collection",
 		slog.Int64("id", collectionID),
-		slog.String("name", name))
+		slog.String("name", request.Name))
 	return CreateCollectionResponse{
 		ID:          collectionID,
 		CreatorRole: creatorPermission.ToRole(),
@@ -118,7 +120,7 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 		"min_perm": pgdb.Guest,
 	}
 	// using ORDER BY c.id asc as a proxy for getting in order of creation, oldest first
-	getCollectionsSQL := `SELECT c.id, c.name, c.description, c.node_id, u.role, count(*) OVER () AS total_count
+	getCollectionsSQL := `SELECT c.id, c.name, c.description, c.node_id, c.license, c.tags, u.role, count(*) OVER () AS total_count
 			FROM collections.collections c
          			JOIN collections.collection_user u ON c.id = u.collection_id
 			WHERE u.user_id = @user_id AND u.permission_bit >= @min_perm
@@ -141,9 +143,11 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 	collections, err := pgx.CollectRows(collectionUserJoinRows, func(row pgx.CollectableRow) (CollectionSummary, error) {
 		var id int64
 		var name, description, nodeID string
+		var license *string
+		var tags []string
 		var role PgxRole
 		var totalCount int
-		err := row.Scan(&id, &name, &description, &nodeID, &role, &totalCount)
+		err := row.Scan(&id, &name, &description, &nodeID, &license, &tags, &role, &totalCount)
 		if err != nil {
 			return CollectionSummary{}, err
 		}
@@ -158,6 +162,8 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 				NodeID:      nodeID,
 				Name:        name,
 				Description: description,
+				License:     license,
+				Tags:        tags,
 				UserRole:    role.AsRole(),
 			}}, nil
 
@@ -224,7 +230,7 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 
 	idCondition := fmt.Sprintf("c.%s = @%s", idColumn, idColumn)
 
-	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, u.role, d.doi, d.datasource
+	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, c.license, c.tags, u.role, d.doi, d.datasource
 			FROM collections.collections c
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
@@ -238,10 +244,12 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 	var id int64
 	var nodeID string
 	var name, description string
+	var license *string
+	var tags []string
 	var pgxRole PgxRole
 	var doiOpt *string
 	var datasourceOpt *datasource.DOIDatasource
-	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &pgxRole, &doiOpt, &datasourceOpt}, func() error {
+	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &license, &tags, &pgxRole, &doiOpt, &datasourceOpt}, func() error {
 		if response == nil {
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
@@ -249,6 +257,8 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 					NodeID:      nodeID,
 					Name:        name,
 					Description: description,
+					License:     license,
+					Tags:        tags,
 					UserRole:    pgxRole.AsRole(),
 				},
 			}

@@ -16,6 +16,8 @@ type Collection struct {
 	UpdatedAt   time.Time `db:"updated_at"`
 	CreatedAt   time.Time `db:"created_at"`
 	NodeID      string    `db:"node_id"`
+	License     *string   `db:"license"`
+	Tags        []string  `db:"tags"`
 }
 
 type CollectionUser struct {

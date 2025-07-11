@@ -301,6 +301,12 @@ components:
           type: string
         description:
           type: string
+        license:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
         dois:
           type: array
           items:
@@ -411,6 +417,12 @@ components:
           type: integer
         userRole:
           type: string
+        license:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
       required:
         - nodeId
         - name
@@ -418,6 +430,8 @@ components:
         - banners
         - size
         - userRole
+        - license
+        - tags
 
     PublicDataset:
       type: object

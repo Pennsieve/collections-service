@@ -2,6 +2,7 @@ package apitest
 
 import (
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/stretchr/testify/require"
@@ -69,7 +70,7 @@ func NewExpectedManifest(t require.TestingT, opts ...ManifestOption) publishing.
 			uuid.NewString(),
 			uuid.NewString(),
 		}).
-		WithLicense(licenses[rand.IntN(len(licenses))]).
+		WithLicense(ValidRandomLicense()).
 		WithCreator(ToPublishedContributor(
 			userstest.NewTestUser(
 				userstest.WithFirstName(uuid.NewString()),
@@ -123,30 +124,6 @@ var degrees = []string{
 	"D.O.",
 }
 
-var licenses = []string{
-	`Apache 2.0`,
-	`Apache License 2.0`,
-	`BSD 2-Clause "Simplified" License`,
-	`BSD 3-Clause "New" or "Revised" License`,
-	`Boost Software License 1.0`,
-	`Community Data License Agreement – Permissive`,
-	`Community Data License Agreement – Sharing`,
-	`Creative Commons Zero 1.0 Universal`,
-	`Creative Commons Attribution`,
-	`Creative Commons Attribution - ShareAlike`,
-	`Creative Commons Attribution - NonCommercial-ShareAlike`,
-	`Eclipse Public License 2.0`,
-	`GNU Affero General Public License v3.0`,
-	`GNU General Public License v2.0`,
-	`GNU General Public License v3.0`,
-	`GNU Lesser General Public License`,
-	`GNU Lesser General Public License v2.1`,
-	`GNU Lesser General Public License v3.0`,
-	`MIT`,
-	`MIT License`,
-	`Mozilla Public License 2.0`,
-	`Open Data Commons Open Database`,
-	`Open Data Commons Attribution`,
-	`Open Data Commons Public Domain Dedication and License`,
-	`The Unlicense`,
+func ValidRandomLicense() string {
+	return dto.ValidLicenses[rand.IntN(len(dto.ValidLicenses))]
 }

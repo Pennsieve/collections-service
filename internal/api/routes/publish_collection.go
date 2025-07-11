@@ -264,7 +264,7 @@ func NewPublishCollectionRouteHandler() Handler[dto.PublishCollectionResponse] {
 func validatePublishRequest(publishRequest *dto.PublishCollectionRequest) error {
 	trimmedLic := strings.TrimSpace(publishRequest.License)
 	publishRequest.License = trimmedLic
-	if err := validate.License(trimmedLic); err != nil {
+	if err := validate.License(&trimmedLic, true); err != nil {
 		return err
 	}
 	if err := validate.Tags(publishRequest.Tags); err != nil {

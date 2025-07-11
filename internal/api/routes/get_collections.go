@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/shared/util"
 	"net/http"
 )
 
@@ -64,6 +65,8 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 			NodeID:      storeCollection.NodeID,
 			Name:        storeCollection.Name,
 			Description: storeCollection.Description,
+			License:     util.SafeDeref(storeCollection.License),
+			Tags:        storeCollection.Tags,
 			Banners:     collectBanners(storeCollection.BannerDOIs, doiToPublicDataset),
 			Size:        storeCollection.Size,
 			UserRole:    storeCollection.UserRole.String(),

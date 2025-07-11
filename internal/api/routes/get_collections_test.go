@@ -94,15 +94,25 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	// Set up using the ExpectationDB
-	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithRandomLicense()
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
-	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
-		WithPublicDatasets(expectedDatasets.NewPublished())
+	user1CollectionOneDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished()).
+		WithNTags(3)
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
 
-	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
-		WithPublicDatasets(expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished())
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished()).
+		WithRandomLicense().
+		WithNTags(1)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
 	user2 := userstest.NewTestUser()
@@ -185,9 +195,9 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	var expectedCollections []*apitest.ExpectedCollection
 	for i := 0; i < totalCollections; i++ {
-		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner)
+		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithRandomLicense()
 		for j := 0; j < i; j++ {
-			expectedCollection = expectedCollection.WithPublicDatasets(expectedDatasets.NewPublished())
+			expectedCollection = expectedCollection.WithPublicDatasets(expectedDatasets.NewPublished()).WithNTags(j)
 		}
 		expectationDB.CreateCollection(ctx, t, expectedCollection)
 		expectedCollections = append(expectedCollections, expectedCollection)
