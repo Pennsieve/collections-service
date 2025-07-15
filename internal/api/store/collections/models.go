@@ -71,5 +71,7 @@ type DOIUpdate struct {
 type UpdateCollectionRequest struct {
 	Name        *string
 	Description *string
+	License     *string
+	Tags        []string
 	DOIs        DOIUpdate
 }

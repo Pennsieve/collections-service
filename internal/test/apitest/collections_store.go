@@ -91,6 +91,19 @@ func (c *ExpectedCollection) WithTags(tags []string) *ExpectedCollection {
 	return c
 }
 
+// SetTags replaces the current Tags slice with a copy the given tags slices
+func (c *ExpectedCollection) SetTags(tags []string) *ExpectedCollection {
+	var newTags []string
+	if tags == nil {
+		newTags = nil
+	} else {
+		newTags = make([]string, len(tags))
+		copy(newTags, tags)
+	}
+	c.Tags = newTags
+	return c
+}
+
 func (c *ExpectedCollection) WithNTags(n int) *ExpectedCollection {
 	for i := 0; i < n; i++ {
 		c.Tags = append(c.Tags, uuid.NewString())
@@ -349,6 +362,16 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 			updatedDescription = *update.Description
 		}
 
+		updatedLicense := c.License
+		if update.License != nil {
+			updatedLicense = update.License
+		}
+
+		updatedTags := c.Tags
+		if update.Tags != nil {
+			updatedTags = update.Tags
+		}
+
 		toDeleteSet := map[string]bool{}
 		for _, toDelete := range update.DOIs.Remove {
 			toDeleteSet[toDelete] = true
@@ -368,6 +391,8 @@ func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.Upda
 			ID:          *c.ID,
 			Name:        updatedName,
 			Description: updatedDescription,
+			License:     updatedLicense,
+			Tags:        updatedTags,
 			Size:        len(updatedDOIs),
 			UserRole:    user.PermissionBit.ToRole(),
 		}

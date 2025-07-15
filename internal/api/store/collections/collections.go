@@ -326,21 +326,29 @@ func (s *PostgresStore) UpdateCollection(ctx context.Context, userID, collection
 	// Create SQL for name and description update if necessary
 	var collectionUpdateSQL string
 	collectionUpdateArgs := pgx.NamedArgs{}
-	if update.Name != nil || update.Description != nil {
-		var sets []string
-		if update.Name != nil {
-			sets = append(sets, "name = @name")
-			collectionUpdateArgs["name"] = *update.Name
-		}
-		if update.Description != nil {
-			sets = append(sets, "description = @description")
-			collectionUpdateArgs["description"] = *update.Description
-		}
+	var setExpressions []string
+	if update.Name != nil {
+		setExpressions = append(setExpressions, "name = @name")
+		collectionUpdateArgs["name"] = *update.Name
+	}
+	if update.Description != nil {
+		setExpressions = append(setExpressions, "description = @description")
+		collectionUpdateArgs["description"] = *update.Description
+	}
+	if update.License != nil {
+		setExpressions = append(setExpressions, "license = @license")
+		collectionUpdateArgs["license"] = *update.License
+	}
+	if update.Tags != nil {
+		setExpressions = append(setExpressions, "tags = @tags")
+		collectionUpdateArgs["tags"] = update.Tags
+	}
+	if len(setExpressions) > 0 {
 		collectionUpdateArgs["collection_id"] = collectionID
 		collectionUpdateSQL = fmt.Sprintf(`UPDATE collections.collections
                                SET %s
                                WHERE id = @collection_id`,
-			strings.Join(sets, ","))
+			strings.Join(setExpressions, ","))
 	}
 
 	// Create SQL for DOI deletes if necessary

@@ -3,6 +3,7 @@ package collections_test
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
@@ -703,16 +704,25 @@ func testUpdateCollection(t *testing.T, collectionsStore *collections.PostgresSt
 	doiToKeep2 := apitest.NewPennsieveDOI()
 	doiToRemove2 := apitest.NewPennsieveDOI()
 
-	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doiToRemove1, doiToKeep1, doiToKeep2, doiToRemove2)
+	expectedCollection := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user.ID, pgdb.Owner).
+		WithLicense(dto.ValidLicenses[0]).
+		WithTags([]string{"old1", "old2"}).
+		WithDOIs(doiToRemove1, doiToKeep1, doiToKeep2, doiToRemove2)
 	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 	collectionID := createResp.ID
 
 	newName := uuid.NewString()
 	newDescription := uuid.NewString()
 	newDOI := apitest.NewPennsieveDOI()
+	newLicense := dto.ValidLicenses[1]
+	newTags := []string{"newA", "newB", "newC"}
 	update := collections.UpdateCollectionRequest{
 		Name:        &newName,
 		Description: &newDescription,
+		License:     &newLicense,
+		Tags:        newTags,
 		DOIs: collections.DOIUpdate{
 			Add:    []collections.DOI{newDOI},
 			Remove: []string{doiToRemove1.Value, doiToRemove2.Value},
@@ -723,7 +733,9 @@ func testUpdateCollection(t *testing.T, collectionsStore *collections.PostgresSt
 
 	expectedCollection.Name = newName
 	expectedCollection.Description = newDescription
+	expectedCollection.License = &newLicense
 	expectedCollection.SetDOIs(doiToKeep1, doiToKeep2, newDOI)
+	expectedCollection.SetTags(newTags)
 
 	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
 	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
