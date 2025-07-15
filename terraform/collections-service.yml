@@ -203,7 +203,37 @@ paths:
           $ref: '#/components/responses/NotFound'
         '5XX':
           $ref: '#/components/responses/Error'
-
+  /{nodeId}/publish:
+    post:
+      x-amazon-apigateway-integration:
+        $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
+      operationId: publishCollection
+      summary: publishes a new public version of the given collection
+      description: |
+        Publishes a new version of the collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishCollectionRequest'
+      security:
+        - token_auth: [ ]
+      tags:
+        - Collections Service
+      responses:
+        '200':
+          description: the collection was published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishCollectionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '4XX':
+          $ref: '#/components/responses/Unauthorized'
+        '5XX':
+          $ref: '#/components/responses/Error'
 
 components:
   x-amazon-apigateway-integrations:
@@ -704,4 +734,29 @@ components:
         - doi
         - updatedAt
 
+    PublishCollectionRequest:
+      properties:
+        license:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - license
+        - tags
 
+    PublishCollectionResponse:
+      properties:
+        publishedDatasetId:
+          type: integer
+          format: int64
+        publishedVersion:
+          type: integer
+          format: int64
+        status:
+          type: string
+      required:
+        - publishedDatasetId
+        - publishedVersion
+        - status
