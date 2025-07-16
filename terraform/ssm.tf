@@ -26,3 +26,14 @@ resource "aws_ssm_parameter" "postgres_database" {
   type  = "String"
   value = var.pennsieve_postgres_database
 }
+
+# JWT Secret Key used by the API Lambda
+resource "aws_ssm_parameter" "jwt_secret_key" {
+  name  = "/${var.environment_name}/${var.service_name}/jwt-secret-key"
+  type  = "SecureString"
+  value = "dummy"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
