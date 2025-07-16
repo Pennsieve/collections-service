@@ -211,6 +211,13 @@ paths:
       summary: publishes a new public version of the given collection
       description: |
         Publishes a new version of the collection
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the collection node to publish
       requestBody:
         required: true
         content:
