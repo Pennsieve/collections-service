@@ -38,7 +38,7 @@ func WithDOIPrefix(doiPrefix string) PennsieveOption {
 
 func WithJWTSecretKey(jwtSecretKey string) PennsieveOption {
 	return func(pennsieveConfig *PennsieveConfig) {
-		pennsieveConfig.JWTSecretKey = JWTSecretKeySetting.WithValue(jwtSecretKey)
+		pennsieveConfig.JWTSecretKey = NewJWTSecretKeySetting().WithValue(jwtSecretKey)
 	}
 }
 
@@ -54,11 +54,11 @@ func WithPublishBucket(publishBucket string) PennsieveOption {
 	}
 }
 
-// LoadWithEnvSettings returns a copy of this PennsieveConfig where any missing fields are populated by the
-// given PennsieveEnvironmentSettings.
-func (c PennsieveConfig) LoadWithEnvSettings(environmentName string, environmentSettings PennsieveEnvironmentSettings) (PennsieveConfig, error) {
+// LoadWithSettings returns a copy of this PennsieveConfig where any missing fields are populated by the
+// given PennsieveSettings.
+func (c PennsieveConfig) LoadWithSettings(environmentName string, settings PennsieveSettings) (PennsieveConfig, error) {
 	if len(c.DiscoverServiceURL) == 0 {
-		url, err := environmentSettings.DiscoverServiceHost.Get()
+		url, err := settings.DiscoverServiceHost.Get()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
@@ -68,14 +68,14 @@ func (c PennsieveConfig) LoadWithEnvSettings(environmentName string, environment
 		c.DiscoverServiceURL = url
 	}
 	if len(c.DOIPrefix) == 0 {
-		prefix, err := environmentSettings.DOIPrefix.Get()
+		prefix, err := settings.DOIPrefix.Get()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
 		c.DOIPrefix = prefix
 	}
 	if c.CollectionNamespaceID == 0 {
-		namespaceID, err := environmentSettings.CollectionNamespaceID.GetInt64()
+		namespaceID, err := settings.CollectionNamespaceID.GetInt64()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
@@ -83,19 +83,22 @@ func (c PennsieveConfig) LoadWithEnvSettings(environmentName string, environment
 	}
 
 	if len(c.PublishBucket) == 0 {
-		publishBucket, err := environmentSettings.PublishBucket.Get()
+		publishBucket, err := settings.PublishBucket.Get()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
 		c.PublishBucket = publishBucket
 	}
 
-	c.JWTSecretKey = JWTSecretKeySetting.WithEnvironment(environmentName)
+	if c.JWTSecretKey == nil {
+		c.JWTSecretKey = settings.JWTSecretKey.WithEnvironment(environmentName)
+	}
+
 	return c, nil
 }
 
 // Load returns a copy of this PennsieveConfig where any missing fields are populated by the
-// given DeployedPennsieveEnvironmentSettings.
+// given DeployedPennsieveSettings.
 func (c PennsieveConfig) Load(environmentName string) (PennsieveConfig, error) {
-	return c.LoadWithEnvSettings(environmentName, DeployedPennsieveEnvironmentSettings)
+	return c.LoadWithSettings(environmentName, DeployedPennsieveSettings)
 }
