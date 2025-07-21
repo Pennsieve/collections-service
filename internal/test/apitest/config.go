@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-const CollectionNamespaceID = int64(-20)
+const CollectionsIDSpaceID = int64(-20)
 const PublishBucket = "test-publish-bucket"
 
 type ConfigBuilder struct {
@@ -46,7 +46,7 @@ func PennsieveConfigWithOptions(opts ...config.PennsieveOption) config.Pennsieve
 		config.WithDiscoverServiceURL("http://example.com/discover"),
 		config.WithDOIPrefix(PennsieveDOIPrefix),
 		config.WithJWTSecretKey(uuid.NewString()),
-		config.WithCollectionNamespaceID(CollectionNamespaceID),
+		config.WithCollectionsIDSpace(CollectionsIDSpaceID),
 		config.WithPublishBucket(PublishBucket),
 	)
 	for _, opt := range opts {
