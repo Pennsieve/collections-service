@@ -14,11 +14,6 @@ type PennsieveConfig struct {
 	PublishBucket        string
 }
 
-type IDSpace struct {
-	ID   int64
-	Name string
-}
-
 func NewPennsieveConfig(options ...PennsieveOption) PennsieveConfig {
 	pennsieveConfig := PennsieveConfig{}
 	for _, option := range options {
