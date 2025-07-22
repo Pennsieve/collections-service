@@ -123,6 +123,13 @@ func ValidatePatchRequest(request *dto.PatchCollectionRequest) error {
 			return err
 		}
 	}
+	if request.License != nil {
+		trimmedLicense := strings.TrimSpace(*request.License)
+		request.License = &trimmedLicense
+		if err := validate.License(request.License, false); err != nil {
+			return err
+		}
+	}
 	return nil
 
 }
@@ -137,7 +144,9 @@ func GetUpdateRequest(pennsieveDOIPrefix string, patchRequest dto.PatchCollectio
 	if patchRequest.Description != nil && *patchRequest.Description != currentState.Description {
 		storeRequest.Description = patchRequest.Description
 	}
-
+	if patchRequest.License != nil && currentState.License != nil && *patchRequest.License != *currentState.License {
+		storeRequest.License = patchRequest.License
+	}
 	if patchRequest.DOIs == nil {
 		return storeRequest, nil
 	}

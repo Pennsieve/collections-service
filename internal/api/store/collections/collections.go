@@ -336,7 +336,7 @@ func (s *PostgresStore) UpdateCollection(ctx context.Context, userID, collection
 		collectionUpdateArgs["description"] = *update.Description
 	}
 	if update.License != nil {
-		setExpressions = append(setExpressions, "license = @license")
+		setExpressions = append(setExpressions, "license = NULLIF(@license, '')")
 		collectionUpdateArgs["license"] = *update.License
 	}
 	if update.Tags != nil {

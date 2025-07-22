@@ -32,7 +32,7 @@ func IntQueryParamValue(key string, value int, requiredMin int) error {
 }
 
 func License(value *string, required bool) error {
-	if value == nil {
+	if value == nil || len(*value) == 0 {
 		if required {
 			return apierrors.NewBadRequestError("missing required license")
 		}
