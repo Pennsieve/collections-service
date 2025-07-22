@@ -521,7 +521,7 @@ func testRejectInvalidLicense(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(callingUser.ID, pgdb.Owner).
 		WithNPennsieveDOIs(1).
-		WithLicense("")
+		WithLicense(uuid.NewString())
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        expectedCollection.Name,

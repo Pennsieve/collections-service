@@ -647,7 +647,7 @@ func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 
-	assert.Contains(t, response.Body, `invalid license: \"\"`)
+	assert.Contains(t, response.Body, `missing required license`)
 }
 
 func testHandlePublishCollectionNoLicense(t *testing.T) {
