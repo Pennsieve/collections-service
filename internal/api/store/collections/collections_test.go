@@ -45,6 +45,8 @@ func TestStore(t *testing.T) {
 		{"update collection name", testUpdateCollectionName},
 		{"update collection description", testUpdateCollectionDescription},
 		{"update collection name and description", testUpdateCollectionNameAndDescription},
+		{"update collection license", testUpdateCollectionLicense},
+		{"update collection tags", testUpdateCollectionTags},
 		{"remove DOI from collection", testUpdateCollectionRemoveDOI},
 		{"remove DOIs from collection", testUpdateCollectionRemoveDOIs},
 		{"add DOI to collection", testUpdateCollectionAddDOI},
@@ -571,6 +573,64 @@ func testUpdateCollectionNameAndDescription(t *testing.T, collectionsStore *coll
 
 }
 
+func testUpdateCollectionLicense(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithLicense(dto.ValidLicenses[0]).
+		WithUser(*user.ID, pgdb.Owner).
+		WithDOIs(apitest.NewPennsieveDOI())
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newLicense := dto.ValidLicenses[2]
+	update := collections.UpdateCollectionRequest{
+		License: &newLicense,
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.License = &newLicense
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
+func testUpdateCollectionTags(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithTags([]string{"old", "old2"}).
+		WithUser(*user.ID, pgdb.Owner).
+		WithDOIs(apitest.NewPennsieveDOI())
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newTags := []string{"new", "new2", "new3"}
+	update := collections.UpdateCollectionRequest{
+		Tags: newTags,
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	expectedCollection.SetTags(newTags)
+	assertExpectedEqualCollectionBase(t, expectedCollection, updatedCollection.CollectionBase)
+	assert.Equal(t, expectedCollection.DOIs.AsDOIs(), updatedCollection.DOIs)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+
+}
+
 func testUpdateCollectionRemoveDOI(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
@@ -946,5 +1006,6 @@ func assertExpectedEqualCollectionSummary(t *testing.T, expected *apitest.Expect
 	t.Helper()
 	assertExpectedEqualCollectionBase(t, expected, actual.CollectionBase)
 	bannerLen := min(collections.MaxBannerDOIsPerCollection, len(expected.DOIs))
-	assert.Equal(t, expected.DOIs.Strings()[:bannerLen], actual.BannerDOIs)
+	// Sometimes the order of DOI ids (used to return banners and dois) does not match the order they were inserted unfortunately
+	assert.ElementsMatch(t, expected.DOIs.Strings()[:bannerLen], actual.BannerDOIs)
 }
