@@ -149,7 +149,7 @@ func (c *Container) InternalDiscover(ctx context.Context) (service.InternalDisco
 		c.internalDiscover = service.NewHTTPInternalDiscover(
 			c.Config.PennsieveConfig.DiscoverServiceURL,
 			jwtSecretKey,
-			c.Config.PennsieveConfig.CollectionNamespaceID,
+			c.Config.PennsieveConfig.CollectionsIDSpaceID,
 			c.Logger())
 	}
 	return c.internalDiscover, nil

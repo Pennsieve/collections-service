@@ -40,7 +40,7 @@ type ManifestV5 struct {
 	Description        string                 `json:"description"`
 	Creator            PublishedContributor   `json:"creator"`
 	Contributors       []PublishedContributor `json:"contributors"`
-	SourceOrganization string                 `json:"sourceOrganization"`
+	SourceOrganization string                 `json:"sourceOrganization,omitempty"`
 	Keywords           []string               `json:"keywords"`
 	DatePublished      apijson.Date           `json:"datePublished"`
 	License            string                 `json:"license,omitempty"`

@@ -26,10 +26,10 @@ func (s *SSMSetting) Load(ctx context.Context, lookup SSMLookupFunc) (string, er
 		if s.Environment == nil {
 			return "", fmt.Errorf("environment not set for SSM setting")
 		}
-		key := fmt.Sprintf("%s/%s/%s", *s.Environment, s.Service, s.Name)
-		value, err := lookup(ctx, key)
+		paramKey := key(*s.Environment, s.Service, s.Name)
+		value, err := lookup(ctx, paramKey)
 		if err != nil {
-			return "", fmt.Errorf("error getting %s value from SSM: %w", key, err)
+			return "", fmt.Errorf("error getting %s value from SSM: %w", paramKey, err)
 		}
 		s.Value = &value
 	}
@@ -44,7 +44,7 @@ func (s *SSMSetting) String() string {
 	if s.Environment != nil {
 		env = *s.Environment
 	}
-	return fmt.Sprintf("%s/%s/%s", env, s.Service, s.Name)
+	return key(env, s.Service, s.Name)
 }
 
 func (s *SSMSetting) WithEnvironment(env string) *SSMSetting {
@@ -56,4 +56,8 @@ func (s *SSMSetting) WithEnvironment(env string) *SSMSetting {
 func (s *SSMSetting) WithValue(value string) *SSMSetting {
 	s.Value = &value
 	return s
+}
+
+func key(env, service, name string) string {
+	return fmt.Sprintf("/%s/%s/%s", env, service, name)
 }
