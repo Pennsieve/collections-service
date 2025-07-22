@@ -46,7 +46,7 @@ func PennsieveConfigWithOptions(opts ...config.PennsieveOption) config.Pennsieve
 		config.WithDiscoverServiceURL("http://example.com/discover"),
 		config.WithDOIPrefix(PennsieveDOIPrefix),
 		config.WithJWTSecretKey(uuid.NewString()),
-		config.WithCollectionsIDSpace(CollectionsIDSpaceID),
+		config.WithCollectionsIDSpaceID(CollectionsIDSpaceID),
 		config.WithPublishBucket(PublishBucket),
 	)
 	for _, opt := range opts {

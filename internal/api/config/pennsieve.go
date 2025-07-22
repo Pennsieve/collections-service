@@ -47,7 +47,7 @@ func WithJWTSecretKey(jwtSecretKey string) PennsieveOption {
 	}
 }
 
-func WithCollectionsIDSpace(id int64) PennsieveOption {
+func WithCollectionsIDSpaceID(id int64) PennsieveOption {
 	return func(pennsieveConfig *PennsieveConfig) {
 		pennsieveConfig.CollectionsIDSpaceID = id
 	}
