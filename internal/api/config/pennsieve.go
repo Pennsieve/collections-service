@@ -7,11 +7,11 @@ import (
 )
 
 type PennsieveConfig struct {
-	DiscoverServiceURL    string
-	DOIPrefix             string
-	JWTSecretKey          *sharedconfig.SSMSetting
-	CollectionNamespaceID int64
-	PublishBucket         string
+	DiscoverServiceURL   string
+	DOIPrefix            string
+	JWTSecretKey         *sharedconfig.SSMSetting
+	CollectionsIDSpaceID int64
+	PublishBucket        string
 }
 
 func NewPennsieveConfig(options ...PennsieveOption) PennsieveConfig {
@@ -42,9 +42,9 @@ func WithJWTSecretKey(jwtSecretKey string) PennsieveOption {
 	}
 }
 
-func WithCollectionNamespaceID(namespaceID int64) PennsieveOption {
+func WithCollectionsIDSpaceID(id int64) PennsieveOption {
 	return func(pennsieveConfig *PennsieveConfig) {
-		pennsieveConfig.CollectionNamespaceID = namespaceID
+		pennsieveConfig.CollectionsIDSpaceID = id
 	}
 }
 
@@ -74,12 +74,12 @@ func (c PennsieveConfig) LoadWithSettings(environmentName string, settings Penns
 		}
 		c.DOIPrefix = prefix
 	}
-	if c.CollectionNamespaceID == 0 {
-		namespaceID, err := settings.CollectionNamespaceID.GetInt64()
+	if c.CollectionsIDSpaceID == 0 {
+		idSpaceID, err := settings.CollectionsIDSpaceID.GetInt64()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
-		c.CollectionNamespaceID = namespaceID
+		c.CollectionsIDSpaceID = idSpaceID
 	}
 
 	if len(c.PublishBucket) == 0 {

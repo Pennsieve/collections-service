@@ -1,8 +1,10 @@
-package config
+package config_test
 
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"strconv"
@@ -12,28 +14,28 @@ import (
 func TestPennsieveConfig_Load(t *testing.T) {
 	expectedDiscoverHost := uuid.NewString()
 	expectedPennsieveDOIPrefix := uuid.NewString()
-	expectedCollectionNamespaceID := int64(-20)
+	expectedCollectionsIDSpaceID := apitest.CollectionsIDSpaceID
 	expectedPublishBucket := uuid.NewString()
 
-	t.Setenv(DiscoverServiceHostKey, expectedDiscoverHost)
-	t.Setenv(PennsieveDOIPrefixKey, expectedPennsieveDOIPrefix)
-	t.Setenv(CollectionNamespaceIDKey, strconv.FormatInt(expectedCollectionNamespaceID, 10))
-	t.Setenv(PublishBucketKey, expectedPublishBucket)
+	t.Setenv(config.DiscoverServiceHostKey, expectedDiscoverHost)
+	t.Setenv(config.PennsieveDOIPrefixKey, expectedPennsieveDOIPrefix)
+	t.Setenv(config.CollectionsIDSpaceIDKey, strconv.FormatInt(expectedCollectionsIDSpaceID, 10))
+	t.Setenv(config.PublishBucketKey, expectedPublishBucket)
 
 	expectedEnvironment := uuid.NewString()
-	config, err := NewPennsieveConfig().Load(expectedEnvironment)
+	actualConfig, err := config.NewPennsieveConfig().Load(expectedEnvironment)
 	require.NoError(t, err)
 
-	assert.Equal(t, fmt.Sprintf("https://%s", expectedDiscoverHost), config.DiscoverServiceURL)
-	assert.Equal(t, expectedPennsieveDOIPrefix, config.DOIPrefix)
-	assert.Equal(t, expectedCollectionNamespaceID, config.CollectionNamespaceID)
-	assert.Equal(t, expectedPublishBucket, config.PublishBucket)
+	assert.Equal(t, fmt.Sprintf("https://%s", expectedDiscoverHost), actualConfig.DiscoverServiceURL)
+	assert.Equal(t, expectedPennsieveDOIPrefix, actualConfig.DOIPrefix)
+	assert.Equal(t, expectedCollectionsIDSpaceID, actualConfig.CollectionsIDSpaceID)
+	assert.Equal(t, expectedPublishBucket, actualConfig.PublishBucket)
 
-	assert.NotNil(t, config.JWTSecretKey)
+	assert.NotNil(t, actualConfig.JWTSecretKey)
 
-	if assert.NotNil(t, config.JWTSecretKey.Environment) {
-		assert.Equal(t, expectedEnvironment, *config.JWTSecretKey.Environment)
+	if assert.NotNil(t, actualConfig.JWTSecretKey.Environment) {
+		assert.Equal(t, expectedEnvironment, *actualConfig.JWTSecretKey.Environment)
 	}
-	assert.Equal(t, ServiceName, config.JWTSecretKey.Service)
-	assert.Equal(t, JWTSecretKeySSMName, config.JWTSecretKey.Name)
+	assert.Equal(t, config.ServiceName, actualConfig.JWTSecretKey.Service)
+	assert.Equal(t, config.JWTSecretKeySSMName, actualConfig.JWTSecretKey.Name)
 }

@@ -27,7 +27,7 @@ resource "aws_lambda_function" "collections_service_api_lambda" {
       POSTGRES_COLLECTIONS_DATABASE = var.pennsieve_postgres_database,
       DISCOVER_SERVICE_HOST         = local.discover_service_host,
       PENNSIEVE_DOI_PREFIX          = local.pennsieve_doi_prefix,
-      COLLECTION_NAMESPACE_ID       = local.collection_namespace_id,
+      COLLECTIONS_ID_SPACE_ID       = local.collections_id_space_id,
       PUBLISH_BUCKET                = data.terraform_remote_state.platform_infrastructure.outputs.discover_publish50_bucket_name,
       LOG_LEVEL                     = local.log_level
     }
