@@ -111,7 +111,23 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
+		WithPublishCollectionFunc(
+			ctx,
+			t,
+			expectedCollection.PublishCollectionFunc(
+				t,
+				mockPublishDOICollectionResponse,
+				apitest.VerifyPublishingUser(callingUser),
+				apitest.VerifyInternalContributors(service.InternalContributor{
+					ID:            0,
+					FirstName:     callingUser.GetFirstName(),
+					LastName:      callingUser.GetLastName(),
+					ORCID:         callingUser.GetORCIDOrEmpty(),
+					MiddleInitial: callingUser.GetMiddleInitial(),
+					Degree:        callingUser.GetDegree(),
+					UserID:        callingUser.GetID(),
+				}),
+			),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).

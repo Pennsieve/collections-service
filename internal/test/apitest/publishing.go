@@ -10,14 +10,10 @@ import (
 )
 
 func ToPublishedContributor(testUser userstest.User) publishing.PublishedContributor {
-	orcid := ""
-	if orcidAuth := testUser.GetORCIDAuthorization(); orcidAuth != nil {
-		orcid = orcidAuth.ORCID
-	}
 	return publishing.PublishedContributor{
 		FirstName:     testUser.GetFirstName(),
 		LastName:      testUser.GetLastName(),
-		Orcid:         orcid,
+		Orcid:         testUser.GetORCIDOrEmpty(),
 		MiddleInitial: testUser.GetMiddleInitial(),
 		Degree:        testUser.GetDegree(),
 	}
