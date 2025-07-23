@@ -109,6 +109,17 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: dto.PublishSucceeded}
 
+	expectedInternalContributors := []service.InternalContributor{
+		{
+			ID:            0,
+			FirstName:     callingUser.GetFirstName(),
+			LastName:      callingUser.GetLastName(),
+			ORCID:         callingUser.GetORCIDOrEmpty(),
+			MiddleInitial: callingUser.GetMiddleInitial(),
+			Degree:        callingUser.GetDegree(),
+			UserID:        callingUser.GetID(),
+		},
+	}
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
 		WithPublishCollectionFunc(
@@ -118,15 +129,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 				t,
 				mockPublishDOICollectionResponse,
 				apitest.VerifyPublishingUser(callingUser),
-				apitest.VerifyInternalContributors(service.InternalContributor{
-					ID:            0,
-					FirstName:     callingUser.GetFirstName(),
-					LastName:      callingUser.GetLastName(),
-					ORCID:         callingUser.GetORCIDOrEmpty(),
-					MiddleInitial: callingUser.GetMiddleInitial(),
-					Degree:        callingUser.GetDegree(),
-					UserID:        callingUser.GetID(),
-				}),
+				apitest.VerifyInternalContributors(expectedInternalContributors...),
 			),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
