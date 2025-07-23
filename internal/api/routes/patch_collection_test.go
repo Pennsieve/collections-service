@@ -31,7 +31,9 @@ func TestPatchCollection(t *testing.T) {
 		{"update collection name and description", testPatchCollectionNameAndDescription},
 		{"remove DOIs from collection", testPatchCollectionRemoveDOIs},
 		{"add DOIs to collection", testPatchCollectionAddDOIs},
+		{"remove description", testPatchCollectionRemoveDescription},
 		{"remove license", testPatchCollectionRemoveLicense},
+		{"remove tags", testPatchCollectionRemoveTags},
 		{"update collection", testPatchCollection},
 		{"update asking to add an unpublished DOI should fail", testPatchCollectionAddUnpublished},
 		{"update asking to remove a non-existent DOI should succeed", testPatchCollectionRemoveNonExistentDOI},
@@ -405,6 +407,66 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
+func testPatchCollectionRemoveDescription(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	dataset1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()))
+	dataset2 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(*user.ID, pgdb.Owner).
+		WithDescription("a bad description").
+		WithPublicDatasets(dataset1, dataset2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newDescription := ""
+	update := dto.PatchCollectionRequest{
+		Description: &newDescription,
+	}
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, update).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+
+	updatedCollection, err := PatchCollection(ctx, params)
+	require.NoError(t, err)
+
+	expectedCollection.Description = newDescription
+	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+}
+
 func testPatchCollectionRemoveLicense(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
@@ -460,6 +522,66 @@ func testPatchCollectionRemoveLicense(t *testing.T, expectationDB *fixtures.Expe
 	require.NoError(t, err)
 
 	expectedCollection.License = nil
+	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
+
+	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
+}
+
+func testPatchCollectionRemoveTags(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	dataset1 := expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial()))
+	dataset2 := expectedDatasets.NewPublished(apitest.NewPublicContributor())
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(*user.ID, pgdb.Owner).
+		WithNTags(3).
+		WithPublicDatasets(dataset1, dataset2)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	newTags := make([]string, 0)
+	update := dto.PatchCollectionRequest{
+		Tags: newTags,
+	}
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, update).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+
+	updatedCollection, err := PatchCollection(ctx, params)
+	require.NoError(t, err)
+
+	expectedCollection.SetTags(newTags)
 	assertEqualExpectedGetCollectionResponse(t, expectedCollection, updatedCollection, expectedDatasets)
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)

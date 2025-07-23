@@ -247,7 +247,7 @@ func validateCollection(collection collections.GetCollectionResponse) error {
 	if err := validate.License(collection.License, true); err != nil {
 		return err
 	}
-	if err := validate.Tags(collection.Tags); err != nil {
+	if err := validate.Tags(collection.Tags, true); err != nil {
 		return err
 	}
 	return nil

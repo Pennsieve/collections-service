@@ -13,6 +13,7 @@ import (
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 )
 
@@ -130,6 +131,11 @@ func ValidatePatchRequest(request *dto.PatchCollectionRequest) error {
 			return err
 		}
 	}
+	if request.Tags != nil {
+		if err := validate.Tags(request.Tags, false); err != nil {
+			return err
+		}
+	}
 	return nil
 
 }
@@ -147,6 +153,10 @@ func GetUpdateRequest(pennsieveDOIPrefix string, patchRequest dto.PatchCollectio
 	if patchRequest.License != nil && currentState.License != nil && *patchRequest.License != *currentState.License {
 		storeRequest.License = patchRequest.License
 	}
+	if patchRequest.Tags != nil && !slices.Equal(patchRequest.Tags, currentState.Tags) {
+		storeRequest.Tags = patchRequest.Tags
+	}
+
 	if patchRequest.DOIs == nil {
 		return storeRequest, nil
 	}

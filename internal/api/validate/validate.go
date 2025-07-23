@@ -45,11 +45,14 @@ func License(value *string, required bool) error {
 	return nil
 }
 
-func Tags(value []string) error {
+func Tags(value []string, required bool) error {
 	//Discover DB defines tags as an array of text, so no max value on length of individual tag.
 
 	if value == nil || len(value) == 0 {
-		return apierrors.NewBadRequestError("tags array cannot be empty")
+		if required {
+			return apierrors.NewBadRequestError("tags array cannot be empty")
+		}
+		return nil
 	}
 
 	for _, tag := range value {

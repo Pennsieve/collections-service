@@ -30,7 +30,7 @@ type PatchCollectionRequest struct {
 	Name        *string    `json:"name,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	License     *string    `json:"license,omitempty"`
-	Tags        []string   `json:"tags,omitempty"`
+	Tags        []string   `json:"tags"`
 	DOIs        *PatchDOIs `json:"dois,omitempty"`
 }
 
