@@ -52,7 +52,8 @@ type InternalContributor struct {
 	//Required Values
 
 	// ID is an internal contributor id, different from a user id.
-	ID        int64  `json:"id"`
+	// It gets stored in an integer column in Postgres, so only 32 bits
+	ID        int32  `json:"id"`
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 
@@ -91,13 +92,13 @@ type FinalizeDOICollectionPublishResponse struct {
 
 type InternalContributorBuilder struct {
 	c    *InternalContributor
-	hash hash.Hash64
+	hash hash.Hash32
 }
 
 func NewInternalContributorBuilder() *InternalContributorBuilder {
 	return &InternalContributorBuilder{
 		c:    &InternalContributor{},
-		hash: fnv.New64(),
+		hash: fnv.New32a(),
 	}
 }
 
@@ -131,7 +132,7 @@ func (b *InternalContributorBuilder) WithUserID(userID int64) *InternalContribut
 	return b
 }
 
-func writeString(h hash.Hash64, label, val string) {
+func writeString(h hash.Hash32, label, val string) {
 	//Hash Writes never return an error
 	_, _ = h.Write([]byte(label))
 	_, _ = h.Write([]byte{0}) // separator
@@ -139,7 +140,7 @@ func writeString(h hash.Hash64, label, val string) {
 	_, _ = h.Write([]byte{0}) // separator
 }
 
-func writeInt64(h hash.Hash64, label string, val int64) {
+func writeInt64(h hash.Hash32, label string, val int64) {
 	//Hash Writes never return an error
 	_, _ = h.Write([]byte(label))
 	_, _ = h.Write([]byte{0}) // separator
@@ -165,6 +166,6 @@ func (b *InternalContributorBuilder) Build() InternalContributor {
 	// masking the high bit to get a positive number.
 	// idea is that the number of contributors will always
 	// be small enough that this does not increase the collision risk.
-	b.c.ID = int64(b.hash.Sum64() & 0x7FFFFFFFFFFFFFFF)
+	b.c.ID = int32(b.hash.Sum32() & 0x7FFFFFFF)
 	return *b.c
 }

@@ -51,7 +51,7 @@ func TestInternalContributorBuilder_Build(t *testing.T) {
 			WithUserID(userID).
 			Build()
 
-		assert.NotZero(t, c.ID)
+		assert.Positive(t, c.ID)
 		assert.Equal(t, first, c.FirstName)
 		assert.Equal(t, last, c.LastName)
 		assert.Equal(t, middle, c.MiddleInitial)
@@ -67,7 +67,7 @@ func TestInternalContributorBuilder_Build(t *testing.T) {
 			WithFirstName(value1).
 			WithLastName(value2).
 			Build()
-		require.NotZero(t, c1.ID)
+		require.Positive(t, c1.ID)
 
 		c2 := NewInternalContributorBuilder().
 			WithFirstName(value1).
