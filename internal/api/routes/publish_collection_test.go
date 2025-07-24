@@ -111,7 +111,15 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
+		WithPublishCollectionFunc(
+			ctx,
+			t,
+			expectedCollection.PublishCollectionFunc(
+				t,
+				mockPublishDOICollectionResponse,
+				apitest.VerifyPublishingUser(callingUser),
+				apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+			),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).
@@ -424,7 +432,15 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
+		WithPublishCollectionFunc(
+			ctx,
+			t,
+			expectedCollection.PublishCollectionFunc(
+				t,
+				mockPublishDOICollectionResponse,
+				apitest.VerifyPublishingUser(callingUser),
+				apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+			),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).
@@ -528,7 +544,15 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 	var actualFinalizeRequests []service.FinalizeDOICollectionPublishRequest
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
+		WithPublishCollectionFunc(
+			ctx,
+			t,
+			expectedCollection.PublishCollectionFunc(
+				t,
+				mockPublishDOICollectionResponse,
+				apitest.VerifyPublishingUser(callingUser),
+				apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+			),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).
@@ -894,7 +918,9 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			mockInternalDiscover := mocks.NewInternalDiscover().
 				WithPublishCollectionFunc(
 					expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse,
-						apitest.VerifyPublishingUser(callingUser)),
+						apitest.VerifyPublishingUser(callingUser),
+						apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+					),
 				).
 				WithFinalizeCollectionPublishFunc(
 					expectedCollection.FinalizeCollectionPublishFunc(t, mockFinalizeDOICollectionResponse,

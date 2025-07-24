@@ -36,9 +36,7 @@ func NewGetUserFunc(t require.TestingT, user userstest.User) GetUserFunc {
 			MiddleInitial: emptyStringToNil(user.GetMiddleInitial()),
 			LastName:      emptyStringToNil(user.GetLastName()),
 			Degree:        emptyStringToNil(user.GetDegree()),
-		}
-		if orcidAuth := user.GetORCIDAuthorization(); orcidAuth != nil {
-			userResponse.ORCID = &orcidAuth.ORCID
+			ORCID:         user.GetORCIDOrNil(),
 		}
 		return userResponse, nil
 	}

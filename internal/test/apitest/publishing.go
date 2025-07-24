@@ -3,6 +3,7 @@ package apitest
 import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/stretchr/testify/require"
 	"math/rand/v2"
@@ -10,14 +11,10 @@ import (
 )
 
 func ToPublishedContributor(testUser userstest.User) publishing.PublishedContributor {
-	orcid := ""
-	if orcidAuth := testUser.GetORCIDAuthorization(); orcidAuth != nil {
-		orcid = orcidAuth.ORCID
-	}
 	return publishing.PublishedContributor{
 		FirstName:     testUser.GetFirstName(),
 		LastName:      testUser.GetLastName(),
-		Orcid:         orcid,
+		Orcid:         testUser.GetORCIDOrEmpty(),
 		MiddleInitial: testUser.GetMiddleInitial(),
 		Degree:        testUser.GetDegree(),
 	}
@@ -111,6 +108,17 @@ func RequireManifestsEqual(t require.TestingT, expected, actual publishing.Manif
 	require.Equal(t, expected.SourceOrganization, actual.SourceOrganization)
 	require.Equal(t, expected.Type, actual.Type)
 	require.Equal(t, expected.Version, actual.Version)
+}
+
+func InternalContributor(user userstest.User) service.InternalContributor {
+	return service.NewInternalContributorBuilder().
+		WithFirstName(user.GetFirstName()).
+		WithLastName(user.GetLastName()).
+		WithMiddleInitial(user.GetMiddleInitial()).
+		WithDegree(user.GetDegree()).
+		WithORCID(user.GetORCIDOrEmpty()).
+		WithUserID(user.GetID()).
+		Build()
 }
 
 var degrees = []string{

@@ -143,6 +143,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		OwnerLastName:    util.SafeDeref(userResp.LastName),
 		OwnerORCID:       util.SafeDeref(userResp.ORCID),
 		CollectionNodeID: collection.NodeID,
+		Contributors:     []service.InternalContributor{toInternalContributor(userClaim.Id, userResp)},
 	}
 
 	// Initiate publish to Discover
@@ -338,4 +339,16 @@ func cleanupOnError(ctx context.Context, originalErr *apierrors.Error, cleanups 
 		cause = fmt.Errorf("%w; %s", originalErr, joined)
 	}
 	return apierrors.NewError(originalErr.UserMessage, cause, originalErr.StatusCode)
+}
+
+func toInternalContributor(userId int64, user users.GetUserResponse) service.InternalContributor {
+	return service.NewInternalContributorBuilder().
+		WithFirstName(util.SafeDeref(user.FirstName)).
+		WithLastName(util.SafeDeref(user.LastName)).
+		WithORCID(util.SafeDeref(user.ORCID)).
+		WithMiddleInitial(util.SafeDeref(user.MiddleInitial)).
+		WithDegree(util.SafeDeref(user.Degree)).
+		WithUserID(userId).
+		Build()
+
 }
