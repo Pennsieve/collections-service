@@ -342,13 +342,13 @@ func cleanupOnError(ctx context.Context, originalErr *apierrors.Error, cleanups 
 }
 
 func toInternalContributor(userId int64, user users.GetUserResponse) service.InternalContributor {
-	return service.InternalContributor{
-		ID:            0,
-		FirstName:     util.SafeDeref(user.FirstName),
-		LastName:      util.SafeDeref(user.LastName),
-		ORCID:         util.SafeDeref(user.ORCID),
-		MiddleInitial: util.SafeDeref(user.MiddleInitial),
-		Degree:        util.SafeDeref(user.Degree),
-		UserID:        userId,
-	}
+	return service.NewInternalContributorBuilder().
+		WithFirstName(util.SafeDeref(user.FirstName)).
+		WithLastName(util.SafeDeref(user.LastName)).
+		WithORCID(util.SafeDeref(user.ORCID)).
+		WithMiddleInitial(util.SafeDeref(user.MiddleInitial)).
+		WithDegree(util.SafeDeref(user.Degree)).
+		WithUserID(userId).
+		Build()
+
 }

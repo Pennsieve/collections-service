@@ -3,6 +3,7 @@ package apitest
 import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/stretchr/testify/require"
 	"math/rand/v2"
@@ -107,6 +108,17 @@ func RequireManifestsEqual(t require.TestingT, expected, actual publishing.Manif
 	require.Equal(t, expected.SourceOrganization, actual.SourceOrganization)
 	require.Equal(t, expected.Type, actual.Type)
 	require.Equal(t, expected.Version, actual.Version)
+}
+
+func InternalContributor(user userstest.User) service.InternalContributor {
+	return service.NewInternalContributorBuilder().
+		WithFirstName(user.GetFirstName()).
+		WithLastName(user.GetLastName()).
+		WithMiddleInitial(user.GetMiddleInitial()).
+		WithDegree(user.GetDegree()).
+		WithORCID(user.GetORCIDOrEmpty()).
+		WithUserID(user.GetID()).
+		Build()
 }
 
 var degrees = []string{

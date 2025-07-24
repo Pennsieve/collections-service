@@ -1,8 +1,11 @@
 package service
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"hash"
+	"hash/fnv"
 )
 
 // Some Discover models, such as PublicDatasetDTO live in api/dto because we use them as DTOs as well.
@@ -84,4 +87,84 @@ type FinalizeDOICollectionPublishRequest struct {
 
 type FinalizeDOICollectionPublishResponse struct {
 	Status dto.PublishStatus `json:"status"`
+}
+
+type InternalContributorBuilder struct {
+	c    *InternalContributor
+	hash hash.Hash64
+}
+
+func NewInternalContributorBuilder() *InternalContributorBuilder {
+	return &InternalContributorBuilder{
+		c:    &InternalContributor{},
+		hash: fnv.New64(),
+	}
+}
+
+func (b *InternalContributorBuilder) WithFirstName(firstName string) *InternalContributorBuilder {
+	b.c.FirstName = firstName
+	return b
+}
+
+func (b *InternalContributorBuilder) WithLastName(lastName string) *InternalContributorBuilder {
+	b.c.LastName = lastName
+	return b
+}
+
+func (b *InternalContributorBuilder) WithMiddleInitial(middleInitial string) *InternalContributorBuilder {
+	b.c.MiddleInitial = middleInitial
+	return b
+}
+
+func (b *InternalContributorBuilder) WithORCID(orcid string) *InternalContributorBuilder {
+	b.c.ORCID = orcid
+	return b
+}
+
+func (b *InternalContributorBuilder) WithDegree(degree string) *InternalContributorBuilder {
+	b.c.Degree = degree
+	return b
+}
+
+func (b *InternalContributorBuilder) WithUserID(userID int64) *InternalContributorBuilder {
+	b.c.UserID = userID
+	return b
+}
+
+func writeString(h hash.Hash64, label, val string) {
+	//Hash Writes never return an error
+	_, _ = h.Write([]byte(label))
+	_, _ = h.Write([]byte{0}) // separator
+	_, _ = h.Write([]byte(val))
+	_, _ = h.Write([]byte{0}) // separator
+}
+
+func writeInt64(h hash.Hash64, label string, val int64) {
+	//Hash Writes never return an error
+	_, _ = h.Write([]byte(label))
+	_, _ = h.Write([]byte{0}) // separator
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], uint64(val))
+	_, _ = h.Write(buf[:])
+	_, _ = h.Write([]byte{0})
+}
+
+// Build returns an InternalContributor with an ID calculated as the hash of
+// the other fields. Trying this since we don't have a contributors table with ids
+// like workspaces do.
+func (b *InternalContributorBuilder) Build() InternalContributor {
+	// Keep the order the same to return consistent IDs.
+	writeString(b.hash, "FirstName", b.c.FirstName)
+	writeString(b.hash, "LastName", b.c.LastName)
+
+	writeString(b.hash, "ORCID", b.c.ORCID)
+	writeString(b.hash, "MiddleInitial", b.c.MiddleInitial)
+	writeString(b.hash, "Degree", b.c.Degree)
+	writeInt64(b.hash, "UserID", b.c.UserID)
+
+	// masking the high bit to get a positive number.
+	// idea is that the number of contributors will always
+	// be small enough that this does not increase the collision risk.
+	b.c.ID = int64(b.hash.Sum64() & 0x7FFFFFFFFFFFFFFF)
+	return *b.c
 }
