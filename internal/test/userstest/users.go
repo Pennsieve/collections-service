@@ -15,6 +15,8 @@ type User interface {
 	GetFirstName() string
 	GetLastName() string
 	GetORCIDAuthorization() *users.ORCIDAuthorization
+	GetORCIDOrEmpty() string
+	GetORCIDOrNil() *string
 	GetMiddleInitial() string
 	GetDegree() string
 }
@@ -48,6 +50,14 @@ func (s SeedUser) GetLastName() string {
 
 // GetORCIDAuthorization always returns nil since as of now, no seed user has this set.
 func (s SeedUser) GetORCIDAuthorization() *users.ORCIDAuthorization {
+	return nil
+}
+
+func (s SeedUser) GetORCIDOrEmpty() string {
+	return ""
+}
+
+func (s SeedUser) GetORCIDOrNil() *string {
 	return nil
 }
 
@@ -123,6 +133,20 @@ func (t *TestUser) GetLastName() string {
 
 func (t *TestUser) GetORCIDAuthorization() *users.ORCIDAuthorization {
 	return t.ORCIDAuthorization
+}
+
+func (t *TestUser) GetORCIDOrEmpty() string {
+	if orcidAuth := t.ORCIDAuthorization; orcidAuth != nil {
+		return orcidAuth.ORCID
+	}
+	return ""
+}
+
+func (t *TestUser) GetORCIDOrNil() *string {
+	if orcidAuth := t.ORCIDAuthorization; orcidAuth != nil {
+		return &orcidAuth.ORCID
+	}
+	return nil
 }
 
 func (t *TestUser) GetMiddleInitial() string {
