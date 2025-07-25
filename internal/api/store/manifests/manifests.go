@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"log/slog"
-	"time"
 )
 
 type Store interface {
@@ -54,8 +53,6 @@ func (s *S3Store) SaveManifest(ctx context.Context, key string, manifest publish
 		slog.String("key", key),
 		slog.String("s3VersionId", versionId),
 	)
-	//TODO Remove this!
-	time.Sleep(time.Second)
 	return SaveManifestResponse{S3VersionID: versionId}, nil
 }
 

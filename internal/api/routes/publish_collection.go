@@ -161,6 +161,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		WithLicense(publishRequest.License).
 		WithKeywords(publishRequest.Tags).
 		WithReferences(pennsieveDOIs).
+		WithSourceOrganization(params.Config.PennsieveConfig.CollectionsIDSpace.Name).
 		Build()
 	if err != nil {
 		return dto.PublishCollectionResponse{},
@@ -205,8 +206,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			cleanupOnError(ctx, params.Container.Logger(),
 				apierrors.NewInternalServerError("error finalizing publish with Discover", err),
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
-				// TODO: re-enable this
-				//cleanupManifest(params.Container.ManifestStore(), manifestKey, manifestS3VersionID),
+				cleanupManifest(params.Container.ManifestStore(), manifestKey, manifestS3VersionID),
 				finalizeDiscoverFailure(internalDiscover, discoverPubResp.PublishedDatasetID, discoverPubResp.PublishedVersion, collection),
 			)
 	}

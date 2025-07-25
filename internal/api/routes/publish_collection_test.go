@@ -104,7 +104,7 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 		Status:             expectedDiscoverPublishStatus,
 	}
 
-	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpaceID)
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
 
 	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: dto.PublishSucceeded}
@@ -427,7 +427,7 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 		Status:             expectedDiscoverPublishStatus,
 	}
 
-	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpaceID)
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
@@ -536,9 +536,9 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 		Status:             dto.PublishInProgress,
 	}
 
-	//s3Key := publishing.ManifestS3Key(expectedPublishedDatasetID)
+	s3Key := publishing.ManifestS3Key(expectedPublishedDatasetID)
 
-	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpaceID)
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
 
 	var actualFinalizeRequests []service.FinalizeDOICollectionPublishRequest
@@ -599,8 +599,7 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 
 	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
 
-	//TODO re-enable this
-	//minio.RequireNoObject(ctx, t, publishBucket, s3Key)
+	minio.RequireNoObject(ctx, t, publishBucket, s3Key)
 
 	require.Len(t, actualFinalizeRequests, 2)
 	assert.True(t, actualFinalizeRequests[0].PublishSuccess)

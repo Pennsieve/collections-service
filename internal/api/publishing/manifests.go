@@ -40,7 +40,7 @@ type ManifestV5 struct {
 	Description        string                 `json:"description"`
 	Creator            PublishedContributor   `json:"creator"`
 	Contributors       []PublishedContributor `json:"contributors"`
-	SourceOrganization string                 `json:"sourceOrganization,omitempty"`
+	SourceOrganization string                 `json:"sourceOrganization"`
 	Keywords           []string               `json:"keywords"`
 	DatePublished      apijson.Date           `json:"datePublished"`
 	License            string                 `json:"license,omitempty"`
@@ -158,6 +158,11 @@ func (b *ManifestBuilder) WithID(doi string) *ManifestBuilder {
 
 func (b *ManifestBuilder) WithReferences(dois []string) *ManifestBuilder {
 	b.m.References.IDs = append(b.m.References.IDs, dois...)
+	return b
+}
+
+func (b *ManifestBuilder) WithSourceOrganization(sourceOrg string) *ManifestBuilder {
+	b.m.SourceOrganization = sourceOrg
 	return b
 }
 
