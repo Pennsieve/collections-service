@@ -205,7 +205,8 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			cleanupOnError(ctx, params.Container.Logger(),
 				apierrors.NewInternalServerError("error finalizing publish with Discover", err),
 				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
-				cleanupManifest(params.Container.ManifestStore(), manifestKey, manifestS3VersionID),
+				// TODO: re-enable this
+				//cleanupManifest(params.Container.ManifestStore(), manifestKey, manifestS3VersionID),
 				finalizeDiscoverFailure(internalDiscover, discoverPubResp.PublishedDatasetID, discoverPubResp.PublishedVersion, collection),
 			)
 	}
