@@ -7,11 +7,16 @@ import (
 )
 
 type PennsieveConfig struct {
-	DiscoverServiceURL   string
-	DOIPrefix            string
-	JWTSecretKey         *sharedconfig.SSMSetting
-	CollectionsIDSpaceID int64
-	PublishBucket        string
+	DiscoverServiceURL string
+	DOIPrefix          string
+	JWTSecretKey       *sharedconfig.SSMSetting
+	CollectionsIDSpace CollectionsPublishingIDSpace
+	PublishBucket      string
+}
+
+type CollectionsPublishingIDSpace struct {
+	ID   int64
+	Name string
 }
 
 func NewPennsieveConfig(options ...PennsieveOption) PennsieveConfig {
@@ -42,9 +47,12 @@ func WithJWTSecretKey(jwtSecretKey string) PennsieveOption {
 	}
 }
 
-func WithCollectionsIDSpaceID(id int64) PennsieveOption {
+func WithCollectionsIDSpace(id int64, name string) PennsieveOption {
 	return func(pennsieveConfig *PennsieveConfig) {
-		pennsieveConfig.CollectionsIDSpaceID = id
+		pennsieveConfig.CollectionsIDSpace = CollectionsPublishingIDSpace{
+			ID:   id,
+			Name: name,
+		}
 	}
 }
 
@@ -74,12 +82,19 @@ func (c PennsieveConfig) LoadWithSettings(environmentName string, settings Penns
 		}
 		c.DOIPrefix = prefix
 	}
-	if c.CollectionsIDSpaceID == 0 {
+	if c.CollectionsIDSpace.ID == 0 {
 		idSpaceID, err := settings.CollectionsIDSpaceID.GetInt64()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
-		c.CollectionsIDSpaceID = idSpaceID
+		idSpaceName, err := settings.CollectionsIDSpaceName.Get()
+		if err != nil {
+			return PennsieveConfig{}, err
+		}
+		c.CollectionsIDSpace = CollectionsPublishingIDSpace{
+			ID:   idSpaceID,
+			Name: idSpaceName,
+		}
 	}
 
 	if len(c.PublishBucket) == 0 {

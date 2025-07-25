@@ -74,7 +74,8 @@ func NewExpectedManifest(t require.TestingT, opts ...ManifestOption) publishing.
 				userstest.WithDegree(degrees[rand.IntN(len(degrees))]),
 				userstest.WithMiddleInitial(uuid.NewString()[:1]),
 				userstest.WithORCID(uuid.NewString()),
-			)))
+			))).
+		WithSourceOrganization(CollectionsIDSpaceName)
 	for _, opt := range opts {
 		builder = opt(builder)
 	}
@@ -108,6 +109,7 @@ func RequireManifestsEqual(t require.TestingT, expected, actual publishing.Manif
 	require.Equal(t, expected.SourceOrganization, actual.SourceOrganization)
 	require.Equal(t, expected.Type, actual.Type)
 	require.Equal(t, expected.Version, actual.Version)
+	require.Equal(t, expected.SourceOrganization, actual.SourceOrganization)
 }
 
 func InternalContributor(user userstest.User) service.InternalContributor {
