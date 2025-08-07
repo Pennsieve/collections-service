@@ -63,12 +63,16 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			return dto.PublishCollectionResponse{}, apierrors.NewConflictError(err.Error())
 		}
 		return dto.PublishCollectionResponse{},
-			cleanupOnError(ctx, params.Container.Logger(), apierrors.NewInternalServerError("error registering start of publish", err), cleanupStatusIfExists(params.Container.CollectionsStore(), collection.ID))
+			cleanupOnError(ctx, params.Container.Logger(),
+				apierrors.NewInternalServerError("error registering start of publish", err),
+				cleanupStatusIfExists(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 
 	if err := validateCollection(collection); err != nil {
 		return dto.PublishCollectionResponse{}, cleanupOnError(
 			ctx,
+			params.Container.Logger(),
 			err,
 			cleanupStatus(params.Container.CollectionsStore(), collection.ID),
 		)
@@ -81,11 +85,17 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		discoverDOIRes, err := params.Container.Discover().GetDatasetsByDOI(ctx, pennsieveDOIs)
 		if err != nil {
 			return dto.PublishCollectionResponse{},
-				cleanupOnError(ctx, params.Container.Logger(), apierrors.NewInternalServerError("error getting DOI info from Discover", err), cleanupStatus(params.Container.CollectionsStore(), collection.ID))
+				cleanupOnError(ctx, params.Container.Logger(),
+					apierrors.NewInternalServerError("error getting DOI info from Discover", err),
+					cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+				)
 		}
 		if len(discoverDOIRes.Unpublished) > 0 {
 			return dto.PublishCollectionResponse{},
-				cleanupOnError(ctx, params.Container.Logger(), apierrors.NewBadRequestError(fmt.Sprintf("collection contains unpublished DOIs: %s", strings.Join(slices.Collect(maps.Keys(discoverDOIRes.Unpublished)), ", "))), cleanupStatus(params.Container.CollectionsStore(), collection.ID))
+				cleanupOnError(ctx, params.Container.Logger(),
+					apierrors.NewBadRequestError(fmt.Sprintf("collection contains unpublished DOIs: %s", strings.Join(slices.Collect(maps.Keys(discoverDOIRes.Unpublished)), ", "))),
+					cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+				)
 		}
 
 		banners = collectBanners(pennsieveDOIs, discoverDOIRes.Published)
@@ -94,7 +104,10 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	userResp, err := params.Container.UsersStore().GetUser(ctx, userClaim.Id)
 	if err != nil {
 		return dto.PublishCollectionResponse{},
-			cleanupOnError(ctx, params.Container.Logger(), apierrors.NewInternalServerError("error getting user information", err), cleanupStatus(params.Container.CollectionsStore(), collection.ID))
+			cleanupOnError(ctx, params.Container.Logger(),
+				apierrors.NewInternalServerError("error getting user information", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 
 	discoverPubReq := service.PublishDOICollectionRequest{
@@ -117,12 +130,18 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	internalDiscover, err := params.Container.InternalDiscover(ctx)
 	if err != nil {
 		return dto.PublishCollectionResponse{},
-			cleanupOnError(ctx, params.Container.Logger(), apierrors.NewInternalServerError("error getting internal Discover dependency", err), cleanupStatus(params.Container.CollectionsStore(), collection.ID))
+			cleanupOnError(ctx, params.Container.Logger(),
+				apierrors.NewInternalServerError("error getting internal Discover dependency", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 	discoverPubResp, err := internalDiscover.PublishCollection(ctx, collection.ID, collection.UserRole, discoverPubReq)
 	if err != nil {
 		return dto.PublishCollectionResponse{},
-			cleanupOnError(ctx, params.Container.Logger(), apierrors.NewInternalServerError("error publishing to Discover", err), cleanupStatus(params.Container.CollectionsStore(), collection.ID))
+			cleanupOnError(ctx, params.Container.Logger(),
+				apierrors.NewInternalServerError("error publishing to Discover", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
 	}
 	params.Container.Logger().Info("publish started on Discover",
 		slog.Int64("publishedDatasetId", discoverPubResp.PublishedDatasetID),
