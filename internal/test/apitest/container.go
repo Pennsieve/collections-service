@@ -122,7 +122,7 @@ func (c *TestContainer) WithHTTPTestInternalDiscover(pennsieveConfig config.Penn
 	c.TestInternalDiscover = service.NewHTTPInternalDiscover(
 		pennsieveConfig.DiscoverServiceURL,
 		*pennsieveConfig.JWTSecretKey.Value,
-		pennsieveConfig.CollectionsIDSpaceID,
+		pennsieveConfig.CollectionsIDSpace.ID,
 		c.Logger())
 	return c
 }

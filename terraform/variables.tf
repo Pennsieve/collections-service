@@ -38,6 +38,7 @@ locals {
   discover_service_host     = data.terraform_remote_state.discover_service.outputs.internal_fqdn
   pennsieve_doi_prefix      = var.environment_name == "prod" ? "10.26275" : "10.21397"
   collections_id_space_id   = data.terraform_remote_state.discover_service.outputs.doi_collections_id_space_id
+  collections_id_space_name = data.terraform_remote_state.discover_service.outputs.doi_collections_id_space_name
   log_level                 = var.environment_name == "prod" ? "INFO" : "DEBUG"
   cors_allowed_origins      = var.environment_name == "prod" ? ["https://discover.pennsieve.io", "https://app.pennsieve.io"] : ["http://localhost:3000", "https://discover.pennsieve.net", "https://app.pennsieve.net"]
 }

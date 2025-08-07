@@ -109,14 +109,22 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 		Status:             expectedDiscoverPublishStatus,
 	}
 
-	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpaceID)
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
 
 	mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: dto.PublishSucceeded}
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
+		WithPublishCollectionFunc(
+			ctx,
+			t,
+			expectedCollection.PublishCollectionFunc(
+				t,
+				mockPublishDOICollectionResponse,
+				apitest.VerifyPublishingUser(callingUser),
+				apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+			),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).
@@ -416,12 +424,20 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 		Status:             expectedDiscoverPublishStatus,
 	}
 
-	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpaceID)
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
 
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
+		WithPublishCollectionFunc(
+			ctx,
+			t,
+			expectedCollection.PublishCollectionFunc(
+				t,
+				mockPublishDOICollectionResponse,
+				apitest.VerifyPublishingUser(callingUser),
+				apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+			),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).
@@ -515,13 +531,21 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 
 	s3Key := publishing.ManifestS3Key(expectedPublishedDatasetID)
 
-	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpaceID)
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
 	expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
 
 	var actualFinalizeRequests []service.FinalizeDOICollectionPublishRequest
 	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
 		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
-		WithPublishCollectionFunc(ctx, t, expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse, apitest.VerifyPublishingUser(callingUser)),
+		WithPublishCollectionFunc(
+			ctx,
+			t,
+			expectedCollection.PublishCollectionFunc(
+				t,
+				mockPublishDOICollectionResponse,
+				apitest.VerifyPublishingUser(callingUser),
+				apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+			),
 			expectedOrgServiceRole,
 			expectedDatasetServiceRole,
 		).
@@ -873,7 +897,9 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			mockInternalDiscover := mocks.NewInternalDiscover().
 				WithPublishCollectionFunc(
 					expectedCollection.PublishCollectionFunc(t, mockPublishDOICollectionResponse,
-						apitest.VerifyPublishingUser(callingUser)),
+						apitest.VerifyPublishingUser(callingUser),
+						apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+					),
 				).
 				WithFinalizeCollectionPublishFunc(
 					expectedCollection.FinalizeCollectionPublishFunc(t, mockFinalizeDOICollectionResponse,

@@ -537,10 +537,13 @@ func VerifyPublishingUser(expectedUser userstest.User) PublishDOICollectionReque
 		assert.Equal(t, expectedUser.GetNodeID(), request.OwnerNodeID)
 		assert.Equal(t, expectedUser.GetFirstName(), request.OwnerFirstName)
 		assert.Equal(t, expectedUser.GetLastName(), request.OwnerLastName)
-		if expectedUser.GetORCIDAuthorization() == nil {
-			assert.Empty(t, request.OwnerORCID)
-		} else {
-			assert.Equal(t, expectedUser.GetORCIDAuthorization().ORCID, request.OwnerORCID)
-		}
+		assert.Equal(t, expectedUser.GetORCIDOrEmpty(), request.OwnerORCID)
+	}
+}
+
+func VerifyInternalContributors(expectedContributors ...service.InternalContributor) PublishDOICollectionRequestVerification {
+	return func(t require.TestingT, request service.PublishDOICollectionRequest) {
+		test.Helper(t)
+		assert.Equal(t, expectedContributors, request.Contributors)
 	}
 }

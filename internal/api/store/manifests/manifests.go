@@ -46,7 +46,14 @@ func (s *S3Store) SaveManifest(ctx context.Context, key string, manifest publish
 	if err != nil {
 		return SaveManifestResponse{}, fmt.Errorf("error writing manifest to %s/%s: %w", s.publishBucket, key, err)
 	}
-	return SaveManifestResponse{S3VersionID: aws.ToString(putOut.VersionId)}, err
+	versionId := aws.ToString(putOut.VersionId)
+	s.logger.Debug("wrote manifest",
+		slog.String("logSource", "S3Store"),
+		slog.String("bucket", s.publishBucket),
+		slog.String("key", key),
+		slog.String("s3VersionId", versionId),
+	)
+	return SaveManifestResponse{S3VersionID: versionId}, nil
 }
 
 func (s *S3Store) DeleteManifestVersion(ctx context.Context, key string, s3VersionID string) error {

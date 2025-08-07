@@ -105,6 +105,7 @@ data "aws_iam_policy_document" "collections_service_api_iam_policy_document" {
     actions = [
       "s3:PutObject",
       "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
       "s3:ListBucket",
     ]
 
