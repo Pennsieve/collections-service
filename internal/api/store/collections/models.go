@@ -2,12 +2,18 @@ package collections
 
 import (
 	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 )
 
 type CreateCollectionResponse struct {
 	ID          int64
 	CreatorRole role.Role
+}
+
+type Publication struct {
+	Status publishing.Status
+	Type   publishing.Type
 }
 
 type CollectionBase struct {
@@ -17,6 +23,7 @@ type CollectionBase struct {
 	Description string
 	Size        int
 	UserRole    role.Role
+	Publication *Publication
 }
 
 type CollectionSummary struct {

@@ -431,6 +431,18 @@ components:
         - Pennsieve
         - External
 
+    Publication:
+      description: information about the published status of a collection
+      type: object
+      properties:
+        status:
+          type: string
+        type:
+          type: string
+      required:
+        - status
+        - type
+
     CollectionResponse:
       type: object
       properties:
@@ -448,6 +460,8 @@ components:
           type: integer
         userRole:
           type: string
+        publication:
+          $ref: '#/components/schemas/Publication'
       required:
         - nodeId
         - name

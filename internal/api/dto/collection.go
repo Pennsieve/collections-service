@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apijson"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"time"
 )
 
@@ -301,6 +302,20 @@ const ReleaseInProgress PublishStatus = "RELEASE_IN_PROGRESS"
 const ReleaseFailed PublishStatus = "RELEASE_FAILED"
 
 const Unpublished PublishStatus = "UNPUBLISHED"
+
+func (ps PublishStatus) ToPublishingStatus() publishing.Status {
+	switch ps {
+	case PublishSucceeded, Unpublished:
+		return publishing.CompletedStatus
+	case PublishFailed:
+		return publishing.FailedStatus
+		// Don't think we should see any other PublishStatus than those listed in the first two cases.
+		// Fail if we get an unexpected PublishStatus
+	default:
+		return publishing.FailedStatus
+	}
+
+}
 
 type PublishCollectionResponse struct {
 	PublishedDatasetID int64         `json:"publishedDatasetId"`

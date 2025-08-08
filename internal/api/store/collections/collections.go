@@ -21,7 +21,7 @@ type Store interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
 	// GetCollections returns a paginated list of collection summaries that the given user has at least guest permission on.
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
-	// GetCollection returns a the given collection if it exists and if the given user has at least guest permission on it.
+	// GetCollection returns the given collection if it exists and if the given user has at least guest permission on it.
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
 	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)

@@ -210,7 +210,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 				finalizeDiscoverFailure(internalDiscover, discoverPubResp.PublishedDatasetID, discoverPubResp.PublishedVersion, collection),
 			)
 	}
-	collectionsServiceStatus := publishing.FromDiscoverPublishStatus(discoverFinalizeResp.Status)
+	collectionsServiceStatus := discoverFinalizeResp.Status.ToPublishingStatus()
 	params.Container.Logger().Info("publish finalized on Discover",
 		slog.Any("discoverServiceStatus", discoverFinalizeResp.Status),
 		slog.Any("collectionsServiceStatus", collectionsServiceStatus),
