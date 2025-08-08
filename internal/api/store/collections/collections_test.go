@@ -36,6 +36,7 @@ func TestStore(t *testing.T) {
 		{"get collections, limit and offset", testGetCollectionsLimitOffset},
 		{"get collection, none", testGetCollectionNone},
 		{"get collection", testGetCollection},
+		{"get collection should return publish status if one exists", testGetCollectionPublishStatus},
 		{"get collection, user with no permission on the collection should not see it", testGetCollectionNoPerms},
 
 		{"delete collection", testDeleteCollection},
@@ -391,6 +392,27 @@ func testGetCollection(t *testing.T, store *collections.PostgresStore, expectati
 	assert.NotNil(t, user2CollectionResp)
 	assertExpectedEqualCollectionBase(t, user2Collection, user2CollectionResp.CollectionBase)
 	assert.Equal(t, user2Collection.DOIs.AsDOIs(), user2CollectionResp.DOIs)
+
+}
+
+func testGetCollectionPublishStatus(t *testing.T, store *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	// Set up using the ExpectationDB
+	user1 := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user1)
+
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
+	expectationDB.CreateCollection(ctx, t, collection)
+
+	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.CompletedStatus, publishing.PublicationType, *user1.ID).WithCollectionID(*collection.ID).WithExistingCompletedPublishStatus(*user1.ID)
+	expectationDB.CreatePublishStatusPreCondition(ctx, t, expectedPublishStatus)
+
+	// user1FiveDOI
+	getCollectionResp, err := store.GetCollection(ctx, *user1.ID, *collection.NodeID)
+	assert.NoError(t, err)
+	assert.NotNil(t, collection)
+	assertExpectedPublishStatusEqual(t, expectedPublishStatus, getCollectionResp.CollectionBase)
 
 }
 
@@ -893,6 +915,17 @@ func assertExpectedEqualCollectionBase(t *testing.T, expected *apitest.ExpectedC
 	assert.Equal(t, expected.Description, actual.Description)
 	assert.Equal(t, expected.Users[0].PermissionBit.ToRole(), actual.UserRole)
 	assert.Equal(t, len(expected.DOIs), actual.Size)
+}
+
+func assertExpectedPublishStatusEqual(t *testing.T, expected *apitest.ExpectedPublishStatus, actual collections.CollectionBase) {
+	t.Helper()
+	if expectedPublishStatus := expected.GetPreCondition(); expectedPublishStatus == nil {
+		assert.Nil(t, actual.Publication)
+	} else {
+		require.NotNil(t, actual.Publication)
+		assert.Equal(t, expectedPublishStatus.Type, actual.Publication.Type)
+		assert.Equal(t, expectedPublishStatus.Status, actual.Publication.Status)
+	}
 }
 
 func assertExpectedEqualCollectionSummary(t *testing.T, expected *apitest.ExpectedCollection, actual collections.CollectionSummary) {

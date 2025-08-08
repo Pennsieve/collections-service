@@ -170,7 +170,7 @@ type ExpectedPublishStatus struct {
 	CollectionID *int64
 	// PreCondition is an optional status that already exists prior to
 	// the test
-	PreCondition *publishing.PublishStatus
+	PreCondition *collections.PublishStatus
 	// ExpectedStatus and other Expected* fields are what we expect
 	// the status fields to be after the test
 	ExpectedStatus publishing.Status
@@ -194,6 +194,13 @@ func NewExpectedInProgressPublishStatus(pubUser int64) *ExpectedPublishStatus {
 	return NewExpectedPublishStatus(publishing.InProgressStatus, publishing.PublicationType, pubUser).WithExistingInProgressPublishStatus(pubUser)
 }
 
+func (s *ExpectedPublishStatus) GetPreCondition() *collections.PublishStatus {
+	if s == nil {
+		return nil
+	}
+	return s.PreCondition
+}
+
 func (s *ExpectedPublishStatus) WithCollectionID(collectionID int64) *ExpectedPublishStatus {
 	s.CollectionID = &collectionID
 	if s.PreCondition != nil {
@@ -204,7 +211,7 @@ func (s *ExpectedPublishStatus) WithCollectionID(collectionID int64) *ExpectedPu
 
 func (s *ExpectedPublishStatus) WithExistingInProgressPublishStatus(userID int64) *ExpectedPublishStatus {
 	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	s.PreCondition = &publishing.PublishStatus{
+	s.PreCondition = &collections.PublishStatus{
 		Status:    publishing.InProgressStatus,
 		Type:      publishing.PublicationType,
 		StartedAt: startedAt,
@@ -219,7 +226,7 @@ func (s *ExpectedPublishStatus) WithExistingInProgressPublishStatus(userID int64
 func (s *ExpectedPublishStatus) WithExistingCompletedPublishStatus(userID int64) *ExpectedPublishStatus {
 	startedAt := time.Now().UTC().AddDate(0, -1, 2)
 	finishedAt := startedAt.Add(time.Minute)
-	s.PreCondition = &publishing.PublishStatus{
+	s.PreCondition = &collections.PublishStatus{
 		Status:     publishing.CompletedStatus,
 		Type:       publishing.PublicationType,
 		StartedAt:  startedAt,
@@ -235,7 +242,7 @@ func (s *ExpectedPublishStatus) WithExistingCompletedPublishStatus(userID int64)
 func (s *ExpectedPublishStatus) WithExistingFailedPublishStatus(userID int64) *ExpectedPublishStatus {
 	startedAt := time.Now().UTC().AddDate(0, -1, 2)
 	finishedAt := startedAt.Add(time.Minute)
-	s.PreCondition = &publishing.PublishStatus{
+	s.PreCondition = &collections.PublishStatus{
 		Status:     publishing.FailedStatus,
 		Type:       publishing.PublicationType,
 		StartedAt:  startedAt,
