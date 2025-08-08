@@ -16,6 +16,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store/users"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/apitest/builders/stores/collectionstest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
@@ -87,11 +88,6 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	// The collection
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
-
-	expectedPublishStatus := apitest.NewExpectedPublishStatus(
-		publishing.CompletedStatus,
-		publishing.PublicationType,
-		*callingUser.ID).WithCollectionID(createCollectionResp.ID)
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
 
@@ -171,7 +167,9 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 	assert.Equal(t, expectedPublishedVersion, resp.PublishedVersion)
 	assert.Equal(t, mockFinalizeDOICollectionResponse.Status, resp.Status)
 
-	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+	expectedPublishStatus := collectionstest.NewExpectedCompletedPublishStatus(createCollectionResp.ID, *callingUser.ID)
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, nil)
 
 	manifestKey := publishing.ManifestS3Key(resp.PublishedDatasetID)
 	headManifest := minio.RequireObjectExists(ctx, t, pennsieveConfig.PublishBucket, manifestKey)
@@ -238,9 +236,8 @@ func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
-	expectedPublishStatus := apitest.NewExpectedInProgressPublishStatus(*callingUser.ID).
-		WithCollectionID(createCollectionResp.ID)
-	expectationDB.CreatePublishStatusPreCondition(ctx, t, expectedPublishStatus)
+	existingPublishStatus := collectionstest.NewInProgressPublishStatus(createCollectionResp.ID, *callingUser.ID)
+	expectationDB.CreatePublishStatus(ctx, t, existingPublishStatus)
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
@@ -270,7 +267,8 @@ func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB
 	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
 	assert.Contains(t, apiError.UserMessage, "in progress")
 
-	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+	expectedPublishStatus := collectionstest.NewExpectedInProgressPublishStatus(createCollectionResp.ID, *callingUser.ID)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, &existingPublishStatus)
 
 }
 
@@ -294,9 +292,6 @@ func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationD
 		WithUser(*callingUser.ID, pgdb.Owner).
 		WithPublicDatasets(dataset)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
-
-	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.FailedStatus, publishing.PublicationType, *callingUser.ID).
-		WithCollectionID(createCollectionResp.ID)
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
@@ -326,7 +321,8 @@ func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationD
 	assert.Equal(t, http.StatusBadRequest, apiError.StatusCode)
 	assert.Contains(t, apiError.UserMessage, "description cannot be empty")
 
-	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+	expectedPublishStatus := collectionstest.NewExpectedFailedPublishStatus(createCollectionResp.ID, *callingUser.ID)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, nil)
 
 }
 
@@ -351,9 +347,6 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 		WithPublicDatasets(dataset).
 		WithTombstones(tombstone)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
-
-	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.FailedStatus, publishing.PublicationType, *callingUser.ID).
-		WithCollectionID(createCollectionResp.ID)
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
@@ -385,7 +378,8 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 	assert.Contains(t, apiError.UserMessage, "unpublished")
 	assert.Contains(t, apiError.UserMessage, tombstone.DOI)
 
-	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+	expectedPublishStatus := collectionstest.NewExpectedFailedPublishStatus(createCollectionResp.ID, *callingUser.ID)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, nil)
 
 }
 
@@ -410,11 +404,6 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 	// The collection
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
-
-	expectedPublishStatus := apitest.NewExpectedPublishStatus(
-		publishing.FailedStatus,
-		publishing.PublicationType,
-		*callingUser.ID).WithCollectionID(createCollectionResp.ID)
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions()
 
@@ -496,7 +485,9 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 
 	assert.Equal(t, http.StatusInternalServerError, apiError.StatusCode)
 
-	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+	expectedPublishStatus := collectionstest.NewExpectedFailedPublishStatus(createCollectionResp.ID, *callingUser.ID)
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, nil)
 
 }
 
@@ -522,9 +513,6 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 		WithPublicDatasets(dataset)
 
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
-
-	expectedPublishStatus := apitest.NewExpectedPublishStatus(publishing.FailedStatus, publishing.PublicationType, *callingUser.ID).
-		WithCollectionID(createCollectionResp.ID)
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
 
@@ -597,7 +585,9 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 
 	assert.Equal(t, http.StatusInternalServerError, apiError.StatusCode)
 
-	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus)
+	expectedPublishStatus := collectionstest.NewExpectedFailedPublishStatus(createCollectionResp.ID, *callingUser.ID)
+
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, nil)
 
 	minio.RequireNoObject(ctx, t, publishBucket, s3Key)
 

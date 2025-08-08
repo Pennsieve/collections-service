@@ -816,7 +816,7 @@ func testStartPublish(t *testing.T, collectionsStore *collections.PostgresStore,
 	require.NoError(t, collectionsStore.StartPublish(ctx, collectionID, *user.ID, publishing.PublicationType))
 
 	expectedPublishStatus := collectionstest.NewExpectedInProgressPublishStatus(collectionID, *user.ID)
-	expectationDB.RequirePublishStatusNew(ctx, t, expectedPublishStatus, nil)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, nil)
 }
 
 func testStartPublishExistingInProgress(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
@@ -835,7 +835,7 @@ func testStartPublishExistingInProgress(t *testing.T, collectionsStore *collecti
 
 	expectedPublishStatus := collectionstest.NewExpectedInProgressPublishStatus(collectionID, *user.ID)
 
-	expectationDB.RequirePublishStatusNew(ctx, t, expectedPublishStatus, &existingPublishStatus)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, &existingPublishStatus)
 }
 
 func testStartPublishExistingComplete(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
@@ -856,7 +856,7 @@ func testStartPublishExistingComplete(t *testing.T, collectionsStore *collection
 	require.NoError(t, collectionsStore.StartPublish(ctx, collectionID, *user.ID, publishing.PublicationType))
 
 	expectedPublishStatus := collectionstest.NewExpectedInProgressPublishStatus(collectionID, *user.ID)
-	expectationDB.RequirePublishStatusNew(ctx, t, expectedPublishStatus, &existingPublishStatus)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, &existingPublishStatus)
 }
 
 func testStartPublishExistingFailed(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
@@ -877,7 +877,7 @@ func testStartPublishExistingFailed(t *testing.T, collectionsStore *collections.
 	require.NoError(t, collectionsStore.StartPublish(ctx, collectionID, *user.ID, publishing.PublicationType))
 
 	expectedPublishStatus := collectionstest.NewInProgressPublishStatus(collectionID, *user.ID)
-	expectationDB.RequirePublishStatusNew(ctx, t, expectedPublishStatus, &existingPublishStatus)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, &existingPublishStatus)
 }
 
 func testFinishPublish(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
@@ -895,7 +895,7 @@ func testFinishPublish(t *testing.T, collectionsStore *collections.PostgresStore
 	require.NoError(t, collectionsStore.FinishPublish(ctx, collectionID, publishing.CompletedStatus, true))
 
 	expectedPublishStatus := collectionstest.NewExpectedCompletedPublishStatus(collectionID, *user.ID)
-	expectationDB.RequirePublishStatusNew(ctx, t, expectedPublishStatus, &existingPublishStatus)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, &existingPublishStatus)
 }
 
 func testFinishPublishNoExistingStatus(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {

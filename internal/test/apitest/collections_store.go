@@ -20,7 +20,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // ExpectedCollection is what we expect the collection to look like
@@ -164,95 +163,6 @@ func (d ExpectedDOIs) AsDOIs() collections.DOIs {
 		}
 	}
 	return strs
-}
-
-type ExpectedPublishStatus struct {
-	CollectionID *int64
-	// PreCondition is an optional status that already exists prior to
-	// the test
-	PreCondition *collections.PublishStatus
-	// ExpectedStatus and other Expected* fields are what we expect
-	// the status fields to be after the test
-	ExpectedStatus publishing.Status
-	ExpectedType   publishing.Type
-	ExpectedUserID int64
-}
-
-func NewExpectedPublishStatus(pubStatus publishing.Status, pubType publishing.Type, pubUser int64) *ExpectedPublishStatus {
-	return &ExpectedPublishStatus{
-		ExpectedStatus: pubStatus,
-		ExpectedType:   pubType,
-		ExpectedUserID: pubUser,
-	}
-}
-
-// NewExpectedInProgressPublishStatus returns an ExpectedPublishStatus that makes sense if we are
-// expecting an InProgress status at the end of a test. This status should only be temporary, so if we expect this
-// status at the end of the test, there must be an existing pre-condition of that status already
-// existing.
-func NewExpectedInProgressPublishStatus(pubUser int64) *ExpectedPublishStatus {
-	return NewExpectedPublishStatus(publishing.InProgressStatus, publishing.PublicationType, pubUser).WithExistingInProgressPublishStatus(pubUser)
-}
-
-func (s *ExpectedPublishStatus) GetPreCondition() *collections.PublishStatus {
-	if s == nil {
-		return nil
-	}
-	return s.PreCondition
-}
-
-func (s *ExpectedPublishStatus) WithCollectionID(collectionID int64) *ExpectedPublishStatus {
-	s.CollectionID = &collectionID
-	if s.PreCondition != nil {
-		s.PreCondition.CollectionID = collectionID
-	}
-	return s
-}
-
-func (s *ExpectedPublishStatus) WithExistingInProgressPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	s.PreCondition = &collections.PublishStatus{
-		Status:    publishing.InProgressStatus,
-		Type:      publishing.PublicationType,
-		StartedAt: startedAt,
-		UserID:    &userID,
-	}
-	if s.CollectionID != nil {
-		s.PreCondition.CollectionID = *s.CollectionID
-	}
-	return s
-}
-
-func (s *ExpectedPublishStatus) WithExistingCompletedPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	finishedAt := startedAt.Add(time.Minute)
-	s.PreCondition = &collections.PublishStatus{
-		Status:     publishing.CompletedStatus,
-		Type:       publishing.PublicationType,
-		StartedAt:  startedAt,
-		FinishedAt: &finishedAt,
-		UserID:     &userID,
-	}
-	if s.CollectionID != nil {
-		s.PreCondition.CollectionID = *s.CollectionID
-	}
-	return s
-}
-
-func (s *ExpectedPublishStatus) WithExistingFailedPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	finishedAt := startedAt.Add(time.Minute)
-	s.PreCondition = &collections.PublishStatus{
-		Status:     publishing.FailedStatus,
-		Type:       publishing.PublicationType,
-		StartedAt:  startedAt,
-		FinishedAt: &finishedAt,
-		UserID:     &userID,
-	}
-	if s.CollectionID != nil {
-		s.PreCondition.CollectionID = *s.CollectionID
-	}
-	return s
 }
 
 func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) collections.GetCollectionResponse {

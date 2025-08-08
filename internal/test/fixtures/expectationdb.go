@@ -83,40 +83,7 @@ func (e *ExpectationDB) RequireCollectionByNodeID(ctx context.Context, t require
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
-func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.TestingT, expected *apitest.ExpectedPublishStatus) {
-	test.Helper(t)
-	require.NotNil(t, expected.CollectionID, "expected collectionID not set")
-	conn := e.connect(ctx, t)
-	defer test.CloseConnection(ctx, t, conn)
-
-	actual := GetPublishStatus(ctx, t, conn, *expected.CollectionID)
-	require.Equal(t, expected.ExpectedStatus, actual.Status)
-	require.Equal(t, expected.ExpectedType, actual.Type)
-	require.Equal(t, expected.ExpectedUserID, *actual.UserID)
-	require.NotZero(t, actual.StartedAt)
-	if expected.ExpectedStatus == publishing.InProgressStatus {
-		require.Nil(t, actual.FinishedAt)
-		if preCondition := expected.PreCondition; preCondition != nil {
-			switch preCondition.Status {
-			// If we expected InProgress with an InProgress pre-condition, then we should expect that there are no changes to the pre-condition
-			case publishing.InProgressStatus:
-				require.Equal(t, *preCondition.UserID, expected.ExpectedUserID)
-				requireTimeWithinEpsilon(t, preCondition.StartedAt, actual.StartedAt, time.Second)
-			default:
-				// but if the pre-condition is not InProgress, then StartedAt should have been reset
-				require.True(t, actual.StartedAt.After(preCondition.StartedAt), "updated started_at %v <= previous started_at %v", actual.StartedAt, preCondition.StartedAt)
-			}
-		}
-	} else {
-		require.NotNil(t, actual.FinishedAt)
-		require.False(t, (*actual.FinishedAt).Before(actual.StartedAt))
-		if preCondition := expected.PreCondition; preCondition != nil {
-			requireTimeWithinEpsilon(t, preCondition.StartedAt, actual.StartedAt, time.Second)
-		}
-	}
-}
-
-func (e *ExpectationDB) RequirePublishStatusNew(ctx context.Context, t require.TestingT, expected collections.PublishStatus, preCondition *collections.PublishStatus) {
+func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.TestingT, expected collections.PublishStatus, preCondition *collections.PublishStatus) {
 	test.Helper(t)
 	require.NotZero(t, expected.CollectionID, "expected collectionID not set")
 	conn := e.connect(ctx, t)
@@ -210,20 +177,6 @@ func (e *ExpectationDB) CreatePublishStatus(ctx context.Context, t require.Testi
 	defer test.CloseConnection(ctx, t, conn)
 
 	AddPublishStatus(ctx, t, conn, publishStatus)
-}
-
-func (e *ExpectationDB) CreatePublishStatusPreCondition(ctx context.Context, t require.TestingT, expectedPublishStatus *apitest.ExpectedPublishStatus) {
-	test.Helper(t)
-	require.NotNil(t, expectedPublishStatus.PreCondition, "the given ExpectedPublishStatus does not have a precondition")
-	require.NotNil(t, expectedPublishStatus.PreCondition.CollectionID, "collectionID not set on PreCondition")
-	require.Equal(t, expectedPublishStatus.PreCondition.CollectionID, *expectedPublishStatus.CollectionID,
-		"PreCondition.CollectionID %d does not match CollectionID %d",
-		expectedPublishStatus.PreCondition.CollectionID,
-		*expectedPublishStatus.CollectionID)
-	conn := e.connect(ctx, t)
-	defer test.CloseConnection(ctx, t, conn)
-
-	AddPublishStatus(ctx, t, conn, *expectedPublishStatus.PreCondition)
 }
 
 func (e *ExpectationDB) CleanUp(ctx context.Context, t require.TestingT) {
