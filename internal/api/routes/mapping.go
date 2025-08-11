@@ -18,6 +18,12 @@ func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collec
 			UserRole:    storeCollection.UserRole.String(),
 		},
 	}
+	if storeCollection.Publication != nil {
+		response.Publication = &dto.Publication{
+			Status: storeCollection.Publication.Status,
+			Type:   storeCollection.Publication.Type,
+		}
+	}
 
 	mergedContributors := MergedContributors{}
 

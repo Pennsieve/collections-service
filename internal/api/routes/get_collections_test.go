@@ -147,13 +147,13 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	// They should be returned in oldest first order
 	actualCollection1 := response.Collections[0]
-	assertExpectedEqualCollectionSummary(t, user1CollectionNoDOI, actualCollection1, expectedDatasets)
+	assertEqualExpectedCollectionSummary(t, user1CollectionNoDOI, actualCollection1, expectedDatasets)
 
 	actualCollection2 := response.Collections[1]
-	assertExpectedEqualCollectionSummary(t, user1CollectionOneDOI, actualCollection2, expectedDatasets)
+	assertEqualExpectedCollectionSummary(t, user1CollectionOneDOI, actualCollection2, expectedDatasets)
 
 	actualCollection3 := response.Collections[2]
-	assertExpectedEqualCollectionSummary(t, user1CollectionFiveDOI, actualCollection3, expectedDatasets)
+	assertEqualExpectedCollectionSummary(t, user1CollectionFiveDOI, actualCollection3, expectedDatasets)
 
 	// try user2's collections
 	user2Claims := apitest.DefaultClaims(user2)
@@ -173,7 +173,7 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assert.Len(t, user2CollectionResp.Collections, 1)
 
 	actualUser2Collection := user2CollectionResp.Collections[0]
-	assertExpectedEqualCollectionSummary(t, user2Collection, actualUser2Collection, expectedDatasets)
+	assertEqualExpectedCollectionSummary(t, user2Collection, actualUser2Collection, expectedDatasets)
 }
 
 func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.ExpectationDB) {
@@ -233,7 +233,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 		expectedCollectionLen := min(limit, totalCollections-offset)
 		if assert.Len(t, resp.Collections, expectedCollectionLen) {
 			for i := 0; i < expectedCollectionLen; i++ {
-				assertExpectedEqualCollectionSummary(t, expectedCollections[offset+i], resp.Collections[i], expectedDatasets)
+				assertEqualExpectedCollectionSummary(t, expectedCollections[offset+i], resp.Collections[i], expectedDatasets)
 			}
 		}
 	}

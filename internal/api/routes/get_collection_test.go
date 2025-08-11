@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/apitest/builders/stores/collectionstest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
@@ -27,6 +28,7 @@ func TestGetCollection(t *testing.T) {
 		{"get collection, none", testGetCollectionNone},
 		{"get collection", testGetCollection},
 		{"get collection with tombstone", testGetCollectionTombstone},
+		{"get collection should return Publication if a publish status exists", testGetCollectionPublishStatus},
 	}
 
 	ctx := context.Background()
@@ -145,7 +147,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1NoDOIResp, err := GetCollection(ctx, paramsNoDOI)
 	require.NoError(t, err)
 	assert.NotNil(t, user1NoDOIResp)
-	assertExpectedEqualCollectionSummary(t, user1CollectionNoDOI, user1NoDOIResp.CollectionSummary, expectedDatasets)
+	assertEqualExpectedCollectionSummary(t, user1CollectionNoDOI, user1NoDOIResp.CollectionSummary, expectedDatasets)
 	assert.Empty(t, user1NoDOIResp.Datasets)
 	assert.Empty(t, user1NoDOIResp.DerivedContributors)
 
@@ -233,7 +235,7 @@ func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.Expectatio
 	resp, err := GetCollection(ctx, params)
 	require.NoError(t, err)
 
-	assertExpectedEqualCollectionSummary(t, expectedCollection, resp.CollectionSummary, expectedDatasets)
+	assertEqualExpectedCollectionSummary(t, expectedCollection, resp.CollectionSummary, expectedDatasets)
 	// Only the public dataset will add to the derived contributors
 	assert.Equal(t, expectedDatasets.ExpectedContributorsForDOI(t, expectedPublicDataset.DOI), resp.DerivedContributors)
 
@@ -246,6 +248,52 @@ func testGetCollectionTombstone(t *testing.T, expectationDB *fixtures.Expectatio
 	var actualTombstone dto.Tombstone
 	apitest.RequireAsPennsieveTombstone(t, resp.Datasets[1], &actualTombstone)
 	assert.Equal(t, expectedTombstone, actualTombstone)
+
+}
+
+func testGetCollectionPublishStatus(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	// Set up using the ExpectationDB
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
+	expectationDB.CreateCollection(ctx, t, collection)
+
+	expectedPublishStatus := collectionstest.NewCompletedPublishStatus(*collection.ID, *user.ID)
+	expectationDB.CreatePublishStatus(ctx, t, expectedPublishStatus)
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *collection.NodeID).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+	resp, err := GetCollection(ctx, params)
+	assert.NoError(t, err)
+	assertEqualExpectedPublishStatus(t, expectedPublishStatus, resp.CollectionSummary)
 
 }
 
@@ -279,7 +327,7 @@ func testHandleGetCollectionEmptyArrays(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil))
 
 	claims := apitest.DefaultClaims(callingUser)
 
@@ -316,7 +364,7 @@ func testHandleGetCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil))
 
 	mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(func(ctx context.Context, dois []string) (service.DatasetsByDOIResponse, error) {
 		return service.DatasetsByDOIResponse{Published: map[string]dto.PublicDataset{

@@ -23,6 +23,7 @@ type CollectionBase struct {
 	Description string
 	Size        int
 	UserRole    role.Role
+	// Publication is nil when this is part of GetCollectionsResponse
 	Publication *Publication
 }
 

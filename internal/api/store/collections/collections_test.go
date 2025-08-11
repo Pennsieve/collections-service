@@ -50,6 +50,7 @@ func TestStore(t *testing.T) {
 		{"add DOI to collection", testUpdateCollectionAddDOI},
 		{"add DOIs to collection", testUpdateCollectionAddDOIs},
 		{"update collection", testUpdateCollection},
+		{"update collection should return publish status if one exists", testUpdateCollectionPublishStatus},
 		{"update asking to remove a non-existent DOI should succeed", testUpdateCollectionRemoveNonExistentDOI},
 		{"update asking to add an already existing DOI should succeed", testUpdateCollectionAddExistingDOI},
 		{"update non-existent collection should return ErrCollectionNotFound", testUpdateCollectionNonExistent},
@@ -720,6 +721,36 @@ func testUpdateCollection(t *testing.T, collectionsStore *collections.PostgresSt
 
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 
+}
+
+func testUpdateCollectionPublishStatus(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	doi1 := apitest.NewPennsieveDOI()
+	doi2 := apitest.NewPennsieveDOI()
+	doi3 := apitest.NewPennsieveDOI()
+	doi4 := apitest.NewPennsieveDOI()
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(doi2, doi1, doi3, doi4)
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	existingPublishStatus := collectionstest.NewFailedPublishStatus(collectionID, *user.ID)
+	expectationDB.CreatePublishStatus(ctx, t, existingPublishStatus)
+
+	newName := uuid.NewString()
+	newDescription := uuid.NewString()
+	update := collections.UpdateCollectionRequest{
+		Name:        &newName,
+		Description: &newDescription,
+	}
+	updatedCollection, err := collectionsStore.UpdateCollection(context.Background(), *user.ID, collectionID, update)
+	require.NoError(t, err)
+
+	assertExpectedPublishStatusEqual(t, existingPublishStatus, updatedCollection.CollectionBase)
 }
 
 func testUpdateCollectionRemoveNonExistentDOI(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {

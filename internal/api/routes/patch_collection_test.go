@@ -9,6 +9,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/apitest/builders/stores/collectionstest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
@@ -32,6 +33,7 @@ func TestPatchCollection(t *testing.T) {
 		{"remove DOIs from collection", testPatchCollectionRemoveDOIs},
 		{"add DOIs to collection", testPatchCollectionAddDOIs},
 		{"update collection", testPatchCollection},
+		{"update collection should return a Publication if a publish status exists", testPatchCollectionPublishStatus},
 		{"update asking to add an unpublished DOI should fail", testPatchCollectionAddUnpublished},
 		{"update asking to remove a non-existent DOI should succeed", testPatchCollectionRemoveNonExistentDOI},
 		{"update asking to add an already existing DOI should succeed", testPatchCollectionAddExistingDOI},
@@ -393,6 +395,56 @@ func testPatchCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectationDB.RequireCollection(ctx, t, expectedCollection, collectionID)
 }
 
+func testPatchCollectionPublishStatus(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
+	createResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+	collectionID := createResp.ID
+
+	expectedPublishStatus := collectionstest.NewFailedPublishStatus(collectionID, *user.ID)
+	expectationDB.CreatePublishStatus(ctx, t, expectedPublishStatus)
+
+	newName := uuid.NewString()
+	update := dto.PatchCollectionRequest{Name: &newName}
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			WithBody(t, update).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+
+	updatedCollection, err := PatchCollection(ctx, params)
+	require.NoError(t, err)
+
+	assertEqualExpectedPublishStatus(t, expectedPublishStatus, updatedCollection.CollectionSummary)
+}
+
 func testPatchCollectionAddUnpublished(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
@@ -659,7 +711,7 @@ func TestGetUpdateRequestAddDOIs(t *testing.T) {
 
 	patchCollectionRequest := dto.PatchCollectionRequest{DOIs: &dto.PatchDOIs{Add: []string{doiToAdd1.Value, doiToAdd2.Value}}}
 
-	updateRequest, err := GetUpdateRequest(apitest.PennsieveDOIPrefix, patchCollectionRequest, expectedCollection.ToGetCollectionResponse(t, userstest.SeedUser1.ID))
+	updateRequest, err := GetUpdateRequest(apitest.PennsieveDOIPrefix, patchCollectionRequest, expectedCollection.ToGetCollectionResponse(t, userstest.SeedUser1.ID, nil))
 	require.NoError(t, err)
 
 	assert.Nil(t, updateRequest.Name)
@@ -727,7 +779,7 @@ func testHandlePatchCollectionEmptyArrays(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithMockID(1).WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -766,7 +818,7 @@ func testHandlePatchCollectionEmptyArraysInPublicDataset(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithMockID(2).WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithDOIs(expectedDOI)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
 	mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(func(ctx context.Context, dois []string) (service.DatasetsByDOIResponse, error) {
@@ -962,7 +1014,7 @@ func testHandlePatchCollectionAuthz(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
 
 			mockCollectionStore := mocks.NewCollectionsStore().
-				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil))
 
 			params := Params{
 				Request: apitest.NewAPIGatewayRequestBuilder(PatchCollectionRouteKey).
@@ -991,7 +1043,7 @@ func testHandlePatchCollectionAuthz(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm)
 
 			mockCollectionStore := mocks.NewCollectionsStore().
-				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 				WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
 			params := Params{
@@ -1024,7 +1076,7 @@ func testRejectAddingCollectionDOI(t *testing.T) {
 		WithNodeID().
 		WithUser(callingUser.ID, pgdb.Owner)
 
-	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil))
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	researchDataset := expectedDatasets.NewPublishedWithOptions(apitest.WithDatasetType("research"))

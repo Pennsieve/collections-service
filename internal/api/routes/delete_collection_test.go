@@ -150,7 +150,7 @@ func testDeleteAuthz(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
 
 			mockCollectionStore := mocks.NewCollectionsStore().
-				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil))
 
 			params := Params{
 				Request: apitest.NewAPIGatewayRequestBuilder(DeleteCollectionRouteKey).
@@ -181,7 +181,7 @@ func testDeleteAuthz(t *testing.T) {
 			expectedCollection.ID = &mockCollectionID
 
 			mockCollectionStore := mocks.NewCollectionsStore().
-				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 				WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
 					require.Equal(t, mockCollectionID, collectionID)
 					return nil

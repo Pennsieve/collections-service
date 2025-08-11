@@ -840,7 +840,7 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
 
 			mockCollectionStore := mocks.NewCollectionsStore().
-				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil))
 
 			params := Params{
 				Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
@@ -878,7 +878,7 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm).WithPublicDatasets(dataset)
 
 			mockCollectionStore := mocks.NewCollectionsStore().
-				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 				WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
 				WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.CompletedStatus))
 
@@ -977,7 +977,7 @@ func testHandlePublishCollectionPublishAlreadyInProgress(t *testing.T) {
 		WithDOIs(apitest.NewPennsieveDOI())
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithStartPublishFunc(func(_ context.Context, _ int64, _ int64, _ publishing.Type) error {
 			return collections.ErrPublishInProgress
 		})

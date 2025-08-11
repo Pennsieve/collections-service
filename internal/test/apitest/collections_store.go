@@ -165,7 +165,7 @@ func (d ExpectedDOIs) AsDOIs() collections.DOIs {
 	return strs
 }
 
-func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) collections.GetCollectionResponse {
+func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64, expectedPublishStatus *collections.PublishStatus) collections.GetCollectionResponse {
 	test.Helper(t)
 	require.NotNil(t, c.ID, "expected collection does not have ID set")
 	require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
@@ -182,17 +182,23 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 		Size:        len(c.DOIs),
 		UserRole:    user.PermissionBit.ToRole(),
 	}
+	if expectedPublishStatus != nil {
+		collectionBase.Publication = &collections.Publication{
+			Status: expectedPublishStatus.Status,
+			Type:   expectedPublishStatus.Type,
+		}
+	}
 	return collections.GetCollectionResponse{
 		CollectionBase: collectionBase,
 		DOIs:           c.DOIs.AsDOIs(),
 	}
 }
 
-func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetCollectionFunc {
+func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT, expectedPublishStatus *collections.PublishStatus) mocks.GetCollectionFunc {
 	test.Helper(t)
 	return func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
-		return c.ToGetCollectionResponse(t, userID), nil
+		return c.ToGetCollectionResponse(t, userID, expectedPublishStatus), nil
 	}
 }
 

@@ -100,14 +100,21 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses
+type Publication struct {
+	Status publishing.Status `json:"status"`
+	Type   publishing.Type   `json:"type"`
+}
+
+// CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses.
+// Publication is never returned by POST or GET /
 type CollectionSummary struct {
-	NodeID      string   `json:"nodeId"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Banners     []string `json:"banners"`
-	Size        int      `json:"size"`
-	UserRole    string   `json:"userRole"`
+	NodeID      string       `json:"nodeId"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Banners     []string     `json:"banners"`
+	Size        int          `json:"size"`
+	UserRole    string       `json:"userRole"`
+	Publication *Publication `json:"publication,omitempty"`
 }
 
 func (r CollectionSummary) MarshalJSON() ([]byte, error) {
