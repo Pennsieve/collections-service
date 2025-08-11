@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 )
 
 func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collections.GetCollectionResponse) (dto.GetCollectionResponse, error) {
+	publicationDTO := dto.Publication{}
 	response := dto.GetCollectionResponse{
 		CollectionSummary: dto.CollectionSummary{
 			NodeID:      storeCollection.NodeID,
@@ -16,13 +18,14 @@ func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collec
 			Description: storeCollection.Description,
 			Size:        storeCollection.Size,
 			UserRole:    storeCollection.UserRole.String(),
+			Publication: &publicationDTO,
 		},
 	}
-	if storeCollection.Publication != nil {
-		response.Publication = &dto.Publication{
-			Status: storeCollection.Publication.Status,
-			Type:   storeCollection.Publication.Type,
-		}
+	if publication := storeCollection.Publication; publication != nil {
+		publicationDTO.Status = publication.Status
+		publicationDTO.Type = publication.Type
+	} else {
+		publicationDTO.Status = publishing.DraftStatus
 	}
 
 	mergedContributors := MergedContributors{}

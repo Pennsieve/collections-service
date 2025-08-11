@@ -5,6 +5,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -150,6 +151,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assertEqualExpectedCollectionSummary(t, user1CollectionNoDOI, user1NoDOIResp.CollectionSummary, expectedDatasets)
 	assert.Empty(t, user1NoDOIResp.Datasets)
 	assert.Empty(t, user1NoDOIResp.DerivedContributors)
+	assert.Equal(t, publishing.DraftStatus, user1NoDOIResp.Publication.Status)
 
 	// user1OneDOI
 	paramsOneDOI := Params{
@@ -164,6 +166,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1OneDOIResp, err := GetCollection(ctx, paramsOneDOI)
 	assert.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp, expectedDatasets)
+	assert.Equal(t, publishing.DraftStatus, user1OneDOIResp.Publication.Status)
 
 	// user1FiveDOI
 	paramsFiveDOI := Params{
@@ -178,6 +181,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1FiveDOIResp, err := GetCollection(ctx, paramsFiveDOI)
 	assert.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp, expectedDatasets)
+	assert.Equal(t, publishing.DraftStatus, user1FiveDOIResp.Publication.Status)
 
 	// try user2's collections
 	paramsUser2 := Params{
@@ -192,6 +196,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user2CollectionResp, err := GetCollection(ctx, paramsUser2)
 	require.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user2Collection, user2CollectionResp, expectedDatasets)
+	assert.Equal(t, publishing.DraftStatus, user2CollectionResp.Publication.Status)
 
 }
 

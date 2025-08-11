@@ -437,11 +437,19 @@ components:
       properties:
         status:
           type: string
+          enum:
+            - Draft
+            - InProgress
+            - Completed
+            - Failed
         type:
           type: string
+          enum:
+            - Publication
+            - Revision
+            - Removal
       required:
         - status
-        - type
 
     CollectionResponse:
       type: object

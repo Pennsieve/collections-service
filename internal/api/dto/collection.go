@@ -102,11 +102,11 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 
 type Publication struct {
 	Status publishing.Status `json:"status"`
-	Type   publishing.Type   `json:"type"`
+	Type   publishing.Type   `json:"type,omitempty"`
 }
 
 // CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses.
-// Publication is never returned by POST or GET /
+// Publication is never returned by POST / or GET /
 type CollectionSummary struct {
 	NodeID      string       `json:"nodeId"`
 	Name        string       `json:"name"`
