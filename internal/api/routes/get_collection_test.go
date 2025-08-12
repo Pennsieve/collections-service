@@ -155,7 +155,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assertEqualExpectedCollectionSummary(t, user1CollectionNoDOI, user1NoDOIResp.CollectionSummary, expectedDatasets)
 	assert.Empty(t, user1NoDOIResp.Datasets)
 	assert.Empty(t, user1NoDOIResp.DerivedContributors)
-	assertDraftPublication(t, user1NoDOIResp.CollectionSummary)
+	assertDraftPublication(t, user1NoDOIResp.CollectionSummary, false)
 
 	// user1OneDOI
 	paramsOneDOI := Params{
@@ -170,7 +170,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1OneDOIResp, err := GetCollection(ctx, paramsOneDOI)
 	assert.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp, expectedDatasets)
-	assertDraftPublication(t, user1OneDOIResp.CollectionSummary)
+	assertDraftPublication(t, user1OneDOIResp.CollectionSummary, false)
 
 	// user1FiveDOI
 	paramsFiveDOI := Params{
@@ -185,7 +185,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1FiveDOIResp, err := GetCollection(ctx, paramsFiveDOI)
 	assert.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp, expectedDatasets)
-	assertDraftPublication(t, user1FiveDOIResp.CollectionSummary)
+	assertDraftPublication(t, user1FiveDOIResp.CollectionSummary, false)
 
 	// try user2's collections
 	paramsUser2 := Params{
@@ -200,7 +200,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user2CollectionResp, err := GetCollection(ctx, paramsUser2)
 	require.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user2Collection, user2CollectionResp, expectedDatasets)
-	assertDraftPublication(t, user2CollectionResp.CollectionSummary)
+	assertDraftPublication(t, user2CollectionResp.CollectionSummary, false)
 
 }
 
@@ -319,20 +319,37 @@ func testGetCollectionIncludePublishedDatasetDraft(t *testing.T, expectationDB *
 		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
 	expectationDB.CreateCollection(ctx, t, collection)
 
-	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	pennsieveConfig := apitest.PennsieveConfigWithOptions()
+
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
+	expectedDatasetServiceRole := collection.DatasetServiceRole(role.Owner)
+
+	expectedDiscoverPublishStatus := service.DatasetPublishStatusResponse{
+		Name:                  collection.Name,
+		SourceOrganizationID:  int32(pennsieveConfig.CollectionsIDSpace.ID),
+		SourceDatasetID:       int32(*collection.ID),
+		PublishedVersionCount: 0,
+		Status:                dto.NotPublished,
+	}
+	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
+		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
+		WithGetCollectionPublishStatusFunc(ctx, t, collection.GetCollectionPublishStatusFunc(t, expectedDiscoverPublishStatus), *collection.NodeID, expectedOrgServiceRole, expectedDatasetServiceRole)
+	mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
 	defer mockDiscoverServer.Close()
+	pennsieveConfig.DiscoverServiceURL = mockDiscoverServer.URL
 
 	claims := apitest.DefaultClaims(user)
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
-		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		WithPennsieveConfig(pennsieveConfig).
 		Build()
 
 	container := apitest.NewTestContainer().
 		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
 		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
-		WithHTTPTestDiscover(mockDiscoverServer.URL)
+		WithHTTPTestDiscover(mockDiscoverServer.URL).
+		WithHTTPTestInternalDiscover(pennsieveConfig)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
@@ -346,7 +363,7 @@ func testGetCollectionIncludePublishedDatasetDraft(t *testing.T, expectationDB *
 	}
 	resp, err := GetCollection(ctx, params)
 	assert.NoError(t, err)
-	assertDraftPublication(t, resp.CollectionSummary)
+	assertDraftPublication(t, resp.CollectionSummary, true)
 
 }
 
