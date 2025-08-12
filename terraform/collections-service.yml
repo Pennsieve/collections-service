@@ -110,6 +110,13 @@ paths:
             type: string
           required: true
           description: The nodeId of the collection to return
+        - in: query
+          name: includePublishedDataset
+          schema:
+            type: boolean
+            default: false
+          required: false
+          description: if true, include publishing info obtained from Discover service
       security:
         - token_auth: [ ]
       tags:
@@ -431,6 +438,22 @@ components:
         - Pennsieve
         - External
 
+    PublishedDataset:
+      description: information about the published status of a collection obtained from Discover
+      type: object
+      properties:
+        id:
+          type: integer
+          description: id of the published collection
+        version:
+          type: integer
+          description: the number of published versions (and if > 0, the version of the most recent publication)
+        lastPublishedDate:
+          type: string
+          format: date-time
+      required:
+        - version
+
     Publication:
       description: information about the published status of a collection
       type: object
@@ -448,6 +471,8 @@ components:
             - Publication
             - Revision
             - Removal
+        publishedDataset:
+          $ref: '#/components/schemas/PublishedDataset'
       required:
         - status
 
