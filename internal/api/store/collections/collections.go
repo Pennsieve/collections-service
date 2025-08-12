@@ -21,7 +21,7 @@ type Store interface {
 	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
 	// GetCollections returns a paginated list of collection summaries that the given user has at least guest permission on.
 	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
-	// GetCollection returns a the given collection if it exists and if the given user has at least guest permission on it.
+	// GetCollection returns the given collection if it exists and if the given user has at least guest permission on it.
 	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
 	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
@@ -224,10 +224,11 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 
 	idCondition := fmt.Sprintf("c.%s = @%s", idColumn, idColumn)
 
-	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, u.role, d.doi, d.datasource
+	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, u.role, d.doi, d.datasource, s.type, s.status
 			FROM collections.collections c
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
+			    LEFT JOIN collections.publish_status s ON c.id = s.collection_id
 			WHERE u.user_id = @user_id AND u.permission_bit >= @min_perm
   			  AND %s
 			ORDER BY d.id asc`, idCondition)
@@ -241,8 +242,17 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 	var pgxRole PgxRole
 	var doiOpt *string
 	var datasourceOpt *datasource.DOIDatasource
-	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &pgxRole, &doiOpt, &datasourceOpt}, func() error {
+	var publishTypeOpt *publishing.Type
+	var publishStatusOpt *publishing.Status
+	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &pgxRole, &doiOpt, &datasourceOpt, &publishTypeOpt, &publishStatusOpt}, func() error {
 		if response == nil {
+			var publication *Publication
+			if publishTypeOpt != nil && publishStatusOpt != nil {
+				publication = &Publication{
+					Status: *publishStatusOpt,
+					Type:   *publishTypeOpt,
+				}
+			}
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
 					ID:          id,
@@ -250,6 +260,7 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 					Name:        name,
 					Description: description,
 					UserRole:    pgxRole.AsRole(),
+					Publication: publication,
 				},
 			}
 		}

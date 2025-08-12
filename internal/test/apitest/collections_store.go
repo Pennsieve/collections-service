@@ -20,7 +20,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // ExpectedCollection is what we expect the collection to look like
@@ -166,89 +165,7 @@ func (d ExpectedDOIs) AsDOIs() collections.DOIs {
 	return strs
 }
 
-type ExpectedPublishStatus struct {
-	CollectionID *int64
-	// PreCondition is an optional status that already exists prior to
-	// the test
-	PreCondition *publishing.PublishStatus
-	// ExpectedStatus and other Expected* fields are what we expect
-	// the status fields to be after the test
-	ExpectedStatus publishing.Status
-	ExpectedType   publishing.Type
-	ExpectedUserID int64
-}
-
-func NewExpectedPublishStatus(pubStatus publishing.Status, pubType publishing.Type, pubUser int64) *ExpectedPublishStatus {
-	return &ExpectedPublishStatus{
-		ExpectedStatus: pubStatus,
-		ExpectedType:   pubType,
-		ExpectedUserID: pubUser,
-	}
-}
-
-// NewExpectedInProgressPublishStatus returns an ExpectedPublishStatus that makes sense if we are
-// expecting an InProgress status at the end of a test. This status should only be temporary, so if we expect this
-// status at the end of the test, there must be an existing pre-condition of that status already
-// existing.
-func NewExpectedInProgressPublishStatus(pubUser int64) *ExpectedPublishStatus {
-	return NewExpectedPublishStatus(publishing.InProgressStatus, publishing.PublicationType, pubUser).WithExistingInProgressPublishStatus(pubUser)
-}
-
-func (s *ExpectedPublishStatus) WithCollectionID(collectionID int64) *ExpectedPublishStatus {
-	s.CollectionID = &collectionID
-	if s.PreCondition != nil {
-		s.PreCondition.CollectionID = collectionID
-	}
-	return s
-}
-
-func (s *ExpectedPublishStatus) WithExistingInProgressPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	s.PreCondition = &publishing.PublishStatus{
-		Status:    publishing.InProgressStatus,
-		Type:      publishing.PublicationType,
-		StartedAt: startedAt,
-		UserID:    &userID,
-	}
-	if s.CollectionID != nil {
-		s.PreCondition.CollectionID = *s.CollectionID
-	}
-	return s
-}
-
-func (s *ExpectedPublishStatus) WithExistingCompletedPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	finishedAt := startedAt.Add(time.Minute)
-	s.PreCondition = &publishing.PublishStatus{
-		Status:     publishing.CompletedStatus,
-		Type:       publishing.PublicationType,
-		StartedAt:  startedAt,
-		FinishedAt: &finishedAt,
-		UserID:     &userID,
-	}
-	if s.CollectionID != nil {
-		s.PreCondition.CollectionID = *s.CollectionID
-	}
-	return s
-}
-
-func (s *ExpectedPublishStatus) WithExistingFailedPublishStatus(userID int64) *ExpectedPublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	finishedAt := startedAt.Add(time.Minute)
-	s.PreCondition = &publishing.PublishStatus{
-		Status:     publishing.FailedStatus,
-		Type:       publishing.PublicationType,
-		StartedAt:  startedAt,
-		FinishedAt: &finishedAt,
-		UserID:     &userID,
-	}
-	if s.CollectionID != nil {
-		s.PreCondition.CollectionID = *s.CollectionID
-	}
-	return s
-}
-
-func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64) collections.GetCollectionResponse {
+func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64, expectedPublishStatus *collections.PublishStatus) collections.GetCollectionResponse {
 	test.Helper(t)
 	require.NotNil(t, c.ID, "expected collection does not have ID set")
 	require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
@@ -265,17 +182,23 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 		Size:        len(c.DOIs),
 		UserRole:    user.PermissionBit.ToRole(),
 	}
+	if expectedPublishStatus != nil {
+		collectionBase.Publication = &collections.Publication{
+			Status: expectedPublishStatus.Status,
+			Type:   expectedPublishStatus.Type,
+		}
+	}
 	return collections.GetCollectionResponse{
 		CollectionBase: collectionBase,
 		DOIs:           c.DOIs.AsDOIs(),
 	}
 }
 
-func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT) mocks.GetCollectionFunc {
+func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT, expectedPublishStatus *collections.PublishStatus) mocks.GetCollectionFunc {
 	test.Helper(t)
 	return func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
-		return c.ToGetCollectionResponse(t, userID), nil
+		return c.ToGetCollectionResponse(t, userID, expectedPublishStatus), nil
 	}
 }
 
@@ -472,5 +395,17 @@ func VerifyInternalContributors(expectedContributors ...service.InternalContribu
 	return func(t require.TestingT, request service.PublishDOICollectionRequest) {
 		test.Helper(t)
 		assert.Equal(t, expectedContributors, request.Contributors)
+	}
+}
+
+func (c *ExpectedCollection) GetCollectionPublishStatusFunc(t require.TestingT, mockResponse service.DatasetPublishStatusResponse) mocks.GetCollectionPublishStatusFunc {
+	return func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		assert.Equal(t, *c.ID, collectionID)
+		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
+		assert.Equal(t, *c.NodeID, collectionNodeID)
+		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
+		return mockResponse, nil
 	}
 }

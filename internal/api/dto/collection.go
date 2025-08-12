@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apijson"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"time"
 )
 
@@ -99,14 +100,28 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses
+type PublishedDataset struct {
+	ID                int32      `json:"id,omitempty"`
+	Version           int32      `json:"version"`
+	LastPublishedDate *time.Time `json:"lastPublishedDate,omitempty"`
+}
+
+type Publication struct {
+	Status           publishing.Status `json:"status"`
+	Type             publishing.Type   `json:"type,omitempty"`
+	PublishedDataset *PublishedDataset `json:"publishedDataset,omitempty"`
+}
+
+// CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses.
+// Publication is never returned by POST / or GET /
 type CollectionSummary struct {
-	NodeID      string   `json:"nodeId"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Banners     []string `json:"banners"`
-	Size        int      `json:"size"`
-	UserRole    string   `json:"userRole"`
+	NodeID      string       `json:"nodeId"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Banners     []string     `json:"banners"`
+	Size        int          `json:"size"`
+	UserRole    string       `json:"userRole"`
+	Publication *Publication `json:"publication,omitempty"`
 }
 
 func (r CollectionSummary) MarshalJSON() ([]byte, error) {
@@ -301,6 +316,20 @@ const ReleaseInProgress PublishStatus = "RELEASE_IN_PROGRESS"
 const ReleaseFailed PublishStatus = "RELEASE_FAILED"
 
 const Unpublished PublishStatus = "UNPUBLISHED"
+
+func (ps PublishStatus) ToPublishingStatus() publishing.Status {
+	switch ps {
+	case PublishSucceeded, Unpublished:
+		return publishing.CompletedStatus
+	case PublishFailed:
+		return publishing.FailedStatus
+		// Don't think we should see any other PublishStatus than those listed in the first two cases.
+		// Fail if we get an unexpected PublishStatus
+	default:
+		return publishing.FailedStatus
+	}
+
+}
 
 type PublishCollectionResponse struct {
 	PublishedDatasetID int64         `json:"publishedDatasetId"`

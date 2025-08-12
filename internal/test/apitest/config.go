@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-const CollectionsIDSpaceID = int64(-20)
+const CollectionsIDSpaceID = int64(2222)
 const CollectionsIDSpaceName = "Test Collections Publishing"
 const PublishBucket = "test-publish-bucket"
 

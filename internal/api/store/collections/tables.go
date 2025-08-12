@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pennsieve/collections-service/internal/api/datasource"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"time"
@@ -60,4 +61,15 @@ type CollectionDOI struct {
 	Datasource   datasource.DOIDatasource `db:"datasource"`
 	UpdatedAt    time.Time                `db:"updated_at"`
 	CreatedAt    time.Time                `db:"created_at"`
+}
+
+type PublishStatus struct {
+	CollectionID int64             `db:"collection_id"`
+	Status       publishing.Status `db:"status"`
+	Type         publishing.Type   `db:"type"`
+	StartedAt    time.Time         `db:"started_at"`
+	FinishedAt   *time.Time        `db:"finished_at"`
+	// UserID is the user that started the publish. Should only be
+	// nil if the user is deleted.
+	UserID *int64 `db:"user_id"`
 }

@@ -5,10 +5,23 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 )
 
-func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collections.GetCollectionResponse) (dto.GetCollectionResponse, error) {
+func discoverToDTOPublishedDataset(fromDiscover *service.DatasetPublishStatusResponse) *dto.PublishedDataset {
+	if fromDiscover == nil {
+		return nil
+	}
+	return &dto.PublishedDataset{
+		ID:                fromDiscover.PublishedDatasetID,
+		Version:           fromDiscover.PublishedVersionCount,
+		LastPublishedDate: fromDiscover.LastPublishedDate,
+	}
+}
+
+func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collections.GetCollectionResponse, datasetPublishStatus *service.DatasetPublishStatusResponse) (dto.GetCollectionResponse, error) {
 	response := dto.GetCollectionResponse{
 		CollectionSummary: dto.CollectionSummary{
 			NodeID:      storeCollection.NodeID,
@@ -16,7 +29,16 @@ func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collec
 			Description: storeCollection.Description,
 			Size:        storeCollection.Size,
 			UserRole:    storeCollection.UserRole.String(),
+			Publication: &dto.Publication{
+				PublishedDataset: discoverToDTOPublishedDataset(datasetPublishStatus),
+			},
 		},
+	}
+	if publication := storeCollection.Publication; publication != nil {
+		response.Publication.Status = publication.Status
+		response.Publication.Type = publication.Type
+	} else {
+		response.Publication.Status = publishing.DraftStatus
 	}
 
 	mergedContributors := MergedContributors{}
