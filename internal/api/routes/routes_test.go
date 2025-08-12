@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,14 @@ func assertEqualExpectedPublishStatus(t *testing.T, expected collections.Publish
 	require.NotNil(t, actual.Publication)
 	assert.Equal(t, expected.Status, actual.Publication.Status)
 	assert.Equal(t, expected.Type, actual.Publication.Type)
+}
+
+func assertDraftPublication(t *testing.T, actual dto.CollectionSummary) {
+	t.Helper()
+	assert.NotNil(t, actual.Publication)
+	assert.Equal(t, publishing.DraftStatus, actual.Publication.Status)
+	assert.Empty(t, actual.Publication.Type)
+	assert.Nil(t, actual.Publication.PublishedDataset)
 }
 
 func assertEqualExpectedCollectionSummary(t *testing.T, expected *apitest.ExpectedCollection, actual dto.CollectionSummary, expectedDatasets *apitest.ExpectedPennsieveDatasets) {

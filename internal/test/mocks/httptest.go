@@ -101,6 +101,25 @@ func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t r
 	return m
 }
 
+func (m *DiscoverMux) WithGetCollectionPublishStatusFunc(ctx context.Context, t require.TestingT, f GetCollectionPublishStatusFunc, expectedCollectionNodeID string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
+	m.HandleFunc("GET /organizations/{organizationId}/datasets/{datasetId}", func(writer http.ResponseWriter, request *http.Request) {
+		test.Helper(t)
+		collectionIDParam := request.PathValue("datasetId")
+		collectionID, err := strconv.ParseInt(collectionIDParam, 10, 64)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedOrgServiceRole.Id, request.PathValue("organizationId"))
+
+		_, actualDatasetRole := m.RequireExpectedAuthorization(t, collectionIDParam, expectedOrgServiceRole, expectedDatasetServiceRole, request)
+		require.Equal(t, expectedCollectionNodeID, actualDatasetRole.NodeId)
+
+		datasetRoleRole, _ := role.RoleFromString(actualDatasetRole.Role)
+		publishStatusResponse, err := f(ctx, collectionID, expectedCollectionNodeID, datasetRoleRole)
+		respond(t, writer, publishStatusResponse, err)
+	})
+	return m
+}
+
 func respond(t require.TestingT, writer http.ResponseWriter, mockResponse any, mockErr error) {
 	test.Helper(t)
 	var httpResponse any

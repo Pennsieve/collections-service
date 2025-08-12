@@ -397,3 +397,15 @@ func VerifyInternalContributors(expectedContributors ...service.InternalContribu
 		assert.Equal(t, expectedContributors, request.Contributors)
 	}
 }
+
+func (c *ExpectedCollection) GetCollectionPublishStatusFunc(t require.TestingT, mockResponse service.DatasetPublishStatusResponse) mocks.GetCollectionPublishStatusFunc {
+	return func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		assert.Equal(t, *c.ID, collectionID)
+		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
+		assert.Equal(t, *c.NodeID, collectionNodeID)
+		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
+		return mockResponse, nil
+	}
+}

@@ -94,3 +94,15 @@ func GetIntQueryParam(queryParams map[string]string, key string, requiredMin int
 	}
 	return defaultValue, nil
 }
+
+func GetBoolQueryParam(queryParams map[string]string, key string, defaultValue bool) (bool, error) {
+	if strVal, present := queryParams[key]; present {
+		value, err := strconv.ParseBool(strVal)
+		if err != nil {
+			return false, apierrors.NewBadRequestErrorWithCause(fmt.Sprintf("value of [%s] must be a bool", key), err)
+
+		}
+		return value, nil
+	}
+	return defaultValue, nil
+}

@@ -100,9 +100,16 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type PublishedDataset struct {
+	ID                int32      `json:"id,omitempty"`
+	Version           int32      `json:"version"`
+	LastPublishedDate *time.Time `json:"lastPublishedDate,omitempty"`
+}
+
 type Publication struct {
-	Status publishing.Status `json:"status"`
-	Type   publishing.Type   `json:"type,omitempty"`
+	Status           publishing.Status `json:"status"`
+	Type             publishing.Type   `json:"type,omitempty"`
+	PublishedDataset *PublishedDataset `json:"publishedDataset,omitempty"`
 }
 
 // CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses.

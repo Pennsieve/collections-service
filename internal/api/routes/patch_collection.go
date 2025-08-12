@@ -96,7 +96,7 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 			"error updating collection",
 			err)
 	}
-	return params.StoreToDTOCollection(ctx, updateCollectionResponse)
+	return params.StoreToDTOCollection(ctx, updateCollectionResponse, nil)
 }
 
 func NewPatchCollectionRouteHandler() Handler[dto.GetCollectionResponse] {

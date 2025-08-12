@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
-	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -14,11 +13,14 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestGetCollection(t *testing.T) {
@@ -30,6 +32,8 @@ func TestGetCollection(t *testing.T) {
 		{"get collection", testGetCollection},
 		{"get collection with tombstone", testGetCollectionTombstone},
 		{"get collection should return Publication if a publish status exists", testGetCollectionPublishStatus},
+		{"get collection on draft collection should return correct Publication field if includePublishedDataset=true", testGetCollectionIncludePublishedDatasetDraft},
+		{"get collection on published collection should return correct Publication field if includePublishedDataset=true", testGetCollectionIncludePublishedDatasetPublished},
 	}
 
 	ctx := context.Background()
@@ -151,7 +155,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	assertEqualExpectedCollectionSummary(t, user1CollectionNoDOI, user1NoDOIResp.CollectionSummary, expectedDatasets)
 	assert.Empty(t, user1NoDOIResp.Datasets)
 	assert.Empty(t, user1NoDOIResp.DerivedContributors)
-	assert.Equal(t, publishing.DraftStatus, user1NoDOIResp.Publication.Status)
+	assertDraftPublication(t, user1NoDOIResp.CollectionSummary)
 
 	// user1OneDOI
 	paramsOneDOI := Params{
@@ -166,7 +170,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1OneDOIResp, err := GetCollection(ctx, paramsOneDOI)
 	assert.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user1CollectionOneDOI, user1OneDOIResp, expectedDatasets)
-	assert.Equal(t, publishing.DraftStatus, user1OneDOIResp.Publication.Status)
+	assertDraftPublication(t, user1OneDOIResp.CollectionSummary)
 
 	// user1FiveDOI
 	paramsFiveDOI := Params{
@@ -181,7 +185,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user1FiveDOIResp, err := GetCollection(ctx, paramsFiveDOI)
 	assert.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user1CollectionFiveDOI, user1FiveDOIResp, expectedDatasets)
-	assert.Equal(t, publishing.DraftStatus, user1FiveDOIResp.Publication.Status)
+	assertDraftPublication(t, user1FiveDOIResp.CollectionSummary)
 
 	// try user2's collections
 	paramsUser2 := Params{
@@ -196,7 +200,7 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	user2CollectionResp, err := GetCollection(ctx, paramsUser2)
 	require.NoError(t, err)
 	assertEqualExpectedGetCollectionResponse(t, user2Collection, user2CollectionResp, expectedDatasets)
-	assert.Equal(t, publishing.DraftStatus, user2CollectionResp.Publication.Status)
+	assertDraftPublication(t, user2CollectionResp.CollectionSummary)
 
 }
 
@@ -299,6 +303,123 @@ func testGetCollectionPublishStatus(t *testing.T, expectationDB *fixtures.Expect
 	resp, err := GetCollection(ctx, params)
 	assert.NoError(t, err)
 	assertEqualExpectedPublishStatus(t, expectedPublishStatus, resp.CollectionSummary)
+
+}
+
+func testGetCollectionIncludePublishedDatasetDraft(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	// Set up using the ExpectationDB
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
+	expectationDB.CreateCollection(ctx, t, collection)
+
+	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
+	defer mockDiscoverServer.Close()
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfig(mockDiscoverServer.URL)).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *collection.NodeID).
+			WithQueryParam(IncludePublishedDatasetQueryParamKey, "true").
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+	resp, err := GetCollection(ctx, params)
+	assert.NoError(t, err)
+	assertDraftPublication(t, resp.CollectionSummary)
+
+}
+
+func testGetCollectionIncludePublishedDatasetPublished(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user)
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	// Set up using the ExpectationDB
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
+	expectationDB.CreateCollection(ctx, t, collection)
+
+	expectedPublishStatus := collectionstest.NewCompletedPublishStatus(*collection.ID, *user.ID)
+	expectationDB.CreatePublishStatus(ctx, t, expectedPublishStatus)
+
+	pennsieveConfig := apitest.PennsieveConfigWithOptions()
+
+	expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
+	expectedDatasetServiceRole := collection.DatasetServiceRole(role.Owner)
+
+	expectedDiscoverLastPublishedDate := time.Now().UTC().Add(-72 * time.Hour)
+	expectedDiscoverPublishStatus := service.DatasetPublishStatusResponse{
+		Name:                  collection.Name,
+		SourceOrganizationID:  int32(pennsieveConfig.CollectionsIDSpace.ID),
+		SourceDatasetID:       int32(*collection.ID),
+		PublishedDatasetID:    rand.Int31n(1000) + 1,
+		PublishedVersionCount: rand.Int31n(10),
+		Status:                dto.PublishSucceeded,
+		LastPublishedDate:     &expectedDiscoverLastPublishedDate,
+	}
+	mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
+		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
+		WithGetCollectionPublishStatusFunc(ctx, t, collection.GetCollectionPublishStatusFunc(t, expectedDiscoverPublishStatus), *collection.NodeID, expectedOrgServiceRole, expectedDatasetServiceRole)
+	mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
+	defer mockDiscoverServer.Close()
+	pennsieveConfig.DiscoverServiceURL = mockDiscoverServer.URL
+
+	claims := apitest.DefaultClaims(user)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(pennsieveConfig).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL).
+		WithHTTPTestInternalDiscover(pennsieveConfig)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *collection.NodeID).
+			WithQueryParam(IncludePublishedDatasetQueryParamKey, "true").
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+	resp, err := GetCollection(ctx, params)
+	assert.NoError(t, err)
+	assertEqualExpectedPublishStatus(t, expectedPublishStatus, resp.CollectionSummary)
+	require.NotNil(t, resp.Publication)
+	require.NotNil(t, resp.Publication.PublishedDataset)
+	actual := resp.Publication.PublishedDataset
+	assert.Equal(t, expectedDiscoverPublishStatus.PublishedDatasetID, actual.ID)
+	assert.Equal(t, expectedDiscoverPublishStatus.PublishedVersionCount, actual.Version)
+	assert.Equal(t, expectedDiscoverPublishStatus.LastPublishedDate, actual.LastPublishedDate)
 
 }
 
