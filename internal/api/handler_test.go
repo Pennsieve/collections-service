@@ -409,7 +409,7 @@ func testGetCollection(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDataset)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t))
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil))
 
 	mockDiscoverService := mocks.NewDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
 
@@ -459,7 +459,7 @@ func testDeleteCollection(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDataset)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
 			require.Equal(t, *expectedCollection.ID, collectionID)
 			return nil
@@ -495,7 +495,7 @@ func testUpdateCollection(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(datasetToRemove)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t))
 
 	newName := uuid.NewString()
@@ -562,7 +562,7 @@ func testPublishCollection(t *testing.T) {
 		WithNTags(2)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithUpdateCollectionFunc(expectedCollection.UpdateCollectionFunc(t)).
 		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
 		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.CompletedStatus))

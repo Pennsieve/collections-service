@@ -230,10 +230,11 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 
 	idCondition := fmt.Sprintf("c.%s = @%s", idColumn, idColumn)
 
-	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, c.license, c.tags, u.role, d.doi, d.datasource
+	sql := fmt.Sprintf(`SELECT c.id, c.node_id, c.name, c.description, c.license, c.tags, u.role, d.doi, d.datasource, s.type, s.status
 			FROM collections.collections c
          		JOIN collections.collection_user u ON c.id = u.collection_id
          		LEFT JOIN collections.dois d ON c.id = d.collection_id
+			    LEFT JOIN collections.publish_status s ON c.id = s.collection_id
 			WHERE u.user_id = @user_id AND u.permission_bit >= @min_perm
   			  AND %s
 			ORDER BY d.id asc`, idCondition)
@@ -249,8 +250,17 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 	var pgxRole PgxRole
 	var doiOpt *string
 	var datasourceOpt *datasource.DOIDatasource
-	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &license, &tags, &pgxRole, &doiOpt, &datasourceOpt}, func() error {
+	var publishTypeOpt *publishing.Type
+	var publishStatusOpt *publishing.Status
+	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &license, &tags, &pgxRole, &doiOpt, &datasourceOpt, &publishTypeOpt, &publishStatusOpt}, func() error {
 		if response == nil {
+			var publication *Publication
+			if publishTypeOpt != nil && publishStatusOpt != nil {
+				publication = &Publication{
+					Status: *publishStatusOpt,
+					Type:   *publishTypeOpt,
+				}
+			}
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
 					ID:          id,
@@ -260,6 +270,7 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 					License:     license,
 					Tags:        tags,
 					UserRole:    pgxRole.AsRole(),
+					Publication: publication,
 				},
 			}
 		}

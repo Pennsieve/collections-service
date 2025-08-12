@@ -6,6 +6,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"hash"
 	"hash/fnv"
+	"time"
 )
 
 // Some Discover models, such as PublicDatasetDTO live in api/dto because we use them as DTOs as well.
@@ -168,4 +169,29 @@ func (b *InternalContributorBuilder) Build() InternalContributor {
 	// be small enough that this does not increase the collision risk.
 	b.c.ID = int32(b.hash.Sum32() & 0x7FFFFFFF)
 	return *b.c
+}
+
+type DatasetPublishStatusResponse struct {
+	/*	required:
+		- name
+		- sourceOrganizationId
+		- sourceDatasetId
+		- publishedVersionCount
+		- status
+		- workflowId
+	*/
+	Name                  string            `json:"name"`
+	SourceOrganizationID  int32             `json:"sourceOrganizationId"`
+	SourceDatasetID       int32             `json:"sourceDatasetId"`
+	PublishedDatasetID    int32             `json:"publishedDatasetId,omitempty"`
+	PublishedVersionCount int32             `json:"publishedVersionCount"`
+	Status                dto.PublishStatus `json:"status"`
+	LastPublishedDate     *time.Time        `json:"lastPublishedDate,omitempty"`
+	/* fields not included since we don't reference them for now:
+	sponsorship:
+		$ref: "#/components/schemas/SponsorshipRequest"
+	workflowId:
+		type: integer
+		format: int64
+	*/
 }

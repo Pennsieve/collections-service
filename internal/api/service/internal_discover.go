@@ -23,6 +23,7 @@ import (
 type InternalDiscover interface {
 	PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
 	FinalizeCollectionPublish(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error)
+	GetCollectionPublishStatus(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (DatasetPublishStatusResponse, error)
 }
 
 type HTTPInternalDiscover struct {
@@ -93,6 +94,38 @@ func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, co
 		rawResponse := string(body)
 		return FinalizeDOICollectionPublishResponse{}, fmt.Errorf(
 			"error unmarshalling response [%s] from POST %s: %w",
+			rawResponse,
+			requestURL,
+			err)
+	}
+	return responseDTO, nil
+}
+
+func (d *HTTPInternalDiscover) GetCollectionPublishStatus(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (DatasetPublishStatusResponse, error) {
+	requestURL := fmt.Sprintf("%s/organizations/%d/datasets/%d",
+		d.host,
+		d.collectionNamespaceID,
+		collectionID)
+	collectionClaim := &dataset.Claim{
+		Role:   userRole,
+		NodeId: collectionNodeID,
+		IntId:  collectionID,
+	}
+	response, err := d.InvokePennsieve(ctx, collectionClaim, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return DatasetPublishStatusResponse{}, err
+	}
+	defer util.CloseAndWarn(response, d.logger)
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return DatasetPublishStatusResponse{}, fmt.Errorf("error reading response from GET %s: %w", requestURL, err)
+	}
+	var responseDTO DatasetPublishStatusResponse
+	if err := json.Unmarshal(body, &responseDTO); err != nil {
+		rawResponse := string(body)
+		return DatasetPublishStatusResponse{}, fmt.Errorf(
+			"error unmarshalling response [%s] from GET %s: %w",
 			rawResponse,
 			requestURL,
 			err)
