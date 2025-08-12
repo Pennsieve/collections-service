@@ -641,7 +641,7 @@ func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 		WithNTags(1)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
 		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.FailedStatus))
 
@@ -674,7 +674,7 @@ func testHandlePublishCollectionNoLicense(t *testing.T) {
 		WithNTags(1)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
 		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.FailedStatus))
 
@@ -709,7 +709,7 @@ func testHandlePublishCollectionNoTags(t *testing.T) {
 		WithRandomLicense()
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
 		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.FailedStatus))
 
@@ -745,7 +745,7 @@ func testHandlePublishCollectionEmptyTags(t *testing.T) {
 	expectedCollection.Tags = []string{}
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t)).
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
 		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
 		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.FailedStatus))
 
