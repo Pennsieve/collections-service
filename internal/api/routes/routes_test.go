@@ -26,12 +26,19 @@ func assertEqualExpectedPublishStatus(t *testing.T, expected collections.Publish
 	assert.Equal(t, expected.Type, actual.Publication.Type)
 }
 
-func assertDraftPublication(t *testing.T, actual dto.CollectionSummary) {
+func assertDraftPublication(t *testing.T, actual dto.CollectionSummary, expectPublishedDataset bool) {
 	t.Helper()
-	assert.NotNil(t, actual.Publication)
+	require.NotNil(t, actual.Publication)
 	assert.Equal(t, publishing.DraftStatus, actual.Publication.Status)
 	assert.Empty(t, actual.Publication.Type)
-	assert.Nil(t, actual.Publication.PublishedDataset)
+	if expectPublishedDataset {
+		require.NotNil(t, actual.Publication.PublishedDataset)
+		assert.Zero(t, actual.Publication.PublishedDataset.Version)
+		assert.Zero(t, actual.Publication.PublishedDataset.ID)
+		assert.Nil(t, actual.Publication.PublishedDataset.LastPublishedDate)
+	} else {
+		assert.Nil(t, actual.Publication.PublishedDataset)
+	}
 }
 
 func assertEqualExpectedCollectionSummary(t *testing.T, expected *apitest.ExpectedCollection, actual dto.CollectionSummary, expectedDatasets *apitest.ExpectedPennsieveDatasets) {

@@ -45,7 +45,7 @@ func GetCollection(ctx context.Context, params Params) (dto.GetCollectionRespons
 	}
 
 	var datasetPublishStatusResp *service.DatasetPublishStatusResponse
-	if includePublishedDataset && storeResp.Publication != nil {
+	if includePublishedDataset {
 		datasetPublishStatusResp, err = params.getDatasetPublishStatus(ctx, storeResp.ID, nodeID, storeResp.UserRole)
 		if err != nil {
 			return dto.GetCollectionResponse{}, err
