@@ -4,8 +4,10 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/apitest/builders/stores/collectionstest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestDeleteCollection(t *testing.T) {
@@ -23,6 +26,7 @@ func TestDeleteCollection(t *testing.T) {
 	}{
 		{"delete collection, non-existent collection", testDeleteCollectionNonExistent},
 		{"delete collection", testDeleteCollection},
+		{"delete collection with publish status", testDeleteCollectionWithPublishStatus},
 	}
 
 	ctx := context.Background()
@@ -120,6 +124,89 @@ func testDeleteCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectationDB.RequireNoCollection(ctx, t, idToDelete)
 	expectationDB.RequireCollection(ctx, t, user1CollectionKeep, keepResp.ID)
 	expectationDB.RequireCollection(ctx, t, user2Collection, user2Resp.ID)
+}
+
+func testDeleteCollectionWithPublishStatus(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
+	finishedAt := startedAt.Add(time.Minute)
+
+	tests := []struct {
+		scenario   string
+		pubType    publishing.Type
+		pubStatus  publishing.Status
+		startedAt  time.Time
+		finishedAt *time.Time
+		allowed    bool
+	}{
+		{"in progress publication should not be allowed", publishing.PublicationType, publishing.InProgressStatus, startedAt, nil, false},
+		{"completed publication should not be allowed", publishing.PublicationType, publishing.CompletedStatus, startedAt, &finishedAt, false},
+		{"failed publication should not be allowed", publishing.PublicationType, publishing.FailedStatus, startedAt, &finishedAt, false},
+		{"in progress revision should not be allowed", publishing.RevisionType, publishing.InProgressStatus, startedAt, nil, false},
+		{"completed revision should not be allowed", publishing.RevisionType, publishing.CompletedStatus, startedAt, &finishedAt, false},
+		{"failed revision should not be allowed", publishing.RevisionType, publishing.FailedStatus, startedAt, &finishedAt, false},
+		{"in progress removal should not be allowed", publishing.RemovalType, publishing.InProgressStatus, startedAt, nil, false},
+		{"completed removal should be allowed", publishing.RemovalType, publishing.CompletedStatus, startedAt, &finishedAt, true},
+		{"failed removal should not be allowed", publishing.RemovalType, publishing.FailedStatus, startedAt, &finishedAt, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.scenario, func(t *testing.T) {
+			user := userstest.NewTestUser()
+			expectationDB.CreateTestUser(ctx, t, user)
+
+			collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
+			createResp := expectationDB.CreateCollection(ctx, t, collection)
+			idToDelete := createResp.ID
+
+			existingPublishStatus := collectionstest.NewPublishStatusBuilder().
+				WithCollectionID(idToDelete).
+				WithUserID(user.ID).
+				WithType(tt.pubType).
+				WithStatus(tt.pubStatus).
+				WithStartedAt(tt.startedAt).
+				WithFinishedAt(tt.finishedAt).
+				Build()
+			expectationDB.CreatePublishStatus(ctx, t, existingPublishStatus)
+
+			claims := apitest.DefaultClaims(user)
+
+			apiConfig := apitest.NewConfigBuilder().
+				WithPostgresDBConfig(test.PostgresDBConfig(t)).
+				Build()
+
+			container := apitest.NewTestContainer().
+				WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+				WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase)
+
+			params := Params{
+				Request: apitest.NewAPIGatewayRequestBuilder(DeleteCollectionRouteKey).
+					WithClaims(claims).
+					WithPathParam(NodeIDPathParamKey, *collection.NodeID).
+					Build(),
+				Container: container,
+				Config:    apiConfig,
+				Claims:    &claims,
+			}
+
+			_, err := DeleteCollection(ctx, params)
+
+			if tt.allowed {
+				require.NoError(t, err)
+				expectationDB.RequireNoCollection(ctx, t, idToDelete)
+			} else {
+				require.Error(t, err)
+				var apiErr *apierrors.Error
+				require.ErrorAs(t, err, &apiErr)
+
+				assert.Equal(t, http.StatusConflict, apiErr.StatusCode)
+
+				expectationDB.RequireCollection(ctx, t, collection, idToDelete)
+			}
+		})
+	}
+
 }
 
 // TestHandleDeleteCollection tests that run the Handle wrapper around DeleteCollection
