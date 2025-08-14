@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"log/slog"
@@ -40,10 +41,23 @@ func DeleteCollection(ctx context.Context, params Params) (dto.NoContent, error)
 				role.Manager),
 		)
 	}
+
+	if err := validatePublishStatusForDelete(storeResp.Publication); err != nil {
+		return dto.NoContent{}, err
+	}
+
 	if err := params.Container.CollectionsStore().DeleteCollection(ctx, storeResp.ID); err != nil {
 		return dto.NoContent{}, apierrors.NewInternalServerError("error deleting collection", err)
 	}
 	return dto.NoContent{}, nil
+}
+
+func validatePublishStatusForDelete(publication *collections.Publication) error {
+	// If the collection has never been published or has a completed removal, allow deletion. Otherwise, return Conflict error.
+	if publication == nil || publication.Status == publishing.CompletedStatus && publication.Type == publishing.RemovalType {
+		return nil
+	}
+	return apierrors.NewConflictError(fmt.Sprintf("cannot delete collection until it is unpublished: status: %s, type: %s", publication.Status, publication.Type))
 }
 
 func NewDeleteCollectionRouteHandler() Handler[dto.NoContent] {
