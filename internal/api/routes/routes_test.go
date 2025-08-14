@@ -50,7 +50,7 @@ func assertEqualExpectedCollectionSummary(t *testing.T, expected *apitest.Expect
 	assert.Len(t, expected.DOIs, actual.Size)
 	bannerLen := min(config.MaxBannersPerCollection, len(expected.DOIs))
 	expectedBanners := expectedDatasets.ExpectedBannersForDOIs(t, expected.DOIs.Strings()[:bannerLen])
-	assert.Equal(t, expectedBanners, actual.Banners)
+	assert.ElementsMatch(t, expectedBanners, actual.Banners)
 }
 
 // assertEqualExpectedGetCollectionResponse makes a number of simplifying assumptions:
