@@ -15,7 +15,7 @@ type PennsieveConfig struct {
 }
 
 type CollectionsPublishingIDSpace struct {
-	ID   int64
+	ID   int32
 	Name string
 }
 
@@ -47,7 +47,7 @@ func WithJWTSecretKey(jwtSecretKey string) PennsieveOption {
 	}
 }
 
-func WithCollectionsIDSpace(id int64, name string) PennsieveOption {
+func WithCollectionsIDSpace(id int32, name string) PennsieveOption {
 	return func(pennsieveConfig *PennsieveConfig) {
 		pennsieveConfig.CollectionsIDSpace = CollectionsPublishingIDSpace{
 			ID:   id,
@@ -83,7 +83,7 @@ func (c PennsieveConfig) LoadWithSettings(environmentName string, settings Penns
 		c.DOIPrefix = prefix
 	}
 	if c.CollectionsIDSpace.ID == 0 {
-		idSpaceID, err := settings.CollectionsIDSpaceID.GetInt64()
+		idSpaceID, err := settings.CollectionsIDSpaceID.GetInt32()
 		if err != nil {
 			return PennsieveConfig{}, err
 		}

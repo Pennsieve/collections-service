@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-const CollectionsIDSpaceID = int64(2222)
+const CollectionsIDSpaceID = int32(2222)
 const CollectionsIDSpaceName = "Test Collections Publishing"
 const PublishBucket = "test-publish-bucket"
 
@@ -64,10 +64,10 @@ func PennsieveConfigWithFakeURL() config.PennsieveConfig {
 	return PennsieveConfigWithOptions()
 }
 
-func ExpectedOrgServiceRole(collectionNamespaceID int64) jwtdiscover.ServiceRole {
+func ExpectedOrgServiceRole(collectionNamespaceID int32) jwtdiscover.ServiceRole {
 	return jwtdiscover.ServiceRole{
 		Type:   jwtdiscover.OrganizationServiceRoleType,
-		Id:     strconv.FormatInt(collectionNamespaceID, 10),
+		Id:     strconv.FormatInt(int64(collectionNamespaceID), 10),
 		NodeId: "",
 		Role:   pgdb.Owner.AsRoleString(),
 	}

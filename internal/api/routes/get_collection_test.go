@@ -327,7 +327,7 @@ func testGetCollectionIncludePublishedDatasetDraft(t *testing.T, expectationDB *
 	expectedDiscoverPublishStatus := service.DatasetPublishStatusResponse{
 		Name:                  collection.Name,
 		SourceOrganizationID:  int32(pennsieveConfig.CollectionsIDSpace.ID),
-		SourceDatasetID:       int32(*collection.ID),
+		SourceDatasetID:       *collection.ID,
 		PublishedVersionCount: 0,
 		Status:                dto.NotPublished,
 	}

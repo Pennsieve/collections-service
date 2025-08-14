@@ -20,7 +20,7 @@ func TestPennsieveConfig_Load(t *testing.T) {
 
 	t.Setenv(config.DiscoverServiceHostKey, expectedDiscoverHost)
 	t.Setenv(config.PennsieveDOIPrefixKey, expectedPennsieveDOIPrefix)
-	t.Setenv(config.CollectionsIDSpaceIDKey, strconv.FormatInt(expectedCollectionsIDSpaceID, 10))
+	t.Setenv(config.CollectionsIDSpaceIDKey, strconv.FormatInt(int64(expectedCollectionsIDSpaceID), 10))
 	t.Setenv(config.CollectionsIDSpaceNameKey, expectedCollectionsIDSpaceName)
 	t.Setenv(config.PublishBucketKey, expectedPublishBucket)
 

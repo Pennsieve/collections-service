@@ -29,11 +29,11 @@ type InternalDiscover interface {
 type HTTPInternalDiscover struct {
 	host                  string
 	jwtSecretKey          string
-	collectionNamespaceID int64
+	collectionNamespaceID int32
 	logger                *slog.Logger
 }
 
-func NewHTTPInternalDiscover(host, jwtSecretKey string, collectionNamespaceID int64, logger *slog.Logger) *HTTPInternalDiscover {
+func NewHTTPInternalDiscover(host, jwtSecretKey string, collectionNamespaceID int32, logger *slog.Logger) *HTTPInternalDiscover {
 	return &HTTPInternalDiscover{
 		host:                  host,
 		jwtSecretKey:          jwtSecretKey,
@@ -155,9 +155,9 @@ func (d *HTTPInternalDiscover) addAuth(collectionClaim *dataset.Claim, request *
 	return nil
 }
 
-func OrganizationClaim(collectionOrgId int64) *organization.Claim {
+func OrganizationClaim(collectionOrgId int32) *organization.Claim {
 	return &organization.Claim{
 		Role:  pgdb.Owner,
-		IntId: collectionOrgId,
+		IntId: int64(collectionOrgId),
 	}
 }

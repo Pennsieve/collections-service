@@ -49,7 +49,7 @@ func CollectionsServiceAPIHandler(
 				slog.String("jwtSecretKey", config.PennsieveConfig.JWTSecretKey.String()),
 				slog.String("publishBucket", config.PennsieveConfig.PublishBucket),
 				slog.Group("collectionsIDSpace",
-					slog.Int64("id", config.PennsieveConfig.CollectionsIDSpace.ID),
+					slog.Any("id", config.PennsieveConfig.CollectionsIDSpace.ID),
 					slog.String("name", config.PennsieveConfig.CollectionsIDSpace.Name),
 				),
 			),
