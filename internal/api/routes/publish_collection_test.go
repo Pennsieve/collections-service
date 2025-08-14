@@ -798,7 +798,7 @@ func testHandlePublishCollectionNotFound(t *testing.T) {
 	callingUser := userstest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
-	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
+	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int32, nodeID string) (collections.GetCollectionResponse, error) {
 		test.Helper(t)
 		require.Equal(t, callingUser.ID, userID)
 		require.Equal(t, nonExistentNodeID, nodeID)
@@ -922,7 +922,7 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 					),
 				)
 
-			mockUsersStore := mocks.NewUsersStore().WithGetUserFunc(func(ctx context.Context, userID int64) (users.GetUserResponse, error) {
+			mockUsersStore := mocks.NewUsersStore().WithGetUserFunc(func(ctx context.Context, userID int32) (users.GetUserResponse, error) {
 				t.Helper()
 				require.Equal(t, callingUser.ID, userID)
 				return users.GetUserResponse{
@@ -978,7 +978,7 @@ func testHandlePublishCollectionPublishAlreadyInProgress(t *testing.T) {
 
 	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
-		WithStartPublishFunc(func(_ context.Context, _ int64, _ int64, _ publishing.Type) error {
+		WithStartPublishFunc(func(_ context.Context, _ int64, _ int32, _ publishing.Type) error {
 			return collections.ErrPublishInProgress
 		})
 

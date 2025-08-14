@@ -34,7 +34,13 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	userClaim := params.Claims.UserClaim
 	params.Container.AddLoggingContext(
 		slog.String(NodeIDPathParamKey, nodeID),
-		slog.String("userNodeId", userClaim.NodeId))
+		slog.String("userNodeId", userClaim.NodeId),
+		slog.Int64("userId", userClaim.Id))
+
+	userID, err := GetUserID(userClaim)
+	if err != nil {
+		return dto.PublishCollectionResponse{}, err
+	}
 
 	requestBody := params.Request.Body
 	if len(requestBody) == 0 {
@@ -57,7 +63,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	}
 
 	// Lookup info for the initial publish request to Discover
-	collection, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
+	collection, err := params.Container.CollectionsStore().GetCollection(ctx, userID, nodeID)
 	if err != nil {
 		if errors.Is(err, collections.ErrCollectionNotFound) {
 			return dto.PublishCollectionResponse{}, apierrors.NewCollectionNotFoundError(nodeID)
@@ -78,7 +84,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 	}
 
 	// Make sure there is no in-progress publish for this collection
-	if err := params.Container.CollectionsStore().StartPublish(ctx, collection.ID, userClaim.Id, publishing.PublicationType); err != nil {
+	if err := params.Container.CollectionsStore().StartPublish(ctx, collection.ID, userID, publishing.PublicationType); err != nil {
 		if errors.Is(err, collections.ErrPublishInProgress) {
 			// deliberately leave publish status alone, i.e., no cleanup
 			return dto.PublishCollectionResponse{}, apierrors.NewConflictError(err.Error())
@@ -108,7 +114,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		banners = collectBanners(pennsieveDOIs, discoverDOIRes.Published)
 	}
 
-	userResp, err := params.Container.UsersStore().GetUser(ctx, userClaim.Id)
+	userResp, err := params.Container.UsersStore().GetUser(ctx, userID)
 	if err != nil {
 		return dto.PublishCollectionResponse{},
 			cleanupOnError(ctx, params.Container.Logger(), apierrors.NewInternalServerError("error getting user information", err), cleanupStatus(params.Container.CollectionsStore(), collection.ID))
@@ -121,13 +127,13 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		DOIs:             collection.DOIs.Strings(),
 		License:          publishRequest.License,
 		Tags:             publishRequest.Tags,
-		OwnerID:          userClaim.Id,
+		OwnerID:          userID,
 		OwnerNodeID:      userClaim.NodeId,
 		OwnerFirstName:   util.SafeDeref(userResp.FirstName),
 		OwnerLastName:    util.SafeDeref(userResp.LastName),
 		OwnerORCID:       util.SafeDeref(userResp.ORCID),
 		CollectionNodeID: collection.NodeID,
-		Contributors:     []service.InternalContributor{toInternalContributor(userClaim.Id, userResp)},
+		Contributors:     []service.InternalContributor{toInternalContributor(userID, userResp)},
 	}
 
 	// Initiate publish to Discover
@@ -327,7 +333,7 @@ func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDataset
 	}
 }
 
-func cleanupOnError(ctx context.Context, logger *slog.Logger, originalErr *apierrors.Error, cleanups ...cleanupFunc) error {
+func cleanupOnError(ctx context.Context, logger *slog.Logger, originalErr error, cleanups ...cleanupFunc) error {
 	var cleanupErrs []string
 	for _, cleanup := range cleanups {
 		if cleanupErr := cleanup(ctx, logger); cleanupErr != nil {
@@ -340,16 +346,23 @@ func cleanupOnError(ctx context.Context, logger *slog.Logger, originalErr *apier
 		return originalErr
 	}
 	joined := strings.Join(cleanupErrs, "; ")
-	var cause error
-	if origCause := originalErr.Cause; origCause == nil {
-		cause = fmt.Errorf("cleanup errors: %s", joined)
-	} else {
-		cause = fmt.Errorf("%w; %s", originalErr, joined)
+
+	// Ideally all errors will be *apierrors.Error, but just in case
+	var originalAPIError *apierrors.Error
+	if errors.As(originalErr, &originalAPIError) {
+		var cause error
+		if origCause := originalAPIError.Cause; origCause == nil {
+			cause = fmt.Errorf("cleanup errors not related to cause: %s", joined)
+		} else {
+			cause = fmt.Errorf("%w; %s", originalErr, joined)
+		}
+		return apierrors.NewError(originalAPIError.UserMessage, cause, originalAPIError.StatusCode)
 	}
-	return apierrors.NewError(originalErr.UserMessage, cause, originalErr.StatusCode)
+	return fmt.Errorf("%w: with cleanup errors: %s", originalErr, joined)
+
 }
 
-func toInternalContributor(userId int64, user users.GetUserResponse) service.InternalContributor {
+func toInternalContributor(userId int32, user users.GetUserResponse) service.InternalContributor {
 	return service.NewInternalContributorBuilder().
 		WithFirstName(util.SafeDeref(user.FirstName)).
 		WithLastName(util.SafeDeref(user.LastName)).

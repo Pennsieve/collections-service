@@ -19,7 +19,7 @@ type PublishDOICollectionRequest struct {
 	Description      string                `json:"description"`
 	Banners          []string              `json:"banners"` // max 4 items
 	DOIs             []string              `json:"dois"`    // min 1 item
-	OwnerID          int64                 `json:"ownerId"`
+	OwnerID          int32                 `json:"ownerId"`
 	License          string                `json:"license"`
 	Contributors     []InternalContributor `json:"contributors"`
 	Tags             []string              `json:"tags"`
@@ -63,7 +63,7 @@ type InternalContributor struct {
 	ORCID         string `json:"orcid,omitempty"`
 	MiddleInitial string `json:"middleInitial,omitempty"`
 	Degree        string `json:"degree,omitempty"`
-	UserID        int64  `json:"userId,omitempty"`
+	UserID        int32  `json:"userId,omitempty"`
 }
 
 type PublishDOICollectionResponse struct {
@@ -128,7 +128,7 @@ func (b *InternalContributorBuilder) WithDegree(degree string) *InternalContribu
 	return b
 }
 
-func (b *InternalContributorBuilder) WithUserID(userID int64) *InternalContributorBuilder {
+func (b *InternalContributorBuilder) WithUserID(userID int32) *InternalContributorBuilder {
 	b.c.UserID = userID
 	return b
 }
@@ -141,7 +141,7 @@ func writeString(h hash.Hash32, label, val string) {
 	_, _ = h.Write([]byte{0}) // separator
 }
 
-func writeInt64(h hash.Hash32, label string, val int64) {
+func writeInt32(h hash.Hash32, label string, val int32) {
 	//Hash Writes never return an error
 	_, _ = h.Write([]byte(label))
 	_, _ = h.Write([]byte{0}) // separator
@@ -162,7 +162,7 @@ func (b *InternalContributorBuilder) Build() InternalContributor {
 	writeString(b.hash, "ORCID", b.c.ORCID)
 	writeString(b.hash, "MiddleInitial", b.c.MiddleInitial)
 	writeString(b.hash, "Degree", b.c.Degree)
-	writeInt64(b.hash, "UserID", b.c.UserID)
+	writeInt32(b.hash, "UserID", b.c.UserID)
 
 	// masking the high bit to get a positive number.
 	// idea is that the number of contributors will always

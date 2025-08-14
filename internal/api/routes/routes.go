@@ -12,6 +12,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/validate"
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/user"
 	"log/slog"
 	"strconv"
 )
@@ -105,4 +106,14 @@ func GetBoolQueryParam(queryParams map[string]string, key string, defaultValue b
 		return value, nil
 	}
 	return defaultValue, nil
+}
+
+// GetUserID gets the user's id from userClaim and safely converts it from int64 to int32, returning an Internal Service apierrors.Error if this
+// is not possible. The Postgres type of user id is integer, not bigint, so really only needs to be int32.
+func GetUserID(userClaim *user.Claim) (int32, error) {
+	userID, err := util.SafeInt64To32(userClaim.Id)
+	if err != nil {
+		return 0, apierrors.NewInternalServerError("error converting user id", err)
+	}
+	return userID, nil
 }

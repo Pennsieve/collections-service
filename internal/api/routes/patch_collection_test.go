@@ -975,7 +975,7 @@ func testHandlePatchCollectionNotFound(t *testing.T) {
 	callingUser := userstest.SeedUser1
 	nonExistentNodeID := uuid.NewString()
 
-	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
+	mockCollectionStore := mocks.NewCollectionsStore().WithGetCollectionFunc(func(ctx context.Context, userID int32, nodeID string) (collections.GetCollectionResponse, error) {
 		test.Helper(t)
 		require.Equal(t, callingUser.ID, userID)
 		require.Equal(t, nonExistentNodeID, nodeID)

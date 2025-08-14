@@ -47,7 +47,7 @@ func GetCollectionByNodeID(ctx context.Context, t require.TestingT, conn *pgx.Co
 
 }
 
-func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (userIDToCollectionUser map[int64]collections.CollectionUser) {
+func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (userIDToCollectionUser map[int32]collections.CollectionUser) {
 	test.Helper(t)
 	rows, err := conn.Query(ctx,
 		"SELECT * FROM collections.collection_user WHERE collection_id = @collection_id",
@@ -55,7 +55,7 @@ func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn,
 	require.NoError(t, err)
 	collectionUsers, err := pgx.CollectRows(rows, pgx.RowToStructByName[collections.CollectionUser])
 	require.NoError(t, err)
-	userIDToCollectionUser = make(map[int64]collections.CollectionUser, len(collectionUsers))
+	userIDToCollectionUser = make(map[int32]collections.CollectionUser, len(collectionUsers))
 	for _, collectionUser := range collectionUsers {
 		userIDToCollectionUser[collectionUser.UserID] = collectionUser
 	}
@@ -78,7 +78,7 @@ func AddCollectionUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, 
 	require.Equal(t, int64(1), tag.RowsAffected())
 }
 
-func AddCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64, userIDToPermission map[int64]pgdb.DbPermission) {
+func AddCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64, userIDToPermission map[int32]pgdb.DbPermission) {
 	test.Helper(t)
 	require.NotEmpty(t, userIDToPermission)
 	collectionKey := "collection_id"
@@ -121,7 +121,7 @@ func CreateTestUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, tes
 	test.Helper(t)
 	require.Nil(t, testUser.ID, "cannot create new user from TestUser: id already set")
 
-	var userID, returnedID int64
+	var userID, returnedID int32
 
 	// This is a hack to get around the problem
 	// that the test DB already has users with ids 1, 2, & 3, but

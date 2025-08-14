@@ -9,7 +9,7 @@ import (
 )
 
 type User interface {
-	GetID() int64
+	GetID() int32
 	GetNodeID() string
 	GetIsSuperAdmin() bool
 	GetFirstName() string
@@ -22,14 +22,14 @@ type User interface {
 }
 
 type SeedUser struct {
-	ID           int64
+	ID           int32
 	NodeID       string
 	IsSuperAdmin bool
 	FirstName    string
 	LastName     string
 }
 
-func (s SeedUser) GetID() int64 {
+func (s SeedUser) GetID() int32 {
 	return s.ID
 }
 
@@ -97,7 +97,7 @@ var SeedSuperUser = SeedUser{
 }
 
 type TestUser struct {
-	ID                 *int64
+	ID                 *int32
 	NodeID             string
 	Email              string
 	IsSuperAdmin       bool
@@ -108,7 +108,7 @@ type TestUser struct {
 	Degree             *string
 }
 
-func (t *TestUser) GetID() int64 {
+func (t *TestUser) GetID() int32 {
 	if t.ID == nil {
 		panic(fmt.Sprintf("TestUser %s ID is not set", t.NodeID))
 	}
@@ -170,7 +170,7 @@ func NewTestUser(options ...TestUserOption) *TestUser {
 
 type TestUserOption func(testUser *TestUser)
 
-func WithID(id int64) TestUserOption {
+func WithID(id int32) TestUserOption {
 	return func(testUser *TestUser) {
 		testUser.ID = &id
 	}

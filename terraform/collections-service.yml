@@ -790,10 +790,10 @@ components:
       properties:
         publishedDatasetId:
           type: integer
-          format: int64
+          format: int32
         publishedVersion:
           type: integer
-          format: int64
+          format: int32
         status:
           type: string
       required:

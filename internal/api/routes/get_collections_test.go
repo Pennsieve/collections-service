@@ -287,7 +287,7 @@ func testHandleGetCollectionsEmptyCollectionsArray(t *testing.T) {
 	callingUser := userstest.SeedUser1
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
+		WithGetCollectionsFunc(func(ctx context.Context, userID int32, limit int, offset int) (collections.GetCollectionsResponse, error) {
 			return collections.GetCollectionsResponse{
 				Limit:  DefaultGetCollectionsLimit,
 				Offset: DefaultGetCollectionsOffset,
@@ -321,7 +321,7 @@ func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
+		WithGetCollectionsFunc(func(ctx context.Context, userID int32, limit int, offset int) (collections.GetCollectionsResponse, error) {
 			return collections.GetCollectionsResponse{
 				Limit:      DefaultGetCollectionsLimit,
 				Offset:     DefaultGetCollectionsOffset,

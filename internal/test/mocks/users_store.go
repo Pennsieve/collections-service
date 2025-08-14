@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type GetUserFunc func(ctx context.Context, userID int64) (users.GetUserResponse, error)
+type GetUserFunc func(ctx context.Context, userID int32) (users.GetUserResponse, error)
 type UsersStore struct {
 	GetUserFunc
 }
@@ -16,7 +16,7 @@ func NewUsersStore() *UsersStore {
 	return &UsersStore{}
 }
 
-func (u *UsersStore) GetUser(ctx context.Context, userID int64) (users.GetUserResponse, error) {
+func (u *UsersStore) GetUser(ctx context.Context, userID int32) (users.GetUserResponse, error) {
 	if u.GetUserFunc == nil {
 		panic("mock GetUser function not set")
 	}
@@ -29,7 +29,7 @@ func (u *UsersStore) WithGetUserFunc(getUserFunc GetUserFunc) *UsersStore {
 }
 
 func NewGetUserFunc(t require.TestingT, user userstest.User) GetUserFunc {
-	return func(_ context.Context, userID int64) (users.GetUserResponse, error) {
+	return func(_ context.Context, userID int32) (users.GetUserResponse, error) {
 		require.Equal(t, user.GetID(), userID)
 		userResponse := users.GetUserResponse{
 			FirstName:     emptyStringToNil(user.GetFirstName()),

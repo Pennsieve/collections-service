@@ -74,7 +74,12 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 	}
 	collectionsStore := ccParams.Container.CollectionsStore()
 
-	storeResp, err := collectionsStore.CreateCollection(ctx, params.Claims.UserClaim.Id, nodeID, createRequest.Name, createRequest.Description, doisToAdd)
+	userID, err := GetUserID(params.Claims.UserClaim)
+	if err != nil {
+		return dto.CreateCollectionResponse{}, err
+	}
+
+	storeResp, err := collectionsStore.CreateCollection(ctx, userID, nodeID, createRequest.Name, createRequest.Description, doisToAdd)
 	if err != nil {
 		return dto.CreateCollectionResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error creating collection %s", createRequest.Name), err)
 	}

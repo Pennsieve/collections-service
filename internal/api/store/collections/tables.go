@@ -21,7 +21,7 @@ type Collection struct {
 
 type CollectionUser struct {
 	CollectionID  int64             `db:"collection_id"`
-	UserID        int64             `db:"user_id"`
+	UserID        int32             `db:"user_id"`
 	PermissionBit pgdb.DbPermission `db:"permission_bit"`
 	CreatedAt     time.Time         `db:"created_at"`
 	UpdatedAt     time.Time         `db:"updated_at"`
@@ -71,5 +71,5 @@ type PublishStatus struct {
 	FinishedAt   *time.Time        `db:"finished_at"`
 	// UserID is the user that started the publish. Should only be
 	// nil if the user is deleted.
-	UserID *int64 `db:"user_id"`
+	UserID *int32 `db:"user_id"`
 }

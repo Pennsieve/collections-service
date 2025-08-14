@@ -73,7 +73,7 @@ func (b *APIGatewayRequestBuilder) Build() events.APIGatewayV2HTTPRequest {
 func DefaultClaims(testUser userstest.User) authorizer.Claims {
 	return authorizer.Claims{
 		UserClaim: &user.Claim{
-			Id:           testUser.GetID(),
+			Id:           int64(testUser.GetID()),
 			NodeId:       testUser.GetNodeID(),
 			IsSuperAdmin: testUser.GetIsSuperAdmin(),
 		},

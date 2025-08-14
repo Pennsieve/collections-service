@@ -11,7 +11,7 @@ import (
 
 type Store interface {
 	// GetUser returns the user with the given id if user exists. Otherwise, returns ErrUserNotFound
-	GetUser(ctx context.Context, userID int64) (GetUserResponse, error)
+	GetUser(ctx context.Context, userID int32) (GetUserResponse, error)
 }
 
 type PostgresStore struct {
@@ -28,7 +28,7 @@ func NewPostgresStore(db postgres.DB, usersDatabaseName string, logger *slog.Log
 	}
 }
 
-func (s *PostgresStore) GetUser(ctx context.Context, userID int64) (GetUserResponse, error) {
+func (s *PostgresStore) GetUser(ctx context.Context, userID int32) (GetUserResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return GetUserResponse{}, fmt.Errorf("CreateCollection error connecting to database %s: %w", s.databaseName, err)

@@ -380,7 +380,7 @@ func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int32, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
 		t.Helper()
 		collectionNodeID = nodeID
 		return collections.CreateCollectionResponse{

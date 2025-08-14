@@ -22,9 +22,15 @@ func DeleteCollection(ctx context.Context, params Params) (dto.NoContent, error)
 	userClaim := params.Claims.UserClaim
 	params.Container.AddLoggingContext(
 		slog.String(NodeIDPathParamKey, nodeID),
-		slog.String("userNodeId", userClaim.NodeId))
+		slog.String("userNodeId", userClaim.NodeId),
+		slog.Int64("userId", userClaim.Id))
 
-	storeResp, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
+	userID, err := GetUserID(userClaim)
+	if err != nil {
+		return dto.NoContent{}, err
+	}
+
+	storeResp, err := params.Container.CollectionsStore().GetCollection(ctx, userID, nodeID)
 	if err != nil {
 		if errors.Is(err, collections.ErrCollectionNotFound) {
 			return dto.NoContent{}, apierrors.NewCollectionNotFoundError(nodeID)

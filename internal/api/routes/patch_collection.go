@@ -27,7 +27,13 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 	userClaim := params.Claims.UserClaim
 	params.Container.AddLoggingContext(
 		slog.String(NodeIDPathParamKey, nodeID),
-		slog.String("userNodeId", userClaim.NodeId))
+		slog.String("userNodeId", userClaim.NodeId),
+		slog.Int64("userId", userClaim.Id))
+
+	userID, err := GetUserID(userClaim)
+	if err != nil {
+		return dto.GetCollectionResponse{}, err
+	}
 
 	requestBody := params.Request.Body
 	if len(requestBody) == 0 {
@@ -48,7 +54,7 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 		return dto.GetCollectionResponse{}, err
 	}
 
-	currentState, err := params.Container.CollectionsStore().GetCollection(ctx, userClaim.Id, nodeID)
+	currentState, err := params.Container.CollectionsStore().GetCollection(ctx, userID, nodeID)
 	if err != nil {
 		if errors.Is(err, collections.ErrCollectionNotFound) {
 			return dto.GetCollectionResponse{}, apierrors.NewCollectionNotFoundError(nodeID)
@@ -87,7 +93,7 @@ func PatchCollection(ctx context.Context, params Params) (dto.GetCollectionRespo
 		}
 	}
 
-	updateCollectionResponse, err := params.Container.CollectionsStore().UpdateCollection(ctx, userClaim.Id, currentState.ID, updateCollectionRequest)
+	updateCollectionResponse, err := params.Container.CollectionsStore().UpdateCollection(ctx, userID, currentState.ID, updateCollectionRequest)
 	if err != nil {
 		if errors.Is(err, collections.ErrCollectionNotFound) {
 			return dto.GetCollectionResponse{}, apierrors.NewCollectionNotFoundError(nodeID)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"log/slog"
 	"net/http"
 )
 
@@ -29,10 +30,17 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	}
 	collectionsStore := params.Container.CollectionsStore()
 	userClaim := params.Claims.UserClaim
+	params.Container.AddLoggingContext(
+		slog.String("userNodeId", userClaim.NodeId),
+		slog.Int64("userId", userClaim.Id))
 
+	userID, err := GetUserID(userClaim)
+	if err != nil {
+		return dto.GetCollectionsResponse{}, err
+	}
 	// GetCollections only returns collections where the given user has >= Guest permission,
 	// so no further authz is required for this route.
-	storeResp, err := collectionsStore.GetCollections(ctx, userClaim.Id, limit, offset)
+	storeResp, err := collectionsStore.GetCollections(ctx, userID, limit, offset)
 	if err != nil {
 		return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error getting collections for user %s", userClaim.NodeId), err)
 	}

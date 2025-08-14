@@ -18,15 +18,15 @@ import (
 const MaxBannerDOIsPerCollection = config.MaxBannersPerCollection
 
 type Store interface {
-	CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
+	CreateCollection(ctx context.Context, userID int32, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error)
 	// GetCollections returns a paginated list of collection summaries that the given user has at least guest permission on.
-	GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error)
+	GetCollections(ctx context.Context, userID int32, limit int, offset int) (GetCollectionsResponse, error)
 	// GetCollection returns the given collection if it exists and if the given user has at least guest permission on it.
-	GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error)
+	GetCollection(ctx context.Context, userID int32, nodeID string) (GetCollectionResponse, error)
 	DeleteCollection(ctx context.Context, collectionID int64) error
-	UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
+	UpdateCollection(ctx context.Context, userID int32, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
 	// StartPublish returns a collections.ErrPublishInProgress error if the status of the given collection is InProgress
-	StartPublish(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error
+	StartPublish(ctx context.Context, collectionID int64, userID int32, publishingType publishing.Type) error
 	// FinishPublish updates the existing publish status of collection with the given status.
 	// If strict is true, will return an error if no status is found
 	// otherwise, no error for this situation
@@ -47,7 +47,7 @@ func NewPostgresStore(db postgres.DB, collectionsDatabaseName string, logger *sl
 	}
 }
 
-func (s *PostgresStore) CreateCollection(ctx context.Context, userID int64, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error) {
+func (s *PostgresStore) CreateCollection(ctx context.Context, userID int32, nodeID, name, description string, dois []DOI) (CreateCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return CreateCollectionResponse{}, fmt.Errorf("CreateCollection error connecting to database %s: %w", s.databaseName, err)
@@ -103,7 +103,7 @@ func (s *PostgresStore) CreateCollection(ctx context.Context, userID int64, node
 	}, nil
 }
 
-func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit int, offset int) (GetCollectionsResponse, error) {
+func (s *PostgresStore) GetCollections(ctx context.Context, userID int32, limit int, offset int) (GetCollectionsResponse, error) {
 	if limit < 0 {
 		return GetCollectionsResponse{}, fmt.Errorf("limit cannot be negative: %d", limit)
 	}
@@ -219,7 +219,7 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 
 // getCollectionByIDColumn returns the error ErrCollectionNotFound if no collection with the given idValue exists for the given user id.
 // idColumn should be either "id" or "node_id"
-func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, idColumn string, idValue any) (GetCollectionResponse, error) {
+func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int32, idColumn string, idValue any) (GetCollectionResponse, error) {
 	args := pgx.NamedArgs{"user_id": userID, idColumn: idValue, "min_perm": pgdb.Guest}
 
 	idCondition := fmt.Sprintf("c.%s = @%s", idColumn, idColumn)
@@ -283,16 +283,16 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 	return *response, nil
 }
 
-func getCollectionByNodeID(ctx context.Context, conn *pgx.Conn, userID int64, nodeID string) (GetCollectionResponse, error) {
+func getCollectionByNodeID(ctx context.Context, conn *pgx.Conn, userID int32, nodeID string) (GetCollectionResponse, error) {
 	return getCollectionByIDColumn(ctx, conn, userID, "node_id", nodeID)
 }
 
-func getCollectionByID(ctx context.Context, conn *pgx.Conn, userID int64, collectionID int64) (GetCollectionResponse, error) {
+func getCollectionByID(ctx context.Context, conn *pgx.Conn, userID int32, collectionID int64) (GetCollectionResponse, error) {
 	return getCollectionByIDColumn(ctx, conn, userID, "id", collectionID)
 }
 
 // GetCollection returns the error ErrCollectionNotFound if no collection with the given node id exists for the given user id.
-func (s *PostgresStore) GetCollection(ctx context.Context, userID int64, nodeID string) (GetCollectionResponse, error) {
+func (s *PostgresStore) GetCollection(ctx context.Context, userID int32, nodeID string) (GetCollectionResponse, error) {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return GetCollectionResponse{}, fmt.Errorf("GetCollection error connecting to database %s: %w", s.databaseName, err)
@@ -322,7 +322,7 @@ func (s *PostgresStore) DeleteCollection(ctx context.Context, collectionID int64
 	return nil
 }
 
-func (s *PostgresStore) UpdateCollection(ctx context.Context, userID, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error) {
+func (s *PostgresStore) UpdateCollection(ctx context.Context, userID int32, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error) {
 
 	// Create SQL for name and description update if necessary
 	var collectionUpdateSQL string
@@ -417,7 +417,7 @@ func (s *PostgresStore) UpdateCollection(ctx context.Context, userID, collection
 	return updatedCollection, nil
 }
 
-func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, userID int64, publishingType publishing.Type) error {
+func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, userID int32, publishingType publishing.Type) error {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return fmt.Errorf("StartPublish error connecting to database %s: %w", s.databaseName, err)

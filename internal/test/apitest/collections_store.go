@@ -72,11 +72,11 @@ func (c *ExpectedCollection) WithRandomID() *ExpectedCollection {
 }
 
 type ExpectedUser struct {
-	UserID        int64
+	UserID        int32
 	PermissionBit pgdb.DbPermission
 }
 
-func (c *ExpectedCollection) WithUser(userID int64, permission pgdb.DbPermission) *ExpectedCollection {
+func (c *ExpectedCollection) WithUser(userID int32, permission pgdb.DbPermission) *ExpectedCollection {
 	c.Users = append(c.Users, ExpectedUser{userID, permission})
 	return c
 }
@@ -165,7 +165,7 @@ func (d ExpectedDOIs) AsDOIs() collections.DOIs {
 	return strs
 }
 
-func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int64, expectedPublishStatus *collections.PublishStatus) collections.GetCollectionResponse {
+func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expectedUserID int32, expectedPublishStatus *collections.PublishStatus) collections.GetCollectionResponse {
 	test.Helper(t)
 	require.NotNil(t, c.ID, "expected collection does not have ID set")
 	require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
@@ -196,14 +196,14 @@ func (c *ExpectedCollection) ToGetCollectionResponse(t require.TestingT, expecte
 
 func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT, expectedPublishStatus *collections.PublishStatus) mocks.GetCollectionFunc {
 	test.Helper(t)
-	return func(ctx context.Context, userID int64, nodeID string) (collections.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int32, nodeID string) (collections.GetCollectionResponse, error) {
 		require.Equal(t, *c.NodeID, nodeID, "expected NodeID is %s; got %s", *c.NodeID, nodeID)
 		return c.ToGetCollectionResponse(t, userID, expectedPublishStatus), nil
 	}
 }
 
 func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.UpdateCollectionFunc {
-	return func(ctx context.Context, userID int64, collectionID int64, update collections.UpdateCollectionRequest) (collections.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int32, collectionID int64, update collections.UpdateCollectionRequest) (collections.GetCollectionResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
@@ -361,8 +361,8 @@ func (c *ExpectedCollection) DatasetServiceRole(expectedRole role.Role) jwtdisco
 	}
 }
 
-func (c *ExpectedCollection) StartPublishFunc(t require.TestingT, expectedUserID int64, expectedType publishing.Type) mocks.StartPublishFunc {
-	return func(_ context.Context, collectionID int64, userID int64, publishingType publishing.Type) error {
+func (c *ExpectedCollection) StartPublishFunc(t require.TestingT, expectedUserID int32, expectedType publishing.Type) mocks.StartPublishFunc {
+	return func(_ context.Context, collectionID int64, userID int32, publishingType publishing.Type) error {
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		require.Equal(t, *c.ID, collectionID)
 		require.Equal(t, expectedUserID, userID)

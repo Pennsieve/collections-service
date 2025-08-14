@@ -280,7 +280,7 @@ func testCreateCollection(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int32, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
 		t.Helper()
 		require.Equal(t, callingUser.ID, userID)
 		require.NotEmpty(t, nodeID)
@@ -341,7 +341,7 @@ func testGetCollections(t *testing.T) {
 	expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDataset)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
-		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
+		WithGetCollectionsFunc(func(ctx context.Context, userID int32, limit int, offset int) (collections.GetCollectionsResponse, error) {
 			require.Equal(t, callingUser.ID, userID)
 			require.Equal(t, routes.DefaultGetCollectionsLimit, limit)
 			require.Equal(t, expectedOffset, offset)

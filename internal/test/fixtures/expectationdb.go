@@ -21,7 +21,7 @@ type ExpectationDB struct {
 	db                     *test.PostgresDB
 	dbName                 string
 	internalStore          *collections.PostgresStore
-	createdUsers           map[int64]bool
+	createdUsers           map[int32]bool
 	knownCollectionIDs     map[int64]bool
 	knownCollectionNodeIDs map[string]bool
 }
@@ -30,7 +30,7 @@ func NewExpectationDB(db *test.PostgresDB, dbName string) *ExpectationDB {
 	return &ExpectationDB{
 		db:                     db,
 		dbName:                 dbName,
-		createdUsers:           map[int64]bool{},
+		createdUsers:           map[int32]bool{},
 		knownCollectionIDs:     map[int64]bool{},
 		knownCollectionNodeIDs: map[string]bool{},
 	}
@@ -149,7 +149,7 @@ func (e *ExpectationDB) CreateCollection(ctx context.Context, t require.TestingT
 	}
 
 	// otherwise, add other users
-	otherUsers := map[int64]pgdb.DbPermission{}
+	otherUsers := map[int32]pgdb.DbPermission{}
 	for i, user := range expected.Users {
 		if i != ownerIdx {
 			otherUsers[user.UserID] = user.PermissionBit
@@ -206,7 +206,7 @@ func (e *ExpectationDB) CleanUp(ctx context.Context, t require.TestingT) {
 		_, err := conn.Exec(
 			ctx,
 			"DELETE FROM pennsieve.users WHERE id = ANY(@user_ids)",
-			pgx.NamedArgs{"user_ids": slices.AppendSeq([]int64{}, maps.Keys(e.createdUsers))},
+			pgx.NamedArgs{"user_ids": slices.AppendSeq([]int32{}, maps.Keys(e.createdUsers))},
 		)
 		require.NoError(t, err, "error deleting test users in CleanUp")
 	}

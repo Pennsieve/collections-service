@@ -40,7 +40,7 @@ func TestInternalContributorBuilder_Build(t *testing.T) {
 		middle := uuid.NewString()
 		orcid := uuid.NewString()
 		degree := uuid.NewString()
-		userID := rand.Int64()
+		userID := rand.Int32N(1000) + 1
 
 		c := NewInternalContributorBuilder().
 			WithFirstName(first).
