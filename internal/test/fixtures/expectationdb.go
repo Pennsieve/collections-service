@@ -22,7 +22,7 @@ type ExpectationDB struct {
 	dbName                 string
 	internalStore          *collections.PostgresStore
 	createdUsers           map[int32]bool
-	knownCollectionIDs     map[int64]bool
+	knownCollectionIDs     map[int32]bool
 	knownCollectionNodeIDs map[string]bool
 }
 
@@ -31,7 +31,7 @@ func NewExpectationDB(db *test.PostgresDB, dbName string) *ExpectationDB {
 		db:                     db,
 		dbName:                 dbName,
 		createdUsers:           map[int32]bool{},
-		knownCollectionIDs:     map[int64]bool{},
+		knownCollectionIDs:     map[int32]bool{},
 		knownCollectionNodeIDs: map[string]bool{},
 	}
 }
@@ -50,7 +50,7 @@ func (e *ExpectationDB) connect(ctx context.Context, t require.TestingT) *pgx.Co
 	return conn
 }
 
-func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection, expectedCollectionID int64) {
+func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.TestingT, expected *apitest.ExpectedCollection, expectedCollectionID int32) {
 	test.Helper(t)
 	e.knownCollectionIDs[expectedCollectionID] = true
 	conn := e.connect(ctx, t)
@@ -60,7 +60,7 @@ func (e *ExpectationDB) RequireCollection(ctx context.Context, t require.Testing
 	requireCollection(ctx, t, conn, expected, actual)
 }
 
-func (e *ExpectationDB) RequireNoCollection(ctx context.Context, t require.TestingT, expectedCollectionID int64) {
+func (e *ExpectationDB) RequireNoCollection(ctx context.Context, t require.TestingT, expectedCollectionID int32) {
 	test.Helper(t)
 	e.knownCollectionIDs[expectedCollectionID] = true
 	conn := e.connect(ctx, t)
@@ -116,7 +116,7 @@ func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.Test
 	}
 }
 
-func (e *ExpectationDB) RequireNoPublishStatus(ctx context.Context, t require.TestingT, expectedCollectionID int64) {
+func (e *ExpectationDB) RequireNoPublishStatus(ctx context.Context, t require.TestingT, expectedCollectionID int32) {
 	test.Helper(t)
 	e.knownCollectionIDs[expectedCollectionID] = true
 	conn := e.connect(ctx, t)
@@ -188,7 +188,7 @@ func (e *ExpectationDB) CleanUp(ctx context.Context, t require.TestingT) {
 		_, err := conn.Exec(
 			ctx,
 			"DELETE FROM collections.collections WHERE id = ANY(@collection_ids)",
-			pgx.NamedArgs{"collection_ids": slices.AppendSeq([]int64{}, maps.Keys(e.knownCollectionIDs))},
+			pgx.NamedArgs{"collection_ids": slices.AppendSeq([]int32{}, maps.Keys(e.knownCollectionIDs))},
 		)
 		require.NoError(t, err, "error deleting collections by id in CleanUp")
 	}

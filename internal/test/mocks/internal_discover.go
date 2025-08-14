@@ -6,9 +6,9 @@ import (
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 )
 
-type PublishCollectionFunc func(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error)
-type FinalizeCollectionPublishFunc func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error)
-type GetCollectionPublishStatusFunc func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error)
+type PublishCollectionFunc func(ctx context.Context, collectionID int32, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error)
+type FinalizeCollectionPublishFunc func(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error)
+type GetCollectionPublishStatusFunc func(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error)
 
 type InternalDiscover struct {
 	PublishCollectionFunc
@@ -35,21 +35,21 @@ func (i *InternalDiscover) WithGetCollectionPublishStatusFunc(f GetCollectionPub
 	return i
 }
 
-func (i *InternalDiscover) PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
+func (i *InternalDiscover) PublishCollection(ctx context.Context, collectionID int32, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
 	if i.PublishCollectionFunc == nil {
 		panic("mock PublishCollection function not set")
 	}
 	return i.PublishCollectionFunc(ctx, collectionID, userRole, request)
 }
 
-func (i *InternalDiscover) FinalizeCollectionPublish(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
+func (i *InternalDiscover) FinalizeCollectionPublish(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
 	if i.FinalizeCollectionPublishFunc == nil {
 		panic("mock FinalizeCollectionPublish function not set")
 	}
 	return i.FinalizeCollectionPublishFunc(ctx, collectionID, collectionNodeID, userRole, request)
 }
 
-func (i *InternalDiscover) GetCollectionPublishStatus(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
+func (i *InternalDiscover) GetCollectionPublishStatus(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
 	if i.GetCollectionPublishStatusFunc == nil {
 		panic("mock GetCollectionPublishStatus function not set")
 	}

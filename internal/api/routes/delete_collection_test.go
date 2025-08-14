@@ -177,12 +177,12 @@ func testDeleteAuthz(t *testing.T) {
 			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm)
 
 			// we're not saving this to a real DB, so no ID is generated for us
-			mockCollectionID := int64(123)
+			mockCollectionID := int32(123)
 			expectedCollection.ID = &mockCollectionID
 
 			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
-				WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
+				WithDeleteCollectionFunc(func(ctx context.Context, collectionID int32) error {
 					require.Equal(t, mockCollectionID, collectionID)
 					return nil
 				})

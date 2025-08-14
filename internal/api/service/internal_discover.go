@@ -21,9 +21,9 @@ import (
 // needs to call an internal Discover endpoint.
 
 type InternalDiscover interface {
-	PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
-	FinalizeCollectionPublish(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error)
-	GetCollectionPublishStatus(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (DatasetPublishStatusResponse, error)
+	PublishCollection(ctx context.Context, collectionID int32, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error)
+	FinalizeCollectionPublish(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error)
+	GetCollectionPublishStatus(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role) (DatasetPublishStatusResponse, error)
 }
 
 type HTTPInternalDiscover struct {
@@ -42,12 +42,12 @@ func NewHTTPInternalDiscover(host, jwtSecretKey string, collectionNamespaceID in
 	}
 }
 
-func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collectionID int64, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error) {
+func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collectionID int32, userRole role.Role, request PublishDOICollectionRequest) (PublishDOICollectionResponse, error) {
 	requestURL := fmt.Sprintf("%s/collection/%d/publish", d.host, collectionID)
 	collectionClaim := &dataset.Claim{
 		Role:   userRole,
 		NodeId: request.CollectionNodeID,
-		IntId:  collectionID,
+		IntId:  int64(collectionID),
 	}
 	response, err := d.InvokePennsieve(ctx, collectionClaim, http.MethodPost, requestURL, request)
 	if err != nil {
@@ -72,12 +72,12 @@ func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collection
 
 }
 
-func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error) {
+func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error) {
 	requestURL := fmt.Sprintf("%s/collection/%d/finalize", d.host, collectionID)
 	collectionClaim := &dataset.Claim{
 		Role:   userRole,
 		NodeId: collectionNodeID,
-		IntId:  collectionID,
+		IntId:  int64(collectionID),
 	}
 	response, err := d.InvokePennsieve(ctx, collectionClaim, http.MethodPost, requestURL, request)
 	if err != nil {
@@ -101,7 +101,7 @@ func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, co
 	return responseDTO, nil
 }
 
-func (d *HTTPInternalDiscover) GetCollectionPublishStatus(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (DatasetPublishStatusResponse, error) {
+func (d *HTTPInternalDiscover) GetCollectionPublishStatus(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role) (DatasetPublishStatusResponse, error) {
 	requestURL := fmt.Sprintf("%s/organizations/%d/datasets/%d",
 		d.host,
 		d.collectionNamespaceID,
@@ -109,7 +109,7 @@ func (d *HTTPInternalDiscover) GetCollectionPublishStatus(ctx context.Context, c
 	collectionClaim := &dataset.Claim{
 		Role:   userRole,
 		NodeId: collectionNodeID,
-		IntId:  collectionID,
+		IntId:  int64(collectionID),
 	}
 	response, err := d.InvokePennsieve(ctx, collectionClaim, http.MethodGet, requestURL, nil)
 	if err != nil {

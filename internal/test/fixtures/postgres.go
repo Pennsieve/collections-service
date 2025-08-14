@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) collections.Collection {
+func GetCollection(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int32) collections.Collection {
 	test.Helper(t)
 	rows, err := conn.Query(ctx, "SELECT * from collections.collections where id = @id", pgx.NamedArgs{"id": collectionID})
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func GetCollectionByNodeID(ctx context.Context, t require.TestingT, conn *pgx.Co
 
 }
 
-func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (userIDToCollectionUser map[int32]collections.CollectionUser) {
+func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int32) (userIDToCollectionUser map[int32]collections.CollectionUser) {
 	test.Helper(t)
 	rows, err := conn.Query(ctx,
 		"SELECT * FROM collections.collection_user WHERE collection_id = @collection_id",
@@ -62,7 +62,7 @@ func GetCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn,
 	return
 }
 
-func AddCollectionUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64, userID int64, permission pgdb.DbPermission) {
+func AddCollectionUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int32, userID int32, permission pgdb.DbPermission) {
 	test.Helper(t)
 	args := pgx.NamedArgs{
 		"collection_id":  collectionID,
@@ -78,7 +78,7 @@ func AddCollectionUser(ctx context.Context, t require.TestingT, conn *pgx.Conn, 
 	require.Equal(t, int64(1), tag.RowsAffected())
 }
 
-func AddCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64, userIDToPermission map[int32]pgdb.DbPermission) {
+func AddCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int32, userIDToPermission map[int32]pgdb.DbPermission) {
 	test.Helper(t)
 	require.NotEmpty(t, userIDToPermission)
 	collectionKey := "collection_id"
@@ -102,7 +102,7 @@ func AddCollectionUsers(ctx context.Context, t require.TestingT, conn *pgx.Conn,
 	require.Equal(t, int64(len(userIDToPermission)), tag.RowsAffected(), "expected to add %d users, but added %d", len(userIDToPermission), tag.RowsAffected())
 }
 
-func GetDOIs(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) (doiToDOI map[string]collections.CollectionDOI) {
+func GetDOIs(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int32) (doiToDOI map[string]collections.CollectionDOI) {
 	test.Helper(t)
 	rows, err := conn.Query(ctx,
 		"SELECT * FROM collections.dois WHERE collection_id = @collection_id",
@@ -176,7 +176,7 @@ func AddPublishStatus(ctx context.Context, t require.TestingT, conn *pgx.Conn, s
 	require.Equal(t, int64(1), tag.RowsAffected())
 }
 
-func GetPublishStatus(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int64) collections.PublishStatus {
+func GetPublishStatus(ctx context.Context, t require.TestingT, conn *pgx.Conn, collectionID int32) collections.PublishStatus {
 	query := `SELECT collection_id, status, type, started_at, finished_at, user_id
                 FROM collections.publish_status WHERE collection_id = @collection_id`
 	args := pgx.NamedArgs{"collection_id": collectionID}

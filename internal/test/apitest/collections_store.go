@@ -26,7 +26,7 @@ import (
 // in Postgres, so it doesn't include things not persisted there. Like banners for
 // example.
 type ExpectedCollection struct {
-	ID          *int64
+	ID          *int32
 	Name        string
 	Description string
 	// NodeID is optional since it may not be known depending
@@ -58,7 +58,7 @@ func (c *ExpectedCollection) WithNodeID() *ExpectedCollection {
 
 // WithMockID is meant for cases where this ExpectedCollection is not persisted to the test DB
 // but still needs an ID for the test.
-func (c *ExpectedCollection) WithMockID(mockID int64) *ExpectedCollection {
+func (c *ExpectedCollection) WithMockID(mockID int32) *ExpectedCollection {
 	c.ID = &mockID
 	return c
 }
@@ -66,7 +66,7 @@ func (c *ExpectedCollection) WithMockID(mockID int64) *ExpectedCollection {
 // WithRandomID is meant for cases where this ExpectedCollection is not persisted to the test DB
 // but still needs an ID for the test, but you don't care what it is.
 func (c *ExpectedCollection) WithRandomID() *ExpectedCollection {
-	id := rand.Int64() + 1
+	id := rand.Int32() + 1
 	c.ID = &id
 	return c
 }
@@ -203,7 +203,7 @@ func (c *ExpectedCollection) GetCollectionFunc(t require.TestingT, expectedPubli
 }
 
 func (c *ExpectedCollection) UpdateCollectionFunc(t require.TestingT) mocks.UpdateCollectionFunc {
-	return func(ctx context.Context, userID int32, collectionID int64, update collections.UpdateCollectionRequest) (collections.GetCollectionResponse, error) {
+	return func(ctx context.Context, userID int32, collectionID int32, update collections.UpdateCollectionRequest) (collections.GetCollectionResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
@@ -259,7 +259,7 @@ type PublishDOICollectionRequestVerification func(t require.TestingT, request se
 
 // PublishCollectionFunc will overwrite fields in mockResponse with values from this ExpectedCollection
 func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, mockResponse service.PublishDOICollectionResponse, verifications ...PublishDOICollectionRequestVerification) mocks.PublishCollectionFunc {
-	return func(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
+	return func(ctx context.Context, collectionID int32, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		require.NotNil(t, c.NodeID, "expected collection does not have nodeID set")
@@ -286,7 +286,7 @@ func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, mockRespo
 type FinalizeDOICollectionPublishRequestVerification func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest)
 
 // VerifyFinalizeDOICollectionRequest checks that the request has PublishSuccess == true and other expected values
-func VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int64) FinalizeDOICollectionPublishRequestVerification {
+func VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int32) FinalizeDOICollectionPublishRequestVerification {
 	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
 		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
 		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
@@ -305,7 +305,7 @@ func VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVe
 }
 
 // VerifyFailedFinalizeDOICollectionRequest checks that the request has PublishSuccess == false and empty values where expected
-func VerifyFailedFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int64) FinalizeDOICollectionPublishRequestVerification {
+func VerifyFailedFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int32) FinalizeDOICollectionPublishRequestVerification {
 	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
 		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
 		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
@@ -335,7 +335,7 @@ func VerifyFinalizeDOICollectionRequestTotalSize(expectedTotalSize func() int64)
 }
 
 func (c *ExpectedCollection) FinalizeCollectionPublishFunc(t require.TestingT, mockResponse service.FinalizeDOICollectionPublishResponse, verifications ...FinalizeDOICollectionPublishRequestVerification) mocks.FinalizeCollectionPublishFunc {
-	return func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
+	return func(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		require.NotNil(t, c.NodeID, "expected collection does not have nodeID set")
@@ -355,14 +355,14 @@ func (c *ExpectedCollection) FinalizeCollectionPublishFunc(t require.TestingT, m
 func (c *ExpectedCollection) DatasetServiceRole(expectedRole role.Role) jwtdiscover.ServiceRole {
 	return jwtdiscover.ServiceRole{
 		Type:   jwtdiscover.DatasetServiceRoleType,
-		Id:     strconv.FormatInt(*c.ID, 10),
+		Id:     strconv.FormatInt(int64(*c.ID), 10),
 		NodeId: *c.NodeID,
 		Role:   strings.ToLower(expectedRole.String()),
 	}
 }
 
 func (c *ExpectedCollection) StartPublishFunc(t require.TestingT, expectedUserID int32, expectedType publishing.Type) mocks.StartPublishFunc {
-	return func(_ context.Context, collectionID int64, userID int32, publishingType publishing.Type) error {
+	return func(_ context.Context, collectionID int32, userID int32, publishingType publishing.Type) error {
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		require.Equal(t, *c.ID, collectionID)
 		require.Equal(t, expectedUserID, userID)
@@ -372,7 +372,7 @@ func (c *ExpectedCollection) StartPublishFunc(t require.TestingT, expectedUserID
 }
 
 func (c *ExpectedCollection) FinishPublishFunc(t require.TestingT, expectedStatus publishing.Status) mocks.FinishPublishFunc {
-	return func(_ context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error {
+	return func(_ context.Context, collectionID int32, publishingStatus publishing.Status, strict bool) error {
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		require.Equal(t, *c.ID, collectionID)
 		require.Equal(t, expectedStatus, publishingStatus)
@@ -399,7 +399,7 @@ func VerifyInternalContributors(expectedContributors ...service.InternalContribu
 }
 
 func (c *ExpectedCollection) GetCollectionPublishStatusFunc(t require.TestingT, mockResponse service.DatasetPublishStatusResponse) mocks.GetCollectionPublishStatusFunc {
-	return func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
+	return func(_ context.Context, collectionID int32, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
 		assert.Equal(t, *c.ID, collectionID)

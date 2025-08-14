@@ -477,7 +477,7 @@ func testDeleteCollection(t *testing.T, store *collections.PostgresStore, expect
 }
 
 func testDeleteCollectionNonExistent(t *testing.T, collectionsStore *collections.PostgresStore, _ *fixtures.ExpectationDB) {
-	nonExistentCollectionID := int64(99999)
+	nonExistentCollectionID := int32(99999)
 	err := collectionsStore.DeleteCollection(context.Background(), nonExistentCollectionID)
 	require.ErrorIs(t, err, collections.ErrCollectionNotFound)
 }
@@ -815,7 +815,7 @@ func testUpdateCollectionAddExistingDOI(t *testing.T, collectionsStore *collecti
 }
 
 func testUpdateCollectionNonExistent(t *testing.T, collectionsStore *collections.PostgresStore, _ *fixtures.ExpectationDB) {
-	nonExistentCollectionID := int64(99999)
+	nonExistentCollectionID := int32(99999)
 	newName := uuid.NewString()
 	update := collections.UpdateCollectionRequest{
 		Name: &newName,
@@ -825,7 +825,7 @@ func testUpdateCollectionNonExistent(t *testing.T, collectionsStore *collections
 }
 
 func testUpdateCollectionNonExistentDOIUpdateOnly(t *testing.T, collectionsStore *collections.PostgresStore, _ *fixtures.ExpectationDB) {
-	nonExistentCollectionID := int64(99999)
+	nonExistentCollectionID := int32(99999)
 	update := collections.UpdateCollectionRequest{
 		DOIs: collections.DOIUpdate{
 			Remove: []string{apitest.NewPennsieveDOI().Value},
@@ -932,7 +932,7 @@ func testFinishPublish(t *testing.T, collectionsStore *collections.PostgresStore
 func testFinishPublishNoExistingStatus(t *testing.T, collectionsStore *collections.PostgresStore, expectationDB *fixtures.ExpectationDB) {
 	ctx := context.Background()
 
-	collectionID := int64(99999)
+	collectionID := int32(99999)
 
 	require.Error(t, collectionsStore.FinishPublish(ctx, collectionID, publishing.CompletedStatus, true))
 

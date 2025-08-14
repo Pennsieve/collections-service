@@ -148,8 +148,8 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			cleanupOnError(ctx, params.Container.Logger(), apierrors.NewInternalServerError("error publishing to Discover", err), cleanupStatus(params.Container.CollectionsStore(), collection.ID))
 	}
 	params.Container.Logger().Info("publish started on Discover",
-		slog.Int64("publishedDatasetId", discoverPubResp.PublishedDatasetID),
-		slog.Int64("publishedVersion", discoverPubResp.PublishedVersion),
+		slog.Any("publishedDatasetId", discoverPubResp.PublishedDatasetID),
+		slog.Any("publishedVersion", discoverPubResp.PublishedVersion),
 		slog.Any("status", discoverPubResp.Status),
 		slog.String("ownerFirstName", discoverPubReq.OwnerFirstName),
 		slog.String("ownerLastName", discoverPubReq.OwnerLastName),
@@ -275,7 +275,7 @@ type cleanupFunc func(ctx context.Context, logger *slog.Logger) error
 
 // cleanupStatus sets publishing status to failed. If a status does not already exist
 // the error will be added to the cleanup errors.
-func cleanupStatus(collectionsStore collections.Store, collectionID int64) cleanupFunc {
+func cleanupStatus(collectionsStore collections.Store, collectionID int32) cleanupFunc {
 	return func(ctx context.Context, logger *slog.Logger) error {
 		err := collectionsStore.FinishPublish(ctx, collectionID, publishing.FailedStatus, true)
 		// Error is taken care of by cleanupOnError. Here we just want to log that the
@@ -288,7 +288,7 @@ func cleanupStatus(collectionsStore collections.Store, collectionID int64) clean
 }
 
 // cleanupStatusIfExists sets publishing status to failed if a status exists, otherwise does nothing
-func cleanupStatusIfExists(collectionsStore collections.Store, collectionID int64) cleanupFunc {
+func cleanupStatusIfExists(collectionsStore collections.Store, collectionID int32) cleanupFunc {
 	return func(ctx context.Context, logger *slog.Logger) error {
 		err := collectionsStore.FinishPublish(ctx, collectionID, publishing.FailedStatus, false)
 		// Error is taken care of by cleanupOnError. Here we just want to log that the
@@ -314,7 +314,7 @@ func cleanupManifest(manifestStore manifests.Store, key string, s3VersionID stri
 	}
 }
 
-func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDatasetID, publishedVersion int64, collection collections.GetCollectionResponse) cleanupFunc {
+func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDatasetID, publishedVersion int32, collection collections.GetCollectionResponse) cleanupFunc {
 	return func(ctx context.Context, logger *slog.Logger) error {
 		request := service.FinalizeDOICollectionPublishRequest{
 			PublishedDatasetID: publishedDatasetID,
@@ -326,8 +326,8 @@ func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDataset
 		// cleanup ran successfully
 		if err == nil {
 			logger.Info("cleanup finalized publication with Discover as failed",
-				slog.Int64("publishedDatasetId", publishedDatasetID),
-				slog.Int64("publishedVersion", publishedVersion))
+				slog.Any("publishedDatasetId", publishedDatasetID),
+				slog.Any("publishedVersion", publishedVersion))
 		}
 		return err
 	}

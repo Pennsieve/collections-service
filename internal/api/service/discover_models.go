@@ -68,9 +68,9 @@ type InternalContributor struct {
 
 type PublishDOICollectionResponse struct {
 	Name               string            `json:"name"`
-	SourceCollectionID int64             `json:"sourceCollectionId"`
-	PublishedDatasetID int64             `json:"publishedDatasetId"`
-	PublishedVersion   int64             `json:"publishedVersion"`
+	SourceCollectionID int32             `json:"sourceCollectionId"`
+	PublishedDatasetID int32             `json:"publishedDatasetId"`
+	PublishedVersion   int32             `json:"publishedVersion"`
 	Status             dto.PublishStatus `json:"status"`
 	PublicID           string            `json:"publicId"`
 }
@@ -78,8 +78,8 @@ type PublishDOICollectionResponse struct {
 type FinalizeDOICollectionPublishRequest struct {
 	// All Values Required
 
-	PublishedDatasetID int64  `json:"publishedDatasetId"`
-	PublishedVersion   int64  `json:"publishedVersion"`
+	PublishedDatasetID int32  `json:"publishedDatasetId"`
+	PublishedVersion   int32  `json:"publishedVersion"`
 	PublishSuccess     bool   `json:"publishSuccess"`
 	FileCount          int    `json:"fileCount"`
 	TotalSize          int64  `json:"totalSize"`

@@ -332,8 +332,8 @@ func (ps PublishStatus) ToPublishingStatus() publishing.Status {
 }
 
 type PublishCollectionResponse struct {
-	PublishedDatasetID int64         `json:"publishedDatasetId"`
-	PublishedVersion   int64         `json:"publishedVersion"`
+	PublishedDatasetID int32         `json:"publishedDatasetId"`
+	PublishedVersion   int32         `json:"publishedVersion"`
 	Status             PublishStatus `json:"status"`
 }
 

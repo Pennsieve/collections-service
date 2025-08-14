@@ -23,14 +23,14 @@ type Store interface {
 	GetCollections(ctx context.Context, userID int32, limit int, offset int) (GetCollectionsResponse, error)
 	// GetCollection returns the given collection if it exists and if the given user has at least guest permission on it.
 	GetCollection(ctx context.Context, userID int32, nodeID string) (GetCollectionResponse, error)
-	DeleteCollection(ctx context.Context, collectionID int64) error
-	UpdateCollection(ctx context.Context, userID int32, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error)
+	DeleteCollection(ctx context.Context, collectionID int32) error
+	UpdateCollection(ctx context.Context, userID int32, collectionID int32, update UpdateCollectionRequest) (GetCollectionResponse, error)
 	// StartPublish returns a collections.ErrPublishInProgress error if the status of the given collection is InProgress
-	StartPublish(ctx context.Context, collectionID int64, userID int32, publishingType publishing.Type) error
+	StartPublish(ctx context.Context, collectionID int32, userID int32, publishingType publishing.Type) error
 	// FinishPublish updates the existing publish status of collection with the given status.
 	// If strict is true, will return an error if no status is found
 	// otherwise, no error for this situation
-	FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error
+	FinishPublish(ctx context.Context, collectionID int32, publishingStatus publishing.Status, strict bool) error
 }
 
 type PostgresStore struct {
@@ -90,12 +90,12 @@ func (s *PostgresStore) CreateCollection(ctx context.Context, userID int32, node
 		insertDOISQL = fmt.Sprintf(insertDOISQLFormat, strings.Join(values, ", "))
 	}
 	insertCollectionSQL := fmt.Sprintf(insertCollectionSQLFormat, insertDOISQL)
-	var collectionID int64
+	var collectionID int32
 	if err := conn.QueryRow(ctx, insertCollectionSQL, insertCollectionArgs).Scan(&collectionID); err != nil {
 		return CreateCollectionResponse{}, fmt.Errorf("error inserting new collection %s: %w", name, err)
 	}
 	s.logger.Debug("inserted new collection",
-		slog.Int64("id", collectionID),
+		slog.Any("id", collectionID),
 		slog.String("name", name))
 	return CreateCollectionResponse{
 		ID:          collectionID,
@@ -137,9 +137,9 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int32, limit 
 	response := GetCollectionsResponse{Limit: limit, Offset: offset}
 
 	// limit may be zero
-	collectionIDs := make([]int64, 0, limit+1)
+	collectionIDs := make([]int32, 0, limit+1)
 	collections, err := pgx.CollectRows(collectionUserJoinRows, func(row pgx.CollectableRow) (CollectionSummary, error) {
-		var id int64
+		var id int32
 		var name, description, nodeID string
 		var role PgxRole
 		var totalCount int
@@ -236,7 +236,7 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int32, 
 	rows, _ := conn.Query(ctx, sql, args)
 
 	var response *GetCollectionResponse
-	var id int64
+	var id int32
 	var nodeID string
 	var name, description string
 	var pgxRole PgxRole
@@ -287,7 +287,7 @@ func getCollectionByNodeID(ctx context.Context, conn *pgx.Conn, userID int32, no
 	return getCollectionByIDColumn(ctx, conn, userID, "node_id", nodeID)
 }
 
-func getCollectionByID(ctx context.Context, conn *pgx.Conn, userID int32, collectionID int64) (GetCollectionResponse, error) {
+func getCollectionByID(ctx context.Context, conn *pgx.Conn, userID int32, collectionID int32) (GetCollectionResponse, error) {
 	return getCollectionByIDColumn(ctx, conn, userID, "id", collectionID)
 }
 
@@ -301,7 +301,7 @@ func (s *PostgresStore) GetCollection(ctx context.Context, userID int32, nodeID 
 	return getCollectionByNodeID(ctx, conn, userID, nodeID)
 }
 
-func (s *PostgresStore) DeleteCollection(ctx context.Context, collectionID int64) error {
+func (s *PostgresStore) DeleteCollection(ctx context.Context, collectionID int32) error {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return fmt.Errorf("DeleteCollection error connecting to database %s: %w", s.databaseName, err)
@@ -322,7 +322,7 @@ func (s *PostgresStore) DeleteCollection(ctx context.Context, collectionID int64
 	return nil
 }
 
-func (s *PostgresStore) UpdateCollection(ctx context.Context, userID int32, collectionID int64, update UpdateCollectionRequest) (GetCollectionResponse, error) {
+func (s *PostgresStore) UpdateCollection(ctx context.Context, userID int32, collectionID int32, update UpdateCollectionRequest) (GetCollectionResponse, error) {
 
 	// Create SQL for name and description update if necessary
 	var collectionUpdateSQL string
@@ -417,7 +417,7 @@ func (s *PostgresStore) UpdateCollection(ctx context.Context, userID int32, coll
 	return updatedCollection, nil
 }
 
-func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, userID int32, publishingType publishing.Type) error {
+func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int32, userID int32, publishingType publishing.Type) error {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return fmt.Errorf("StartPublish error connecting to database %s: %w", s.databaseName, err)
@@ -458,7 +458,7 @@ func (s *PostgresStore) StartPublish(ctx context.Context, collectionID int64, us
 
 }
 
-func (s *PostgresStore) FinishPublish(ctx context.Context, collectionID int64, publishingStatus publishing.Status, strict bool) error {
+func (s *PostgresStore) FinishPublish(ctx context.Context, collectionID int32, publishingStatus publishing.Status, strict bool) error {
 	conn, err := s.db.Connect(ctx, s.databaseName)
 	if err != nil {
 		return fmt.Errorf("FinishPublish error connecting to database %s: %w", s.databaseName, err)

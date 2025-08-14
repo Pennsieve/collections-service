@@ -64,9 +64,7 @@ func (m *DiscoverMux) WithPublishCollectionFunc(ctx context.Context, t require.T
 	m.HandleFunc("POST /collection/{collectionId}/publish", func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
 
-		collectionIDParam := request.PathValue("collectionId")
-		collectionID, err := strconv.ParseInt(collectionIDParam, 10, 64)
-		require.NoError(t, err)
+		collectionIDParam, collectionID := parseID(t, request, "collectionId")
 
 		var publishRequest service.PublishDOICollectionRequest
 		require.NoError(t, json.NewDecoder(request.Body).Decode(&publishRequest))
@@ -84,9 +82,7 @@ func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t r
 	m.HandleFunc("POST /collection/{collectionId}/finalize", func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
 
-		collectionIDParam := request.PathValue("collectionId")
-		collectionID, err := strconv.ParseInt(collectionIDParam, 10, 64)
-		require.NoError(t, err)
+		collectionIDParam, collectionID := parseID(t, request, "collectionId")
 
 		var finalizeRequest service.FinalizeDOICollectionPublishRequest
 		require.NoError(t, json.NewDecoder(request.Body).Decode(&finalizeRequest))
@@ -104,9 +100,7 @@ func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t r
 func (m *DiscoverMux) WithGetCollectionPublishStatusFunc(ctx context.Context, t require.TestingT, f GetCollectionPublishStatusFunc, expectedCollectionNodeID string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
 	m.HandleFunc("GET /organizations/{organizationId}/datasets/{datasetId}", func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
-		collectionIDParam := request.PathValue("datasetId")
-		collectionID, err := strconv.ParseInt(collectionIDParam, 10, 64)
-		require.NoError(t, err)
+		collectionIDParam, collectionID := parseID(t, request, "datasetId")
 
 		require.Equal(t, expectedOrgServiceRole.Id, request.PathValue("organizationId"))
 
@@ -118,6 +112,14 @@ func (m *DiscoverMux) WithGetCollectionPublishStatusFunc(ctx context.Context, t 
 		respond(t, writer, publishStatusResponse, err)
 	})
 	return m
+}
+
+func parseID(t require.TestingT, request *http.Request, idKey string) (idParam string, idValue int32) {
+	idParam = request.PathValue(idKey)
+	id64, err := strconv.ParseInt(idParam, 10, 32)
+	require.NoError(t, err)
+	idValue = int32(id64)
+	return
 }
 
 func respond(t require.TestingT, writer http.ResponseWriter, mockResponse any, mockErr error) {

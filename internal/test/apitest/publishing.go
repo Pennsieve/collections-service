@@ -32,13 +32,13 @@ func FindManifestEntry(t require.TestingT, manifest publishing.ManifestV5) publi
 
 type ManifestOption func(builder *publishing.ManifestBuilder) *publishing.ManifestBuilder
 
-func WithManifestPennsieveDatasetID(id int64) ManifestOption {
+func WithManifestPennsieveDatasetID(id int32) ManifestOption {
 	return func(builder *publishing.ManifestBuilder) *publishing.ManifestBuilder {
 		return builder.WithPennsieveDatasetID(id)
 	}
 }
 
-func WithManifestVersion(datasetVersion int64) ManifestOption {
+func WithManifestVersion(datasetVersion int32) ManifestOption {
 	return func(builder *publishing.ManifestBuilder) *publishing.ManifestBuilder {
 		return builder.WithVersion(datasetVersion)
 	}
@@ -52,8 +52,8 @@ func WithManifestDescription(description string) ManifestOption {
 
 func NewExpectedManifest(t require.TestingT, opts ...ManifestOption) publishing.ManifestV5 {
 	builder := publishing.NewManifestBuilder().
-		WithPennsieveDatasetID(rand.Int64N(5000) + 1).
-		WithVersion(rand.Int64N(20) + 1).
+		WithPennsieveDatasetID(rand.Int32N(5000) + 1).
+		WithVersion(rand.Int32N(20) + 1).
 		WithID(NewPennsieveDOI().Value).
 		WithName(uuid.NewString()).
 		WithDescription(uuid.NewString()).

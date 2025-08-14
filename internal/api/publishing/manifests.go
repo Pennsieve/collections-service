@@ -33,8 +33,8 @@ const ManifestSchemaVersion = "http://schema.org/version/3.7/"
 const ManifestPennsieveSchemaVersion = "5.0"
 
 type ManifestV5 struct {
-	PennsieveDatasetID int64                  `json:"pennsieveDatasetId"`
-	Version            int64                  `json:"version"`
+	PennsieveDatasetID int32                  `json:"pennsieveDatasetId"`
+	Version            int32                  `json:"version"`
 	Revision           int                    `json:"revision,omitempty"`
 	Name               string                 `json:"name,omitempty"`
 	Description        string                 `json:"description"`
@@ -78,7 +78,7 @@ func (m ManifestV5) TotalSize() int64 {
 	return totalSize
 }
 
-func ManifestS3Key(publishedDatasetID int64) string {
+func ManifestS3Key(publishedDatasetID int32) string {
 	return fmt.Sprintf("%d/%s", publishedDatasetID, ManifestFileName)
 }
 
@@ -115,12 +115,12 @@ func NewManifestBuilder() *ManifestBuilder {
 	}}
 }
 
-func (b *ManifestBuilder) WithPennsieveDatasetID(id int64) *ManifestBuilder {
+func (b *ManifestBuilder) WithPennsieveDatasetID(id int32) *ManifestBuilder {
 	b.m.PennsieveDatasetID = id
 	return b
 }
 
-func (b *ManifestBuilder) WithVersion(version int64) *ManifestBuilder {
+func (b *ManifestBuilder) WithVersion(version int32) *ManifestBuilder {
 	b.m.Version = version
 	return b
 }

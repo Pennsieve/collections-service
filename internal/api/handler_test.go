@@ -460,7 +460,7 @@ func testDeleteCollection(t *testing.T) {
 
 	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
-		WithDeleteCollectionFunc(func(ctx context.Context, collectionID int64) error {
+		WithDeleteCollectionFunc(func(ctx context.Context, collectionID int32) error {
 			require.Equal(t, *expectedCollection.ID, collectionID)
 			return nil
 		})
@@ -566,8 +566,8 @@ func testPublishCollection(t *testing.T) {
 
 	mockUserStore := mocks.NewUsersStore().WithGetUserFunc(mocks.NewGetUserFunc(t, callingUser))
 
-	expectedPublishedDatasetID := int64(12)
-	expectedPublishedVersion := int64(3)
+	expectedPublishedDatasetID := int32(12)
+	expectedPublishedVersion := int32(3)
 	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,

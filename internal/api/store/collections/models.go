@@ -7,7 +7,7 @@ import (
 )
 
 type CreateCollectionResponse struct {
-	ID          int64
+	ID          int32
 	CreatorRole role.Role
 }
 
@@ -17,7 +17,7 @@ type Publication struct {
 }
 
 type CollectionBase struct {
-	ID          int64
+	ID          int32
 	NodeID      string
 	Name        string
 	Description string

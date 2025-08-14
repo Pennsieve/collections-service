@@ -11,7 +11,7 @@ import (
 )
 
 type Collection struct {
-	ID          int64     `db:"id"`
+	ID          int32     `db:"id"`
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
 	UpdatedAt   time.Time `db:"updated_at"`
@@ -20,7 +20,7 @@ type Collection struct {
 }
 
 type CollectionUser struct {
-	CollectionID  int64             `db:"collection_id"`
+	CollectionID  int32             `db:"collection_id"`
 	UserID        int32             `db:"user_id"`
 	PermissionBit pgdb.DbPermission `db:"permission_bit"`
 	CreatedAt     time.Time         `db:"created_at"`
@@ -55,8 +55,8 @@ func (r *PgxRole) AsRole() role.Role {
 }
 
 type CollectionDOI struct {
-	ID           int64                    `db:"id"`
-	CollectionID int64                    `db:"collection_id"`
+	ID           int32                    `db:"id"`
+	CollectionID int32                    `db:"collection_id"`
 	DOI          string                   `db:"doi"`
 	Datasource   datasource.DOIDatasource `db:"datasource"`
 	UpdatedAt    time.Time                `db:"updated_at"`
@@ -64,7 +64,7 @@ type CollectionDOI struct {
 }
 
 type PublishStatus struct {
-	CollectionID int64             `db:"collection_id"`
+	CollectionID int32             `db:"collection_id"`
 	Status       publishing.Status `db:"status"`
 	Type         publishing.Type   `db:"type"`
 	StartedAt    time.Time         `db:"started_at"`

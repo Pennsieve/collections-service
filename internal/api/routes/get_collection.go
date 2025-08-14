@@ -69,7 +69,7 @@ func NewGetCollectionRouteHandler() Handler[dto.GetCollectionResponse] {
 	}
 }
 
-func (p Params) getDatasetPublishStatus(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (*service.DatasetPublishStatusResponse, error) {
+func (p Params) getDatasetPublishStatus(ctx context.Context, collectionID int32, collectionNodeID string, userRole role.Role) (*service.DatasetPublishStatusResponse, error) {
 	internalDiscover, err := p.Container.InternalDiscover(ctx)
 	if err != nil {
 		return nil,
