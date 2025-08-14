@@ -179,8 +179,12 @@ func testGetCollections(t *testing.T, store *collections.PostgresStore, expectat
 
 	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner)
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
+
 	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
+	user1CollectionOneDOIPublishStatus := collectionstest.NewCompletedPublishStatus(*user1CollectionOneDOI.ID, *user1.ID)
+	expectationDB.CreatePublishStatus(ctx, t, user1CollectionOneDOIPublishStatus)
+
 	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithDOIs(apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI(), apitest.NewPennsieveDOI())
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
@@ -201,12 +205,15 @@ func testGetCollections(t *testing.T, store *collections.PostgresStore, expectat
 	// They should be returned in oldest first order
 	actualCollection1 := response.Collections[0]
 	assertExpectedEqualCollectionSummary(t, user1CollectionNoDOI, actualCollection1)
+	assert.Nil(t, actualCollection1.Publication)
 
 	actualCollection2 := response.Collections[1]
 	assertExpectedEqualCollectionSummary(t, user1CollectionOneDOI, actualCollection2)
+	assertExpectedPublishStatusEqual(t, user1CollectionOneDOIPublishStatus, actualCollection2.CollectionBase)
 
 	actualCollection3 := response.Collections[2]
 	assertExpectedEqualCollectionSummary(t, user1CollectionFiveDOI, actualCollection3)
+	assert.Nil(t, actualCollection3.Publication)
 
 	// try user2's collections
 	user2CollectionResp, err := store.GetCollections(ctx, *user2.ID, limit, offset)

@@ -5,6 +5,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/apitest/builders/stores/collectionstest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
@@ -101,6 +102,9 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 		WithPublicDatasets(expectedDatasets.NewPublished())
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
 
+	user1CollectionOneDOIPublishStatus := collectionstest.NewCompletedPublishStatus(*user1CollectionOneDOI.ID, *user1.ID)
+	expectationDB.CreatePublishStatus(ctx, t, user1CollectionOneDOIPublishStatus)
+
 	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
 		WithPublicDatasets(expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished())
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
@@ -148,12 +152,15 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	// They should be returned in oldest first order
 	actualCollection1 := response.Collections[0]
 	assertEqualExpectedCollectionSummary(t, user1CollectionNoDOI, actualCollection1, expectedDatasets)
+	assertDraftPublication(t, actualCollection1, false)
 
 	actualCollection2 := response.Collections[1]
 	assertEqualExpectedCollectionSummary(t, user1CollectionOneDOI, actualCollection2, expectedDatasets)
+	assertEqualExpectedPublishStatus(t, user1CollectionOneDOIPublishStatus, actualCollection2)
 
 	actualCollection3 := response.Collections[2]
 	assertEqualExpectedCollectionSummary(t, user1CollectionFiveDOI, actualCollection3, expectedDatasets)
+	assertDraftPublication(t, actualCollection3, false)
 
 	// try user2's collections
 	user2Claims := apitest.DefaultClaims(user2)

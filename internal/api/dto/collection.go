@@ -100,6 +100,8 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// PublishedDataset contains publishing info obtained from Discover.
+// Only included in responses to requests that use the includePublishedDataset query param
 type PublishedDataset struct {
 	ID                int32      `json:"id,omitempty"`
 	Version           int32      `json:"version"`
@@ -113,7 +115,7 @@ type Publication struct {
 }
 
 // CollectionSummary is a base struct shared by POST /,  GET /,  GET /{nodeId}, and PATCH /{nodeId} responses.
-// Publication is never returned by POST / or GET /
+// Publication is never returned by POST /
 type CollectionSummary struct {
 	NodeID      string       `json:"nodeId"`
 	Name        string       `json:"name"`
