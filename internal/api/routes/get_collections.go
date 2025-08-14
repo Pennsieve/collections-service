@@ -70,6 +70,7 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 			Banners:     collectBanners(storeCollection.BannerDOIs, doiToPublicDataset),
 			Size:        storeCollection.Size,
 			UserRole:    storeCollection.UserRole.String(),
+			Publication: ToDTOPublication(storeCollection.Publication, nil),
 		}
 		response.Collections = append(response.Collections, collectionDTO)
 	}

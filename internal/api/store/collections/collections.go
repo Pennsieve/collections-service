@@ -120,9 +120,10 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 		"min_perm": pgdb.Guest,
 	}
 	// using ORDER BY c.id asc as a proxy for getting in order of creation, oldest first
-	getCollectionsSQL := `SELECT c.id, c.name, c.description, c.node_id, c.license, c.tags, u.role, count(*) OVER () AS total_count
+	getCollectionsSQL := `SELECT c.id, c.name, c.description, c.node_id, c.license, c.tags, u.role, s.type, s.status, count(*) OVER () AS total_count
 			FROM collections.collections c
          			JOIN collections.collection_user u ON c.id = u.collection_id
+				    LEFT JOIN collections.publish_status s ON c.id = s.collection_id
 			WHERE u.user_id = @user_id AND u.permission_bit >= @min_perm
 			ORDER BY c.id asc
 			LIMIT @limit OFFSET @offset`
@@ -146,8 +147,10 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 		var license *string
 		var tags []string
 		var role PgxRole
+		var pubTypeOpt *publishing.Type
+		var pubStatusOpt *publishing.Status
 		var totalCount int
-		err := row.Scan(&id, &name, &description, &nodeID, &license, &tags, &role, &totalCount)
+		err := row.Scan(&id, &name, &description, &nodeID, &license, &tags, &role, &pubTypeOpt, &pubStatusOpt, &totalCount)
 		if err != nil {
 			return CollectionSummary{}, err
 		}
@@ -165,6 +168,7 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 				License:     license,
 				Tags:        tags,
 				UserRole:    role.AsRole(),
+				Publication: newPublication(pubStatusOpt, pubTypeOpt),
 			}}, nil
 
 	})
@@ -223,6 +227,17 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 	return response, nil
 }
 
+func newPublication(pubStatusOpt *publishing.Status, pubTypeOpt *publishing.Type) *Publication {
+	var publication *Publication
+	if pubStatusOpt != nil && pubTypeOpt != nil {
+		publication = &Publication{
+			Status: *pubStatusOpt,
+			Type:   *pubTypeOpt,
+		}
+	}
+	return publication
+}
+
 // getCollectionByIDColumn returns the error ErrCollectionNotFound if no collection with the given idValue exists for the given user id.
 // idColumn should be either "id" or "node_id"
 func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, idColumn string, idValue any) (GetCollectionResponse, error) {
@@ -254,13 +269,6 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 	var publishStatusOpt *publishing.Status
 	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &license, &tags, &pgxRole, &doiOpt, &datasourceOpt, &publishTypeOpt, &publishStatusOpt}, func() error {
 		if response == nil {
-			var publication *Publication
-			if publishTypeOpt != nil && publishStatusOpt != nil {
-				publication = &Publication{
-					Status: *publishStatusOpt,
-					Type:   *publishTypeOpt,
-				}
-			}
 			response = &GetCollectionResponse{
 				CollectionBase: CollectionBase{
 					ID:          id,
@@ -270,7 +278,7 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 					License:     license,
 					Tags:        tags,
 					UserRole:    pgxRole.AsRole(),
-					Publication: publication,
+					Publication: newPublication(publishStatusOpt, publishTypeOpt),
 				},
 			}
 		}

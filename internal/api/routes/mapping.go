@@ -11,15 +11,25 @@ import (
 	"github.com/pennsieve/collections-service/internal/shared/util"
 )
 
-func discoverToDTOPublishedDataset(fromDiscover *service.DatasetPublishStatusResponse) *dto.PublishedDataset {
-	if fromDiscover == nil {
-		return nil
+func ToDTOPublication(storePublication *collections.Publication, fromDiscover *service.DatasetPublishStatusResponse) *dto.Publication {
+	publication := dto.Publication{}
+
+	if fromDiscover != nil {
+		publication.PublishedDataset = &dto.PublishedDataset{
+			ID:                fromDiscover.PublishedDatasetID,
+			Version:           fromDiscover.PublishedVersionCount,
+			LastPublishedDate: fromDiscover.LastPublishedDate,
+		}
 	}
-	return &dto.PublishedDataset{
-		ID:                fromDiscover.PublishedDatasetID,
-		Version:           fromDiscover.PublishedVersionCount,
-		LastPublishedDate: fromDiscover.LastPublishedDate,
+
+	if storePublication != nil {
+		publication.Status = storePublication.Status
+		publication.Type = storePublication.Type
+	} else {
+		publication.Status = publishing.DraftStatus
 	}
+
+	return &publication
 }
 
 func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collections.GetCollectionResponse, datasetPublishStatus *service.DatasetPublishStatusResponse) (dto.GetCollectionResponse, error) {
@@ -32,9 +42,7 @@ func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collec
 			UserRole:    storeCollection.UserRole.String(),
 			License:     util.SafeDeref(storeCollection.License),
 			Tags:        storeCollection.Tags,
-			Publication: &dto.Publication{
-				PublishedDataset: discoverToDTOPublishedDataset(datasetPublishStatus),
-			},
+			Publication: ToDTOPublication(storeCollection.Publication, datasetPublishStatus),
 		},
 	}
 	if publication := storeCollection.Publication; publication != nil {
