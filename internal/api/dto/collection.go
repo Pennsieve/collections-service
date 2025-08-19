@@ -342,3 +342,13 @@ type PublishCollectionResponse struct {
 func (r PublishCollectionResponse) Marshal() (string, error) {
 	return defaultMarshalImpl(r)
 }
+
+type UnpublishCollectionResponse struct {
+	PublishedDatasetID int64         `json:"publishedDatasetId"`
+	PublishedVersion   int64         `json:"publishedVersion"`
+	Status             PublishStatus `json:"status"`
+}
+
+func (r UnpublishCollectionResponse) Marshal() (string, error) {
+	return defaultMarshalImpl(r)
+}

@@ -9,11 +9,13 @@ import (
 type PublishCollectionFunc func(ctx context.Context, collectionID int64, userRole role.Role, request service.PublishDOICollectionRequest) (service.PublishDOICollectionResponse, error)
 type FinalizeCollectionPublishFunc func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request service.FinalizeDOICollectionPublishRequest) (service.FinalizeDOICollectionPublishResponse, error)
 type GetCollectionPublishStatusFunc func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error)
+type UnpublishCollectionFunc func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error)
 
 type InternalDiscover struct {
 	PublishCollectionFunc
 	FinalizeCollectionPublishFunc
 	GetCollectionPublishStatusFunc
+	UnpublishCollectionFunc
 }
 
 func NewInternalDiscover() *InternalDiscover {
@@ -32,6 +34,11 @@ func (i *InternalDiscover) WithFinalizeCollectionPublishFunc(f FinalizeCollectio
 
 func (i *InternalDiscover) WithGetCollectionPublishStatusFunc(f GetCollectionPublishStatusFunc) *InternalDiscover {
 	i.GetCollectionPublishStatusFunc = f
+	return i
+}
+
+func (i *InternalDiscover) WithUnpublishCollectionFunc(f UnpublishCollectionFunc) *InternalDiscover {
+	i.UnpublishCollectionFunc = f
 	return i
 }
 
@@ -54,4 +61,11 @@ func (i *InternalDiscover) GetCollectionPublishStatus(ctx context.Context, colle
 		panic("mock GetCollectionPublishStatus function not set")
 	}
 	return i.GetCollectionPublishStatusFunc(ctx, collectionID, collectionNodeID, userRole)
+}
+
+func (i *InternalDiscover) UnpublishCollection(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
+	if i.UnpublishCollectionFunc == nil {
+		panic("mock UnpublishCollection function not set")
+	}
+	return i.UnpublishCollectionFunc(ctx, collectionID, collectionNodeID, userRole)
 }

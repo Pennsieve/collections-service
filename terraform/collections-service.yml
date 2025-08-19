@@ -249,6 +249,39 @@ paths:
         '5XX':
           $ref: '#/components/responses/Error'
 
+  /{nodeId}/unpublish:
+    post:
+      x-amazon-apigateway-integration:
+        $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
+      operationId: unpublishCollection
+      summary: unpublishes the given collection
+      description: |
+        Unpublishes all versions of the collection
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the collection node to unpublish
+      security:
+        - token_auth: [ ]
+      tags:
+        - Collections Service
+      responses:
+        '204':
+          description: the collection was unpublished
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnpublishCollectionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '4XX':
+          $ref: '#/components/responses/Unauthorized'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
 components:
   x-amazon-apigateway-integrations:
     collections-service:
@@ -787,6 +820,21 @@ components:
         - tags
 
     PublishCollectionResponse:
+      properties:
+        publishedDatasetId:
+          type: integer
+          format: int64
+        publishedVersion:
+          type: integer
+          format: int64
+        status:
+          type: string
+      required:
+        - publishedDatasetId
+        - publishedVersion
+        - status
+
+    UnpublishCollectionResponse:
       properties:
         publishedDatasetId:
           type: integer
