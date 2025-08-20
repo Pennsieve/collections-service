@@ -115,6 +115,14 @@ func (d *HTTPInternalDiscover) UnpublishCollection(ctx context.Context, collecti
 	}
 	defer util.CloseAndWarn(response, d.logger)
 
+	// Make sure Discover did not return 204 before trying to read the body.
+	if response.StatusCode == http.StatusNoContent {
+		return DatasetPublishStatusResponse{}, CollectionNeverPublishedError{
+			ID:     collectionID,
+			NodeID: collectionNodeID,
+		}
+	}
+
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return DatasetPublishStatusResponse{}, fmt.Errorf("error reading response from POST %s: %w", requestURL, err)

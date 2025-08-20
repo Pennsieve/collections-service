@@ -167,6 +167,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '5XX':
           $ref: '#/components/responses/Error'
     patch:
@@ -244,8 +246,14 @@ paths:
                 $ref: '#/components/schemas/PublishCollectionResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '4XX':
+        '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '5XX':
           $ref: '#/components/responses/Error'
 
@@ -269,7 +277,7 @@ paths:
       tags:
         - Collections Service
       responses:
-        '204':
+        '200':
           description: the collection was unpublished
           content:
             application/json:
@@ -277,8 +285,14 @@ paths:
                 $ref: '#/components/schemas/UnpublishCollectionResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '4XX':
+        '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '5XX':
           $ref: '#/components/responses/Error'
 
@@ -350,6 +364,17 @@ components:
                 type: string
     NotFound:
       description: Not Found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errorId:
+                type: string
+    Conflict:
+      description: Conflict
       content:
         application/json:
           schema:
