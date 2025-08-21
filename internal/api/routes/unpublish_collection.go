@@ -7,6 +7,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/publishing"
+	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"log/slog"
@@ -48,11 +49,76 @@ func UnpublishCollection(ctx context.Context, params Params) (dto.UnpublishColle
 		)
 	}
 
+	// Validate the status
 	if err := validatePublishStatusForUnpublish(collection.Publication); err != nil {
 		return dto.UnpublishCollectionResponse{}, err
 	}
 
-	return dto.UnpublishCollectionResponse{}, nil
+	// Set unpublish in progress
+	if err := params.Container.CollectionsStore().StartPublish(ctx, collection.ID, userClaim.Id, publishing.RemovalType); err != nil {
+		if errors.Is(err, collections.ErrPublishInProgress) {
+			// deliberately leave publish status alone, i.e., no cleanup
+			return dto.UnpublishCollectionResponse{}, apierrors.NewConflictError(err.Error())
+		}
+
+		return dto.UnpublishCollectionResponse{}, cleanupOnError(ctx,
+			params.Container.Logger(),
+			apierrors.NewInternalServerError("error registering start of unpublish", err),
+			cleanupStatusIfExists(params.Container.CollectionsStore(), collection.ID))
+
+	}
+
+	// unpublish in Discover. Discover removes objects from S3, so we don't need to do it here.
+	internalDiscover, err := params.Container.InternalDiscover(ctx)
+	if err != nil {
+		return dto.UnpublishCollectionResponse{},
+			cleanupOnError(ctx,
+				params.Container.Logger(),
+				apierrors.NewInternalServerError("error getting internal Discover dependency", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
+	}
+	discoverUnpubResp, err := internalDiscover.UnpublishCollection(ctx, collection.ID, collection.NodeID, collection.UserRole)
+	if err != nil {
+		var apiError *apierrors.Error
+		var neverPublishedError service.CollectionNeverPublishedError
+		if errors.As(err, &neverPublishedError) {
+			apiError = apierrors.NewConflictError("Discover reports collection not published")
+		} else {
+			apiError = apierrors.NewInternalServerError("error unpublishing with Discover", err)
+		}
+		return dto.UnpublishCollectionResponse{},
+			cleanupOnError(ctx,
+				params.Container.Logger(),
+				apiError,
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID))
+	}
+	params.Container.Logger().Info("unpublished on Discover",
+		slog.Any("publishedDatasetId", discoverUnpubResp.PublishedDatasetID),
+		slog.Any("publishedVersion", discoverUnpubResp.PublishedVersionCount),
+		slog.Any("status", discoverUnpubResp.Status),
+		slog.Any("lastPublishedDate", discoverUnpubResp.LastPublishedDate),
+		slog.String("name", discoverUnpubResp.Name),
+		slog.Any("sourceOrganizationId", discoverUnpubResp.SourceOrganizationID),
+		slog.Any("sourceDatasetId", discoverUnpubResp.SourceDatasetID),
+	)
+
+	collectionsServiceStatus := discoverUnpubResp.Status.ToPublishingStatus()
+
+	// Mark unpublish as finished
+	if err := params.Container.CollectionsStore().FinishPublish(ctx, collection.ID, collectionsServiceStatus, true); err != nil {
+		return dto.UnpublishCollectionResponse{},
+			cleanupOnError(ctx, params.Container.Logger(),
+				apierrors.NewInternalServerError("error marking unpublish as complete", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
+	}
+
+	return dto.UnpublishCollectionResponse{
+		PublishedDatasetID: discoverUnpubResp.PublishedDatasetID,
+		PublishedVersion:   discoverUnpubResp.PublishedVersionCount,
+		Status:             discoverUnpubResp.Status,
+	}, nil
 
 }
 
@@ -71,7 +137,7 @@ func validatePublishStatusForUnpublish(publication *collections.Publication) err
 	if publication.Status == publishing.InProgressStatus {
 		return apierrors.NewConflictError(fmt.Sprintf("error unpublishing: another publication process is already in progress: %s", publication.Type))
 	}
-	if publication.Type == publishing.RemovalType {
+	if publication.Type == publishing.RemovalType && publication.Status == publishing.CompletedStatus {
 		return apierrors.NewConflictError("error unpublishing: collection already unpublished")
 	}
 	return nil

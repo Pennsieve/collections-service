@@ -111,7 +111,13 @@ func (e *ExpectationDB) RequirePublishStatus(ctx context.Context, t require.Test
 		require.NotNil(t, actual.FinishedAt)
 		require.False(t, (*actual.FinishedAt).Before(actual.StartedAt))
 		if preCondition != nil {
-			requireTimeWithinEpsilon(t, preCondition.StartedAt, actual.StartedAt, time.Second)
+			// If the actual status is the completion of an in-progress precondition, then the start times should be the same.
+			if preCondition.Status == publishing.InProgressStatus && preCondition.Type == actual.Type {
+				requireTimeWithinEpsilon(t, preCondition.StartedAt, actual.StartedAt, time.Second)
+				// otherwise, the start time should be updated to a new value
+			} else {
+				require.True(t, actual.StartedAt.After(preCondition.StartedAt))
+			}
 		}
 	}
 }

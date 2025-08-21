@@ -10,8 +10,14 @@ type PublishStatusBuilder struct {
 	s *collections.PublishStatus
 }
 
-func NewPublishStatusBuilder() *PublishStatusBuilder {
-	return &PublishStatusBuilder{s: &collections.PublishStatus{}}
+func NewPublishStatusBuilder(collectionID int64, pubType publishing.Type, pubStatus publishing.Status) *PublishStatusBuilder {
+	return &PublishStatusBuilder{
+		s: &collections.PublishStatus{
+			CollectionID: collectionID,
+			Type:         pubType,
+			Status:       pubStatus,
+		},
+	}
 }
 
 func (b *PublishStatusBuilder) WithCollectionID(collectionID int64) *PublishStatusBuilder {
@@ -33,6 +39,7 @@ func (b *PublishStatusBuilder) WithStartedAt(startedAt time.Time) *PublishStatus
 	b.s.StartedAt = startedAt
 	return b
 }
+
 func (b *PublishStatusBuilder) WithFinishedAt(finishedAt *time.Time) *PublishStatusBuilder {
 	b.s.FinishedAt = finishedAt
 	return b
@@ -43,88 +50,72 @@ func (b *PublishStatusBuilder) WithUserID(userID *int64) *PublishStatusBuilder {
 	return b
 }
 
+func (b *PublishStatusBuilder) WithInProgressStartedAt() *PublishStatusBuilder {
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
+	return b.WithStatus(publishing.InProgressStatus).WithStartedAt(startedAt)
+}
+
+func (b *PublishStatusBuilder) WithStartedAndFinishedAt() *PublishStatusBuilder {
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
+	finishedAt := startedAt.Add(time.Minute)
+	return b.WithStartedAt(startedAt).WithFinishedAt(&finishedAt)
+}
+
 func (b *PublishStatusBuilder) Build() collections.PublishStatus {
 	return *b.s
 }
 
-// NewInProgressPublishStatus returns an InProgress collections.PublishStatus with a
+// NewInProgressPublishStatusBuilder returns an InProgress PublishStatusBuilder with a
+// StartedAt value in the past and a nil FinishedAt value
+func NewInProgressPublishStatusBuilder(collectionID int64, pubType publishing.Type) *PublishStatusBuilder {
+	return NewPublishStatusBuilder(collectionID, pubType, publishing.InProgressStatus).
+		WithInProgressStartedAt()
+}
+
+// NewTerminalPublishStatusBuilder returns a PublishStatusBuilder with a
+// StartedAt value in the past and a non-nil FinishedAt value later than StartedAt
+func NewTerminalPublishStatusBuilder(collectionID int64, pubType publishing.Type, pubStatus publishing.Status) *PublishStatusBuilder {
+	return NewPublishStatusBuilder(collectionID, pubType, pubStatus).WithStartedAndFinishedAt()
+}
+
+// NewInProgressPublishStatus returns an InProgress Publication collections.PublishStatus with a
 // StartedAt value in the past and a nil FinishedAt value
 func NewInProgressPublishStatus(collectionID, userID int64) collections.PublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	b := NewPublishStatusBuilder().
-		WithCollectionID(collectionID).
-		WithUserID(&userID).
-		WithStatus(publishing.InProgressStatus).
-		WithType(publishing.PublicationType).
-		WithStartedAt(startedAt)
-
-	return b.Build()
+	return NewInProgressPublishStatusBuilder(collectionID, publishing.PublicationType).WithUserID(&userID).Build()
 }
 
-// NewCompletedPublishStatus returns a Completed collections.PublishStatus with a
+// NewCompletedPublishStatus returns a Completed Publication collections.PublishStatus with a
 // StartedAt value in the past and a non-nil FinishedAt value later than StartedAt
 func NewCompletedPublishStatus(collectionID, userID int64) collections.PublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	finishedAt := startedAt.Add(time.Minute)
-	b := NewPublishStatusBuilder().
-		WithCollectionID(collectionID).
-		WithUserID(&userID).
-		WithStatus(publishing.CompletedStatus).
-		WithType(publishing.PublicationType).
-		WithStartedAt(startedAt).
-		WithFinishedAt(&finishedAt)
-
-	return b.Build()
+	return NewTerminalPublishStatusBuilder(collectionID, publishing.PublicationType, publishing.CompletedStatus).WithUserID(&userID).Build()
 }
 
-// NewFailedPublishStatus returns a Failed collections.PublishStatus with a
+// NewFailedPublishStatus returns a Failed Publication collections.PublishStatus with a
 // StartedAt value in the past and a non-nil FinishedAt value later than StartedAt
 func NewFailedPublishStatus(collectionID, userID int64) collections.PublishStatus {
-	startedAt := time.Now().UTC().AddDate(0, -1, 2)
-	finishedAt := startedAt.Add(time.Minute)
-	b := NewPublishStatusBuilder().
-		WithCollectionID(collectionID).
-		WithUserID(&userID).
-		WithStatus(publishing.FailedStatus).
-		WithType(publishing.PublicationType).
-		WithStartedAt(startedAt).
-		WithFinishedAt(&finishedAt)
-
-	return b.Build()
+	return NewTerminalPublishStatusBuilder(collectionID, publishing.PublicationType, publishing.FailedStatus).WithUserID(&userID).Build()
 }
 
-// NewExpectedInProgressPublishStatus returns an InProgress collections.PublishStatus with a
+// NewExpectedInProgressPublishStatus returns an InProgress Publication collections.PublishStatus with a
 // zero StartedAt value and a nil FinishedAt value
 func NewExpectedInProgressPublishStatus(collectionID, userID int64) collections.PublishStatus {
-	b := NewPublishStatusBuilder().
-		WithCollectionID(collectionID).
-		WithUserID(&userID).
-		WithStatus(publishing.InProgressStatus).
-		WithType(publishing.PublicationType)
-
+	b := NewPublishStatusBuilder(collectionID, publishing.PublicationType, publishing.InProgressStatus).
+		WithUserID(&userID)
 	return b.Build()
 }
 
-// NewExpectedCompletedPublishStatus returns a Completed collections.PublishStatus with a
+// NewExpectedCompletedPublishStatus returns a Completed Publication collections.PublishStatus with a
 // zero StartedAt value and a nil FinishedAt value
 func NewExpectedCompletedPublishStatus(collectionID, userID int64) collections.PublishStatus {
-	b := NewPublishStatusBuilder().
-		WithCollectionID(collectionID).
-		WithUserID(&userID).
-		WithStatus(publishing.CompletedStatus).
-		WithType(publishing.PublicationType)
-
+	b := NewPublishStatusBuilder(collectionID, publishing.PublicationType, publishing.CompletedStatus).
+		WithUserID(&userID)
 	return b.Build()
 }
 
-// NewExpectedFailedPublishStatus returns an Failed collections.PublishStatus with a
+// NewExpectedFailedPublishStatus returns a Failed Publication collections.PublishStatus with a
 // zero StartedAt value and a nil FinishedAt value
 func NewExpectedFailedPublishStatus(collectionID, userID int64) collections.PublishStatus {
-	b := NewPublishStatusBuilder().
-		WithCollectionID(collectionID).
-		WithUserID(&userID).
-		WithStatus(publishing.FailedStatus).
-		WithType(publishing.PublicationType)
-
+	b := NewPublishStatusBuilder(collectionID, publishing.PublicationType, publishing.FailedStatus).
+		WithUserID(&userID)
 	return b.Build()
 }

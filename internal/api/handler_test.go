@@ -566,8 +566,8 @@ func testPublishCollection(t *testing.T) {
 
 	mockUserStore := mocks.NewUsersStore().WithGetUserFunc(mocks.NewGetUserFunc(t, callingUser))
 
-	expectedPublishedDatasetID := int64(12)
-	expectedPublishedVersion := int64(3)
+	expectedPublishedDatasetID := 12
+	expectedPublishedVersion := 3
 	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,

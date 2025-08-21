@@ -91,8 +91,8 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
 
-	expectedPublishedDatasetID := rand.Int63n(5000) + 1
-	expectedPublishedVersion := rand.Int63n(20) + 1
+	expectedPublishedDatasetID := rand.Intn(5000) + 1
+	expectedPublishedVersion := rand.Intn(20) + 1
 	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
@@ -407,8 +407,8 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions()
 
-	expectedPublishedDatasetID := rand.Int63n(5000) + 1
-	expectedPublishedVersion := rand.Int63n(20) + 1
+	expectedPublishedDatasetID := rand.Intn(5000) + 1
+	expectedPublishedVersion := rand.Intn(20) + 1
 	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
@@ -516,8 +516,8 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
 
-	expectedPublishedDatasetID := int64(26)
-	expectedPublishedVersion := int64(1)
+	expectedPublishedDatasetID := 26
+	expectedPublishedVersion := 1
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
 		PublishedVersion:   expectedPublishedVersion,
@@ -882,8 +882,8 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 				WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
 				WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.CompletedStatus))
 
-			expectedPublishedID := int64(14)
-			expectedPublishedVersion := int64(1)
+			expectedPublishedID := 14
+			expectedPublishedVersion := 1
 			mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 				PublishedDatasetID: expectedPublishedID,
 				PublishedVersion:   expectedPublishedVersion,

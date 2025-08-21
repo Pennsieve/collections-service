@@ -68,9 +68,9 @@ type InternalContributor struct {
 
 type PublishDOICollectionResponse struct {
 	Name               string            `json:"name"`
-	SourceCollectionID int64             `json:"sourceCollectionId"`
-	PublishedDatasetID int64             `json:"publishedDatasetId"`
-	PublishedVersion   int64             `json:"publishedVersion"`
+	SourceCollectionID int               `json:"sourceCollectionId"`
+	PublishedDatasetID int               `json:"publishedDatasetId"`
+	PublishedVersion   int               `json:"publishedVersion"`
 	Status             dto.PublishStatus `json:"status"`
 	PublicID           string            `json:"publicId"`
 }
@@ -78,8 +78,8 @@ type PublishDOICollectionResponse struct {
 type FinalizeDOICollectionPublishRequest struct {
 	// All Values Required
 
-	PublishedDatasetID int64  `json:"publishedDatasetId"`
-	PublishedVersion   int64  `json:"publishedVersion"`
+	PublishedDatasetID int    `json:"publishedDatasetId"`
+	PublishedVersion   int    `json:"publishedVersion"`
 	PublishSuccess     bool   `json:"publishSuccess"`
 	FileCount          int    `json:"fileCount"`
 	TotalSize          int64  `json:"totalSize"`
@@ -181,10 +181,10 @@ type DatasetPublishStatusResponse struct {
 		- workflowId
 	*/
 	Name                  string            `json:"name"`
-	SourceOrganizationID  int32             `json:"sourceOrganizationId"`
-	SourceDatasetID       int32             `json:"sourceDatasetId"`
-	PublishedDatasetID    int32             `json:"publishedDatasetId,omitempty"`
-	PublishedVersionCount int32             `json:"publishedVersionCount"`
+	SourceOrganizationID  int               `json:"sourceOrganizationId"`
+	SourceDatasetID       int               `json:"sourceDatasetId"`
+	PublishedDatasetID    int               `json:"publishedDatasetId,omitempty"`
+	PublishedVersionCount int               `json:"publishedVersionCount"`
 	Status                dto.PublishStatus `json:"status"`
 	LastPublishedDate     *time.Time        `json:"lastPublishedDate,omitempty"`
 	/* fields not included since we don't reference them for now:
