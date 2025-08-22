@@ -13,6 +13,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/store/manifests"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/apitest/builders/stores/collectionstest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
@@ -44,6 +45,7 @@ func TestAPILambdaHandler(t *testing.T) {
 		{"delete collection", testDeleteCollection},
 		{"update collection", testUpdateCollection},
 		{"publish collection", testPublishCollection},
+		{"unpublish collection", testUnpublishCollection},
 	}
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -621,4 +623,59 @@ func testPublishCollection(t *testing.T) {
 	assert.Equal(t, expectedPublishedDatasetID, responseDTO.PublishedDatasetID)
 	assert.Equal(t, expectedPublishedVersion, responseDTO.PublishedVersion)
 	assert.Equal(t, mockFinalizeDOICollectionResponse.Status, responseDTO.Status)
+}
+
+func testUnpublishCollection(t *testing.T) {
+	callingUser := userstest.SeedUser1
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDatasets.NewPublished())
+
+	expectedPublishStatus := collectionstest.NewCompletedPublishStatus(*expectedCollection.ID, callingUser.ID)
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, &expectedPublishStatus)).
+		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.RemovalType)).
+		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.CompletedStatus))
+
+	expectedPublishedDatasetID := 12
+	expectedPublishedVersion := 0
+	expectedDiscoverPublishStatus := dto.Unpublished
+
+	pennsieveConfig := apitest.PennsieveConfigWithFakeURL()
+	mockUnpublishCollectionResponse := service.DatasetPublishStatusResponse{
+		Name:                  expectedCollection.Name,
+		SourceOrganizationID:  int(pennsieveConfig.CollectionsIDSpace.ID),
+		SourceDatasetID:       int(*expectedCollection.ID),
+		PublishedDatasetID:    expectedPublishedDatasetID,
+		PublishedVersionCount: expectedPublishedVersion,
+		Status:                expectedDiscoverPublishStatus,
+	}
+	mockInternalDiscover := mocks.NewInternalDiscover().
+		WithUnpublishCollectionFunc(expectedCollection.UnpublishCollectionFunc(t, mockUnpublishCollectionResponse))
+
+	handler := CollectionsServiceAPIHandler(
+		apitest.NewTestContainer().
+			WithCollectionsStore(mockCollectionStore).
+			WithInternalDiscover(mockInternalDiscover),
+		apitest.NewConfigBuilder().
+			WithPennsieveConfig(pennsieveConfig).
+			Build(),
+	)
+	req := apitest.NewAPIGatewayRequestBuilder(routes.UnpublishCollectionRouteKey).
+		WithDefaultClaims(callingUser).
+		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
+		Build()
+
+	response, err := handler(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	var responseDTO dto.UnpublishCollectionResponse
+	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
+
+	assert.Equal(t, expectedPublishedDatasetID, responseDTO.PublishedDatasetID)
+	assert.Equal(t, expectedPublishedVersion, responseDTO.PublishedVersion)
+	assert.Equal(t, expectedDiscoverPublishStatus, responseDTO.Status)
 }

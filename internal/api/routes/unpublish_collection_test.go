@@ -257,7 +257,7 @@ func testCleanupOnDiscoverError(t *testing.T, expectationDB *fixtures.Expectatio
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
 		Build()
 
-	mockInternalDiscover := mocks.NewInternalDiscover().WithUnpublishCollectionFunc(func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
+	mockInternalDiscover := mocks.NewInternalDiscover().WithUnpublishCollectionFunc(func(_ context.Context, collectionID int64, collectionNodeID string, _ role.Role) (service.DatasetPublishStatusResponse, error) {
 		return service.DatasetPublishStatusResponse{}, service.CollectionNeverPublishedError{
 			ID:     collectionID,
 			NodeID: collectionNodeID,
