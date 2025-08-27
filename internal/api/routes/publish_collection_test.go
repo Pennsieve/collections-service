@@ -38,8 +38,8 @@ func TestPublishCollection(t *testing.T) {
 	}{
 		{"publish collection with no existing publish status should work", testPublishWithoutPublishStatus},
 		{"publish collection with existing publish status", testPublishWithPublishStatus},
-		{"should return Bad Request if description is empty", testPublishNoDescription},
-		{"should return Bad Request if collection contains unpublished datasets", testPublishContainsTombstones},
+		{"should return Conflict if description is empty", testPublishNoDescription},
+		{"should return Conflict if collection contains unpublished datasets", testPublishContainsTombstones},
 		{"should clean up publish status and Discover if SaveManifest fails", testPublishSaveManifestFails},
 		{"should clean up S3, publish status, and Discover if Discover finalize fails", testPublishFinalizeFails},
 	}
@@ -265,7 +265,7 @@ func testPublishWithPublishStatus(t *testing.T, expectationDB *fixtures.Expectat
 			dataset := expectedDatasets.NewPublished()
 
 			// The collection
-			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
+			expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset).WithRandomLicense().WithNTags(2)
 			createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
 			existingPublishStatus := collectionstest.NewPublishStatusBuilder(*expectedCollection.ID, tt.pubType, tt.pubStatus).
@@ -410,7 +410,7 @@ func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationD
 	var apiError *apierrors.Error
 	require.ErrorAs(t, err, &apiError)
 
-	assert.Equal(t, http.StatusBadRequest, apiError.StatusCode)
+	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
 	assert.Contains(t, apiError.UserMessage, "description cannot be empty")
 
 	expectedPublishStatus := collectionstest.NewExpectedFailedPublishStatus(createCollectionResp.ID, *callingUser.ID)
@@ -464,7 +464,7 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 	var apiError *apierrors.Error
 	require.ErrorAs(t, err, &apiError)
 
-	assert.Equal(t, http.StatusBadRequest, apiError.StatusCode)
+	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
 	assert.Contains(t, apiError.UserMessage, "unpublished")
 	assert.Contains(t, apiError.UserMessage, tombstone.DOI)
 

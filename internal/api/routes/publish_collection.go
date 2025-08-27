@@ -93,7 +93,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		if len(discoverDOIRes.Unpublished) > 0 {
 			return dto.PublishCollectionResponse{},
 				cleanupOnError(ctx, params.Container.Logger(),
-					apierrors.NewBadRequestError(fmt.Sprintf("collection contains unpublished DOIs: %s", strings.Join(slices.Collect(maps.Keys(discoverDOIRes.Unpublished)), ", "))),
+					apierrors.NewConflictError(fmt.Sprintf("collection contains unpublished DOIs: %s", strings.Join(slices.Collect(maps.Keys(discoverDOIRes.Unpublished)), ", "))),
 					cleanupStatus(params.Container.CollectionsStore(), collection.ID),
 				)
 		}
@@ -247,7 +247,7 @@ func NewPublishCollectionRouteHandler() Handler[dto.PublishCollectionResponse] {
 
 func validateCollection(collection collections.GetCollectionResponse) error {
 	if len(collection.Description) == 0 {
-		return apierrors.NewBadRequestError("published description cannot be empty")
+		return apierrors.NewConflictError("published description cannot be empty")
 	}
 	if err := validate.License(collection.License, true); err != nil {
 		return apierrors.NewConflictError(err.Error())
