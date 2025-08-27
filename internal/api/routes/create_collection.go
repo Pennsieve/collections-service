@@ -116,7 +116,10 @@ func (p createCollectionParams) ValidateCreateRequest(request *dto.CreateCollect
 		return err
 	}
 	if err := validate.License(request.License, false); err != nil {
-		return err
+		return apierrors.NewBadRequestError(err.Error())
+	}
+	if err := validate.Tags(request.Tags, false); err != nil {
+		return apierrors.NewBadRequestError(err.Error())
 	}
 	return nil
 }

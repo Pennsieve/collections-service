@@ -250,10 +250,10 @@ func validateCollection(collection collections.GetCollectionResponse) error {
 		return apierrors.NewBadRequestError("published description cannot be empty")
 	}
 	if err := validate.License(collection.License, true); err != nil {
-		return err
+		return apierrors.NewConflictError(err.Error())
 	}
 	if err := validate.Tags(collection.Tags, true); err != nil {
-		return err
+		return apierrors.NewConflictError(err.Error())
 	}
 	return nil
 }

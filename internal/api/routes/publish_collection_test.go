@@ -593,19 +593,19 @@ func TestHandlePublishCollection(t *testing.T) {
 		tstFunc func(t *testing.T)
 	}{
 		{
-			"return Bad Request collection license is empty",
+			"return Conflict collection license is empty",
 			testHandlePublishCollectionEmptyLicense,
 		},
 		{
-			"return Bad Request when collection license is null",
+			"return Conflict when collection license is null",
 			testHandlePublishCollectionNoLicense,
 		},
 		{
-			"return Bad Request when given no tags",
+			"return Conflict when given no tags",
 			testHandlePublishCollectionNoTags,
 		},
 		{
-			"return Bad Request when given empty tags",
+			"return Conflict when given empty tags",
 			testHandlePublishCollectionEmptyTags,
 		},
 		{
@@ -659,7 +659,7 @@ func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
 	require.NoError(t, err)
 
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
 
 	assert.Contains(t, response.Body, `missing required license`)
 }
@@ -692,7 +692,7 @@ func testHandlePublishCollectionNoLicense(t *testing.T) {
 	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
 	require.NoError(t, err)
 
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
 
 	assert.Contains(t, response.Body, "missing required license")
 
@@ -727,7 +727,7 @@ func testHandlePublishCollectionNoTags(t *testing.T) {
 	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
 	require.NoError(t, err)
 
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
 
 	assert.Contains(t, response.Body, "tags array cannot be empty")
 
@@ -763,7 +763,7 @@ func testHandlePublishCollectionEmptyTags(t *testing.T) {
 	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
 	require.NoError(t, err)
 
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
 
 	assert.Contains(t, response.Body, "tags array cannot be empty")
 

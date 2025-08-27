@@ -128,12 +128,12 @@ func ValidatePatchRequest(request *dto.PatchCollectionRequest) error {
 		trimmedLicense := strings.TrimSpace(*request.License)
 		request.License = &trimmedLicense
 		if err := validate.License(request.License, false); err != nil {
-			return err
+			return apierrors.NewBadRequestError(err.Error())
 		}
 	}
 	if request.Tags != nil {
 		if err := validate.Tags(request.Tags, false); err != nil {
-			return err
+			return apierrors.NewBadRequestError(err.Error())
 		}
 	}
 	return nil

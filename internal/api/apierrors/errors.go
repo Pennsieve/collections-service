@@ -36,7 +36,7 @@ func NewRequestUnmarshallError(bodyType any, cause error) *Error {
 }
 
 func NewBadRequestError(userMessage string) *Error {
-	return NewError(userMessage, nil, http.StatusBadRequest)
+	return NewBadRequestErrorWithCause(userMessage, nil)
 }
 
 func NewBadRequestErrorWithCause(userMessage string, cause error) *Error {
@@ -59,7 +59,11 @@ func NewCollectionNotFoundError(missingID string) *Error {
 }
 
 func NewConflictError(userMessage string) *Error {
-	return NewError(userMessage, nil, http.StatusConflict)
+	return NewConflictErrorWithCause(userMessage, nil)
+}
+
+func NewConflictErrorWithCause(userMessage string, cause error) *Error {
+	return NewError(userMessage, cause, http.StatusConflict)
 }
 
 func (e *Error) Error() string {
