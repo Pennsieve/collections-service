@@ -160,11 +160,8 @@ func testDeleteCollectionWithPublishStatus(t *testing.T, expectationDB *fixtures
 			createResp := expectationDB.CreateCollection(ctx, t, collection)
 			idToDelete := createResp.ID
 
-			existingPublishStatus := collectionstest.NewPublishStatusBuilder().
-				WithCollectionID(idToDelete).
+			existingPublishStatus := collectionstest.NewPublishStatusBuilder(idToDelete, tt.pubType, tt.pubStatus).
 				WithUserID(user.ID).
-				WithType(tt.pubType).
-				WithStatus(tt.pubStatus).
 				WithStartedAt(tt.startedAt).
 				WithFinishedAt(tt.finishedAt).
 				Build()

@@ -144,8 +144,8 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 			)
 	}
 	params.Container.Logger().Info("publish started on Discover",
-		slog.Int64("publishedDatasetId", discoverPubResp.PublishedDatasetID),
-		slog.Int64("publishedVersion", discoverPubResp.PublishedVersion),
+		slog.Int("publishedDatasetId", discoverPubResp.PublishedDatasetID),
+		slog.Int("publishedVersion", discoverPubResp.PublishedVersion),
 		slog.Any("status", discoverPubResp.Status),
 		slog.String("ownerFirstName", discoverPubReq.OwnerFirstName),
 		slog.String("ownerLastName", discoverPubReq.OwnerLastName),
@@ -311,7 +311,7 @@ func cleanupManifest(manifestStore manifests.Store, key string, s3VersionID stri
 	}
 }
 
-func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDatasetID, publishedVersion int64, collection collections.GetCollectionResponse) cleanupFunc {
+func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDatasetID, publishedVersion int, collection collections.GetCollectionResponse) cleanupFunc {
 	return func(ctx context.Context, logger *slog.Logger) error {
 		request := service.FinalizeDOICollectionPublishRequest{
 			PublishedDatasetID: publishedDatasetID,
@@ -323,8 +323,8 @@ func finalizeDiscoverFailure(discover service.InternalDiscover, publishedDataset
 		// cleanup ran successfully
 		if err == nil {
 			logger.Info("cleanup finalized publication with Discover as failed",
-				slog.Int64("publishedDatasetId", publishedDatasetID),
-				slog.Int64("publishedVersion", publishedVersion))
+				slog.Int("publishedDatasetId", publishedDatasetID),
+				slog.Int("publishedVersion", publishedVersion))
 		}
 		return err
 	}

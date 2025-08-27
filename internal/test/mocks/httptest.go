@@ -120,6 +120,23 @@ func (m *DiscoverMux) WithGetCollectionPublishStatusFunc(ctx context.Context, t 
 	return m
 }
 
+func (m *DiscoverMux) WithUnpublishCollectionFunc(ctx context.Context, t require.TestingT, f UnpublishCollectionFunc, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
+	m.HandleFunc("POST /collection/{collectionId}/unpublish", func(writer http.ResponseWriter, request *http.Request) {
+		test.Helper(t)
+
+		collectionIDParam := request.PathValue("collectionId")
+		collectionID, err := strconv.ParseInt(collectionIDParam, 10, 64)
+		require.NoError(t, err)
+
+		_, actualDatasetRole := m.RequireExpectedAuthorization(t, collectionIDParam, expectedOrgServiceRole, expectedDatasetServiceRole, request)
+		datasetRoleRole, _ := role.RoleFromString(actualDatasetRole.Role)
+
+		unpublishResponse, err := f(ctx, collectionID, actualDatasetRole.NodeId, datasetRoleRole)
+		respond(t, writer, unpublishResponse, err)
+	})
+	return m
+}
+
 func respond(t require.TestingT, writer http.ResponseWriter, mockResponse any, mockErr error) {
 	test.Helper(t)
 	var httpResponse any

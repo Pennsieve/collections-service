@@ -36,8 +36,8 @@ func TestPublishCollection(t *testing.T) {
 		scenario string
 		tstFunc  func(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO)
 	}{
-		{"publish collection", testPublish},
-		{"should return a 409 Conflict error if publish already in progress", testPublishNoConcurrent},
+		{"publish collection with no existing publish status should work", testPublishWithoutPublishStatus},
+		{"publish collection with existing publish status", testPublishWithPublishStatus},
 		{"should return Bad Request if description is empty", testPublishNoDescription},
 		{"should return Bad Request if collection contains unpublished datasets", testPublishContainsTombstones},
 		{"should clean up publish status and Discover if SaveManifest fails", testPublishSaveManifestFails},
@@ -64,7 +64,7 @@ func TestPublishCollection(t *testing.T) {
 
 }
 
-func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO) {
+func testPublishWithoutPublishStatus(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO) {
 	ctx := context.Background()
 
 	publishBucket := minio.CreatePublishBucket(ctx, t)
@@ -96,8 +96,8 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
 
-	expectedPublishedDatasetID := rand.Int63n(5000) + 1
-	expectedPublishedVersion := rand.Int63n(20) + 1
+	expectedPublishedDatasetID := rand.Intn(5000) + 1
+	expectedPublishedVersion := rand.Intn(20) + 1
 	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
@@ -219,52 +219,151 @@ func testPublish(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fix
 
 }
 
-func testPublishNoConcurrent(t *testing.T, expectationDB *fixtures.ExpectationDB, _ *fixtures.MinIO) {
+func testPublishWithPublishStatus(t *testing.T, expectationDB *fixtures.ExpectationDB, minio *fixtures.MinIO) {
 	ctx := context.Background()
 
-	callingUser := userstest.NewTestUser()
-	expectationDB.CreateTestUser(ctx, t, callingUser)
+	startedAt := time.Now().UTC().AddDate(0, -1, 2)
+	finishedAt := startedAt.Add(time.Minute)
 
-	claims := apitest.DefaultClaims(callingUser)
-
-	// The dataset that will be in the collection
-	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
-	dataset := expectedDatasets.NewPublished()
-
-	// The collection
-	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
-	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
-
-	existingPublishStatus := collectionstest.NewInProgressPublishStatus(createCollectionResp.ID, *callingUser.ID)
-	expectationDB.CreatePublishStatus(ctx, t, existingPublishStatus)
-
-	apiConfig := apitest.NewConfigBuilder().
-		WithPostgresDBConfig(test.PostgresDBConfig(t)).
-		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
-		Build()
-
-	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
-			WithClaims(claims).
-			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-			Build(),
-		Container: apitest.NewTestContainer().
-			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
-			WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase),
-		Config: apiConfig,
-		Claims: &claims,
+	tests := []struct {
+		scenario   string
+		pubType    publishing.Type
+		pubStatus  publishing.Status
+		startedAt  time.Time
+		finishedAt *time.Time
+		allowed    bool
+	}{
+		{"in progress publication should not be allowed", publishing.PublicationType, publishing.InProgressStatus, startedAt, nil, false},
+		{"completed publication should be allowed", publishing.PublicationType, publishing.CompletedStatus, startedAt, &finishedAt, true},
+		{"failed publication should be allowed", publishing.PublicationType, publishing.FailedStatus, startedAt, &finishedAt, true},
+		{"in progress revision should not be allowed", publishing.RevisionType, publishing.InProgressStatus, startedAt, nil, false},
+		{"completed revision should be allowed", publishing.RevisionType, publishing.CompletedStatus, startedAt, &finishedAt, true},
+		{"failed revision should be allowed", publishing.RevisionType, publishing.FailedStatus, startedAt, &finishedAt, true},
+		{"in progress removal should not be allowed", publishing.RemovalType, publishing.InProgressStatus, startedAt, nil, false},
+		{"completed removal should be allowed", publishing.RemovalType, publishing.CompletedStatus, startedAt, &finishedAt, true},
+		{"failed removal should be allowed", publishing.RemovalType, publishing.FailedStatus, startedAt, &finishedAt, true},
 	}
 
-	_, err := PublishCollection(ctx, params)
-	var apiError *apierrors.Error
-	require.ErrorAs(t, err, &apiError)
+	for _, tt := range tests {
+		t.Run(tt.scenario, func(t *testing.T) {
 
-	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
-	assert.Contains(t, apiError.UserMessage, "in progress")
+			publishBucket := minio.CreatePublishBucket(ctx, t)
 
-	expectedPublishStatus := collectionstest.NewExpectedInProgressPublishStatus(createCollectionResp.ID, *callingUser.ID)
-	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, &existingPublishStatus)
+			callingUser := userstest.NewTestUser(
+				userstest.WithFirstName(uuid.NewString()),
+				userstest.WithLastName(uuid.NewString()),
+				userstest.WithORCID(uuid.NewString()),
+				userstest.WithMiddleInitial("F"),
+				userstest.WithDegree("B.S."),
+			)
+			expectationDB.CreateTestUser(ctx, t, callingUser)
 
+			claims := apitest.DefaultClaims(callingUser)
+
+			// The dataset that will be in the collection
+			expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+			dataset := expectedDatasets.NewPublished()
+
+			// The collection
+			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
+			createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+			existingPublishStatus := collectionstest.NewPublishStatusBuilder(*expectedCollection.ID, tt.pubType, tt.pubStatus).
+				WithUserID(callingUser.ID).
+				WithStartedAt(tt.startedAt).
+				WithFinishedAt(tt.finishedAt).
+				Build()
+			expectationDB.CreatePublishStatus(ctx, t, existingPublishStatus)
+
+			pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
+
+			expectedPublishedDatasetID := rand.Intn(5000) + 1
+			expectedPublishedVersion := rand.Intn(20) + 1
+			expectedDiscoverPublishStatus := dto.PublishInProgress
+			mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
+				PublishedDatasetID: expectedPublishedDatasetID,
+				PublishedVersion:   expectedPublishedVersion,
+				Status:             expectedDiscoverPublishStatus,
+			}
+
+			expectedOrgServiceRole := apitest.ExpectedOrgServiceRole(pennsieveConfig.CollectionsIDSpace.ID)
+			expectedDatasetServiceRole := expectedCollection.DatasetServiceRole(role.Owner)
+
+			mockFinalizeDOICollectionResponse := service.FinalizeDOICollectionPublishResponse{Status: dto.PublishSucceeded}
+
+			mockDiscoverMux := mocks.NewDiscoverMux(*pennsieveConfig.JWTSecretKey.Value).
+				WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).
+				WithPublishCollectionFunc(
+					ctx,
+					t,
+					expectedCollection.PublishCollectionFunc(
+						t,
+						mockPublishDOICollectionResponse,
+						apitest.VerifyPublishingUser(callingUser),
+						apitest.VerifyInternalContributors(apitest.InternalContributor(callingUser)),
+					),
+					expectedOrgServiceRole,
+					expectedDatasetServiceRole,
+				).
+				WithFinalizeCollectionPublishFunc(ctx, t,
+					expectedCollection.FinalizeCollectionPublishFunc(t,
+						mockFinalizeDOICollectionResponse,
+						apitest.VerifyFinalizeDOICollectionRequest(expectedPublishedDatasetID, expectedPublishedVersion),
+					),
+					*expectedCollection.NodeID,
+					expectedOrgServiceRole,
+					expectedDatasetServiceRole)
+
+			mockDiscoverServer := httptest.NewServer(mockDiscoverMux)
+			defer mockDiscoverServer.Close()
+
+			pennsieveConfig.DiscoverServiceURL = mockDiscoverServer.URL
+
+			apiConfig := apitest.NewConfigBuilder().
+				WithPostgresDBConfig(test.PostgresDBConfig(t)).
+				WithPennsieveConfig(pennsieveConfig).
+				Build()
+
+			params := Params{
+				Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+					WithClaims(claims).
+					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+					Build(),
+				Container: apitest.NewTestContainer().
+					WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+					WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+					WithUsersStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+					WithHTTPTestDiscover(mockDiscoverServer.URL).
+					WithHTTPTestInternalDiscover(pennsieveConfig).
+					WithMinIOManifestStore(ctx, t, apiConfig.PennsieveConfig.PublishBucket),
+				Config: apiConfig,
+				Claims: &claims,
+			}
+
+			resp, err := PublishCollection(ctx, params)
+
+			if tt.allowed {
+				require.NoError(t, err)
+
+				assert.Equal(t, expectedPublishedDatasetID, resp.PublishedDatasetID)
+				assert.Equal(t, expectedPublishedVersion, resp.PublishedVersion)
+				assert.Equal(t, mockFinalizeDOICollectionResponse.Status, resp.Status)
+
+				expectedPublishStatus := collectionstest.NewExpectedCompletedPublishStatus(createCollectionResp.ID, *callingUser.ID)
+
+				expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, &existingPublishStatus)
+			} else {
+				var apiError *apierrors.Error
+				require.ErrorAs(t, err, &apiError)
+
+				assert.Equal(t, http.StatusConflict, apiError.StatusCode)
+				assert.Contains(t, apiError.UserMessage, "in progress")
+
+				// status should be unchanged
+				expectationDB.RequirePublishStatus(ctx, t, existingPublishStatus, &existingPublishStatus)
+			}
+		})
+	}
 }
 
 func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationDB, _ *fixtures.MinIO) {
@@ -404,8 +503,8 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions()
 
-	expectedPublishedDatasetID := rand.Int63n(5000) + 1
-	expectedPublishedVersion := rand.Int63n(20) + 1
+	expectedPublishedDatasetID := rand.Intn(5000) + 1
+	expectedPublishedVersion := rand.Intn(20) + 1
 	expectedDiscoverPublishStatus := dto.PublishInProgress
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
@@ -509,8 +608,8 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
 
-	expectedPublishedDatasetID := int64(26)
-	expectedPublishedVersion := int64(1)
+	expectedPublishedDatasetID := 26
+	expectedPublishedVersion := 1
 	mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 		PublishedDatasetID: expectedPublishedDatasetID,
 		PublishedVersion:   expectedPublishedVersion,
@@ -861,8 +960,8 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 				WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
 				WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.CompletedStatus))
 
-			expectedPublishedID := int64(14)
-			expectedPublishedVersion := int64(1)
+			expectedPublishedID := 14
+			expectedPublishedVersion := 1
 			mockPublishDOICollectionResponse := service.PublishDOICollectionResponse{
 				PublishedDatasetID: expectedPublishedID,
 				PublishedVersion:   expectedPublishedVersion,
