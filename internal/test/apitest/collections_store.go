@@ -23,8 +23,10 @@ import (
 )
 
 // ExpectedCollection is what we expect the collection to look like
-// in Postgres, so it doesn't include things not persisted there. Like banners for
+// in Postgres at any one time, so it doesn't include things not persisted there. Like banners for
 // example.
+// ExpectedCollection is a bad name for this. If we are testing updates for example, the values here
+// are no longer the expected ones and must be updated to match expectations before making any assertions.
 type ExpectedCollection struct {
 	ID          *int64
 	Name        string
@@ -275,7 +277,7 @@ func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, mockRespo
 		}
 
 		mockResponse.Name = c.Name
-		mockResponse.SourceCollectionID = *c.ID
+		mockResponse.SourceCollectionID = int(*c.ID)
 		mockResponse.PublicID = *c.NodeID
 		return mockResponse, nil
 	}
@@ -286,7 +288,7 @@ func (c *ExpectedCollection) PublishCollectionFunc(t require.TestingT, mockRespo
 type FinalizeDOICollectionPublishRequestVerification func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest)
 
 // VerifyFinalizeDOICollectionRequest checks that the request has PublishSuccess == true and other expected values
-func VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int64) FinalizeDOICollectionPublishRequestVerification {
+func VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int) FinalizeDOICollectionPublishRequestVerification {
 	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
 		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
 		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
@@ -305,7 +307,7 @@ func VerifyFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVe
 }
 
 // VerifyFailedFinalizeDOICollectionRequest checks that the request has PublishSuccess == false and empty values where expected
-func VerifyFailedFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int64) FinalizeDOICollectionPublishRequestVerification {
+func VerifyFailedFinalizeDOICollectionRequest(expectedPublishedID, expectedPublishedVersion int) FinalizeDOICollectionPublishRequestVerification {
 	return func(t require.TestingT, request service.FinalizeDOICollectionPublishRequest) {
 		require.Equal(t, expectedPublishedID, request.PublishedDatasetID)
 		require.Equal(t, expectedPublishedVersion, request.PublishedVersion)
@@ -399,6 +401,18 @@ func VerifyInternalContributors(expectedContributors ...service.InternalContribu
 }
 
 func (c *ExpectedCollection) GetCollectionPublishStatusFunc(t require.TestingT, mockResponse service.DatasetPublishStatusResponse) mocks.GetCollectionPublishStatusFunc {
+	return func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		assert.Equal(t, *c.ID, collectionID)
+		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
+		assert.Equal(t, *c.NodeID, collectionNodeID)
+		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
+		return mockResponse, nil
+	}
+}
+
+func (c *ExpectedCollection) UnpublishCollectionFunc(t require.TestingT, mockResponse service.DatasetPublishStatusResponse) mocks.UnpublishCollectionFunc {
 	return func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.ID, "expected collection does not have ID set")

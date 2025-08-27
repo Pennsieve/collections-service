@@ -13,6 +13,11 @@ const CollectionsIDSpaceID = int64(2222)
 const CollectionsIDSpaceName = "Test Collections Publishing"
 const PublishBucket = "test-publish-bucket"
 
+var CollectionsIDSpace = config.CollectionsPublishingIDSpace{
+	ID:   CollectionsIDSpaceID,
+	Name: CollectionsIDSpaceName,
+}
+
 type ConfigBuilder struct {
 	c *config.Config
 }

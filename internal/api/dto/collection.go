@@ -103,8 +103,8 @@ func (r GetCollectionResponse) MarshalJSON() ([]byte, error) {
 // PublishedDataset contains publishing info obtained from Discover.
 // Only included in responses to requests that use the includePublishedDataset query param
 type PublishedDataset struct {
-	ID                int32      `json:"id,omitempty"`
-	Version           int32      `json:"version"`
+	ID                int        `json:"id,omitempty"`
+	Version           int        `json:"version"`
 	LastPublishedDate *time.Time `json:"lastPublishedDate,omitempty"`
 }
 
@@ -334,11 +334,21 @@ func (ps PublishStatus) ToPublishingStatus() publishing.Status {
 }
 
 type PublishCollectionResponse struct {
-	PublishedDatasetID int64         `json:"publishedDatasetId"`
-	PublishedVersion   int64         `json:"publishedVersion"`
+	PublishedDatasetID int           `json:"publishedDatasetId"`
+	PublishedVersion   int           `json:"publishedVersion"`
 	Status             PublishStatus `json:"status"`
 }
 
 func (r PublishCollectionResponse) Marshal() (string, error) {
+	return defaultMarshalImpl(r)
+}
+
+type UnpublishCollectionResponse struct {
+	PublishedDatasetID int           `json:"publishedDatasetId"`
+	PublishedVersion   int           `json:"publishedVersion"`
+	Status             PublishStatus `json:"status"`
+}
+
+func (r UnpublishCollectionResponse) Marshal() (string, error) {
 	return defaultMarshalImpl(r)
 }

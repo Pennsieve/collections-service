@@ -326,8 +326,8 @@ func testGetCollectionIncludePublishedDatasetDraft(t *testing.T, expectationDB *
 
 	expectedDiscoverPublishStatus := service.DatasetPublishStatusResponse{
 		Name:                  collection.Name,
-		SourceOrganizationID:  int32(pennsieveConfig.CollectionsIDSpace.ID),
-		SourceDatasetID:       int32(*collection.ID),
+		SourceOrganizationID:  int(pennsieveConfig.CollectionsIDSpace.ID),
+		SourceDatasetID:       int(*collection.ID),
 		PublishedVersionCount: 0,
 		Status:                dto.NotPublished,
 	}
@@ -391,10 +391,10 @@ func testGetCollectionIncludePublishedDatasetPublished(t *testing.T, expectation
 	expectedDiscoverLastPublishedDate := time.Now().UTC().Add(-72 * time.Hour)
 	expectedDiscoverPublishStatus := service.DatasetPublishStatusResponse{
 		Name:                  collection.Name,
-		SourceOrganizationID:  int32(pennsieveConfig.CollectionsIDSpace.ID),
-		SourceDatasetID:       int32(*collection.ID),
-		PublishedDatasetID:    rand.Int31n(1000) + 1,
-		PublishedVersionCount: rand.Int31n(10),
+		SourceOrganizationID:  int(pennsieveConfig.CollectionsIDSpace.ID),
+		SourceDatasetID:       int(*collection.ID),
+		PublishedDatasetID:    rand.Intn(1000) + 1,
+		PublishedVersionCount: rand.Intn(10),
 		Status:                dto.PublishSucceeded,
 		LastPublishedDate:     &expectedDiscoverLastPublishedDate,
 	}
