@@ -417,6 +417,7 @@ components:
         - name
         - description
         - dois
+
     PatchCollectionRequest:
       type: object
       properties:
@@ -426,6 +427,14 @@ components:
         description:
           type: string
           description: omit if description is not being changed
+        license:
+          type: string
+          description: omit if license is not being changed
+        tags:
+          type: array
+          items:
+            type: string
+          description: Omit if tags are not being changed. Otherwise, include all tags that should be kept or added.
         dois:
           $ref: '#/components/schemas/PatchDOIs'
       additionalProperties: false

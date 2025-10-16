@@ -86,6 +86,8 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 	assert.NotEmpty(t, t, response.NodeID)
 	assert.Equal(t, createCollectionRequest.Name, response.Name)
 	assert.Equal(t, createCollectionRequest.Description, response.Description)
+	assert.Equal(t, *createCollectionRequest.License, response.License)
+	assert.Empty(t, response.Tags)
 	assert.Zero(t, response.Size)
 	assert.Equal(t, role.Owner.String(), response.UserRole)
 
@@ -148,6 +150,9 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 	assert.Equal(t, len(createCollectionRequest.DOIs), response.Size)
 	assert.Equal(t, []string{*published1.Banner, *published2.Banner}, response.Banners)
 	assert.Equal(t, role.Owner.String(), response.UserRole)
+
+	assert.Empty(t, response.License)
+	assert.Equal(t, expectedCollection.Tags, response.Tags)
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
 }
@@ -213,6 +218,8 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 	assert.Equal(t, len(createCollectionRequest.DOIs), response.Size)
 	assert.Equal(t, []string{*published1.Banner, *published2.Banner, *published3.Banner, *published4.Banner}, response.Banners)
 	assert.Equal(t, role.Owner.String(), response.UserRole)
+	assert.Equal(t, *createCollectionRequest.License, response.License)
+	assert.Equal(t, createCollectionRequest.Tags, response.Tags)
 
 	expectationDB.RequireCollectionByNodeID(ctx, t, expectedCollection, response.NodeID)
 

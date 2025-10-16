@@ -51,6 +51,10 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 		Name:        createRequest.Name,
 		Description: createRequest.Description,
 		Size:        len(pennsieveDOIs),
+		Tags:        createRequest.Tags,
+	}
+	if createRequest.License != nil {
+		response.License = *createRequest.License
 	}
 	var doisToAdd []collections.DOI
 	if len(pennsieveDOIs) > 0 {
