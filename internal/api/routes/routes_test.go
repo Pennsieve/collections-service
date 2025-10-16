@@ -46,6 +46,12 @@ func assertEqualExpectedCollectionSummary(t *testing.T, expected *apitest.Expect
 	assert.Equal(t, *expected.NodeID, actual.NodeID)
 	assert.Equal(t, expected.Name, actual.Name)
 	assert.Equal(t, expected.Description, actual.Description)
+	if expected.License == nil {
+		assert.Empty(t, actual.License)
+	} else {
+		assert.Equal(t, *expected.License, actual.License)
+	}
+	assert.Equal(t, expected.Tags, actual.Tags)
 	assert.Equal(t, expected.Users[0].PermissionBit.ToRole().String(), actual.UserRole)
 	assert.Len(t, expected.DOIs, actual.Size)
 	bannerLen := min(config.MaxBannersPerCollection, len(expected.DOIs))

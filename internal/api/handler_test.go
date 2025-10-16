@@ -282,13 +282,13 @@ func testCreateCollection(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, storeRequest collections.CreateCollectionRequest) (collections.CreateCollectionResponse, error) {
 		t.Helper()
-		require.Equal(t, callingUser.ID, userID)
-		require.NotEmpty(t, nodeID)
-		collectionNodeID = nodeID
-		require.Equal(t, createCollectionRequest.Name, name)
-		require.Equal(t, createCollectionRequest.Description, description)
+		require.Equal(t, callingUser.ID, storeRequest.UserID)
+		require.NotEmpty(t, storeRequest.Name)
+		collectionNodeID = storeRequest.NodeID
+		require.Equal(t, createCollectionRequest.Name, storeRequest.Name)
+		require.Equal(t, createCollectionRequest.Description, storeRequest.Description)
 		var expectedDOIs []collections.DOI
 		for _, doi := range createCollectionRequest.DOIs {
 			expectedDOIs = append(expectedDOIs, collections.DOI{
@@ -296,7 +296,7 @@ func testCreateCollection(t *testing.T) {
 				Datasource: datasource.Pennsieve,
 			})
 		}
-		require.Equal(t, expectedDOIs, dois)
+		require.Equal(t, expectedDOIs, storeRequest.DOIs)
 		return collections.CreateCollectionResponse{
 			ID:          1,
 			CreatorRole: role.Owner,
@@ -555,7 +555,13 @@ func testPublishCollection(t *testing.T) {
 
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, pgdb.Owner).WithPublicDatasets(expectedDatasets.NewPublished())
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished()).
+		WithRandomLicense().
+		WithNTags(2)
 
 	mockCollectionStore := mocks.NewCollectionsStore().
 		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
@@ -590,11 +596,6 @@ func testPublishCollection(t *testing.T) {
 		return manifests.SaveManifestResponse{S3VersionID: uuid.NewString()}, nil
 	})
 
-	publishRequest := dto.PublishCollectionRequest{
-		License: "Creative Commons",
-		Tags:    []string{"test1"},
-	}
-
 	handler := CollectionsServiceAPIHandler(
 		apitest.NewTestContainer().
 			WithCollectionsStore(mockCollectionStore).
@@ -609,7 +610,6 @@ func testPublishCollection(t *testing.T) {
 	req := apitest.NewAPIGatewayRequestBuilder(routes.PublishCollectionRouteKey).
 		WithDefaultClaims(callingUser).
 		WithPathParam(routes.NodeIDPathParamKey, *expectedCollection.NodeID).
-		WithBody(t, publishRequest).
 		Build()
 
 	response, err := handler(context.Background(), req)

@@ -27,7 +27,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 )
@@ -39,8 +38,8 @@ func TestPublishCollection(t *testing.T) {
 	}{
 		{"publish collection with no existing publish status should work", testPublishWithoutPublishStatus},
 		{"publish collection with existing publish status", testPublishWithPublishStatus},
-		{"should return Bad Request if description is empty", testPublishNoDescription},
-		{"should return Bad Request if collection contains unpublished datasets", testPublishContainsTombstones},
+		{"should return Conflict if description is empty", testPublishNoDescription},
+		{"should return Conflict if collection contains unpublished datasets", testPublishContainsTombstones},
 		{"should clean up publish status and Discover if SaveManifest fails", testPublishSaveManifestFails},
 		{"should clean up S3, publish status, and Discover if Discover finalize fails", testPublishFinalizeFails},
 	}
@@ -86,7 +85,13 @@ func testPublishWithoutPublishStatus(t *testing.T, expectationDB *fixtures.Expec
 	dataset := expectedDatasets.NewPublished()
 
 	// The collection
-	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(*callingUser.ID, pgdb.Owner).
+		WithRandomLicense().
+		WithNTags(2).
+		WithPublicDatasets(dataset)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions(config.WithPublishBucket(publishBucket))
@@ -138,16 +143,10 @@ func testPublishWithoutPublishStatus(t *testing.T, expectationDB *fixtures.Expec
 		WithPennsieveConfig(pennsieveConfig).
 		Build()
 
-	expectedLicense := "Creative Commons"
-	expectedKeywords := []string{"test1, test2"}
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-			WithBody(t, dto.PublishCollectionRequest{
-				License: expectedLicense,
-				Tags:    expectedKeywords,
-			}).
 			Build(),
 		Container: apitest.NewTestContainer().
 			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
@@ -187,8 +186,8 @@ func testPublishWithoutPublishStatus(t *testing.T, expectationDB *fixtures.Expec
 	assert.Len(t, actualManifest.Contributors, 1)
 	assert.Equal(t, expectedCreator, actualManifest.Contributors[0])
 
-	assert.Equal(t, expectedKeywords, actualManifest.Keywords)
-	assert.Equal(t, expectedLicense, actualManifest.License)
+	assert.Equal(t, expectedCollection.Tags, actualManifest.Keywords)
+	assert.Equal(t, *expectedCollection.License, actualManifest.License)
 
 	expectedDatePublished := apijson.Date(time.Now().UTC())
 	assert.True(t, expectedDatePublished.Equal(actualManifest.DatePublished),
@@ -266,7 +265,7 @@ func testPublishWithPublishStatus(t *testing.T, expectationDB *fixtures.Expectat
 			dataset := expectedDatasets.NewPublished()
 
 			// The collection
-			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
+			expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset).WithRandomLicense().WithNTags(2)
 			createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
 			existingPublishStatus := collectionstest.NewPublishStatusBuilder(*expectedCollection.ID, tt.pubType, tt.pubStatus).
@@ -325,16 +324,10 @@ func testPublishWithPublishStatus(t *testing.T, expectationDB *fixtures.Expectat
 				WithPennsieveConfig(pennsieveConfig).
 				Build()
 
-			expectedLicense := "Creative Commons"
-			expectedKeywords := []string{"test1, test2"}
 			params := Params{
 				Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-					WithBody(t, dto.PublishCollectionRequest{
-						License: expectedLicense,
-						Tags:    expectedKeywords,
-					}).
 					Build(),
 				Container: apitest.NewTestContainer().
 					WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
@@ -391,7 +384,9 @@ func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationD
 		WithNodeID().
 		WithDescription("").
 		WithUser(*callingUser.ID, pgdb.Owner).
-		WithPublicDatasets(dataset)
+		WithPublicDatasets(dataset).
+		WithRandomLicense().
+		WithNTags(2)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
 	apiConfig := apitest.NewConfigBuilder().
@@ -403,10 +398,6 @@ func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationD
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
-				Tags:    []string{"test1, test2"},
-			}).
 			Build(),
 		Container: apitest.NewTestContainer().
 			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
@@ -419,7 +410,7 @@ func testPublishNoDescription(t *testing.T, expectationDB *fixtures.ExpectationD
 	var apiError *apierrors.Error
 	require.ErrorAs(t, err, &apiError)
 
-	assert.Equal(t, http.StatusBadRequest, apiError.StatusCode)
+	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
 	assert.Contains(t, apiError.UserMessage, "description cannot be empty")
 
 	expectedPublishStatus := collectionstest.NewExpectedFailedPublishStatus(createCollectionResp.ID, *callingUser.ID)
@@ -445,6 +436,8 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 		WithRandomID().
 		WithNodeID().
 		WithUser(*callingUser.ID, pgdb.Owner).
+		WithRandomLicense().
+		WithNTags(3).
 		WithPublicDatasets(dataset).
 		WithTombstones(tombstone)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
@@ -458,10 +451,6 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
-				Tags:    []string{"test1, test2"},
-			}).
 			Build(),
 		Container: apitest.NewTestContainer().
 			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
@@ -475,7 +464,7 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 	var apiError *apierrors.Error
 	require.ErrorAs(t, err, &apiError)
 
-	assert.Equal(t, http.StatusBadRequest, apiError.StatusCode)
+	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
 	assert.Contains(t, apiError.UserMessage, "unpublished")
 	assert.Contains(t, apiError.UserMessage, tombstone.DOI)
 
@@ -503,7 +492,13 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 	dataset := expectedDatasets.NewPublished()
 
 	// The collection
-	expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(*callingUser.ID, pgdb.Owner).WithPublicDatasets(dataset)
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(*callingUser.ID, pgdb.Owner).
+		WithPublicDatasets(dataset).
+		WithRandomLicense().
+		WithNTags(4)
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
 	pennsieveConfig := apitest.PennsieveConfigWithOptions()
@@ -557,16 +552,10 @@ func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.Expectat
 		WithPennsieveConfig(pennsieveConfig).
 		Build()
 
-	expectedLicense := "Creative Commons"
-	expectedKeywords := []string{"test1, test2"}
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-			WithBody(t, dto.PublishCollectionRequest{
-				License: expectedLicense,
-				Tags:    expectedKeywords,
-			}).
 			Build(),
 		Container: apitest.NewTestContainer().
 			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
@@ -611,7 +600,9 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 		WithRandomID().
 		WithNodeID().
 		WithUser(*callingUser.ID, pgdb.Owner).
-		WithPublicDatasets(dataset)
+		WithPublicDatasets(dataset).
+		WithRandomLicense().
+		WithNTags(2)
 
 	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
 
@@ -664,10 +655,6 @@ func testPublishFinalizeFails(t *testing.T, expectationDB *fixtures.ExpectationD
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
-				Tags:    []string{"test1, test2"},
-			}).
 			Build(),
 		Container: apitest.NewTestContainer().
 			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
@@ -704,21 +691,20 @@ func TestHandlePublishCollection(t *testing.T) {
 		name    string
 		tstFunc func(t *testing.T)
 	}{
-		{"return Bad Request when given no body", testHandlePublishCollectionNoBody},
 		{
-			"return Bad Request when given empty license",
+			"return Conflict collection license is empty",
 			testHandlePublishCollectionEmptyLicense,
 		},
 		{
-			"return Bad Request when given a license that is too long",
-			testHandlePublishCollectionLicenseTooLong,
+			"return Conflict when collection license is null",
+			testHandlePublishCollectionNoLicense,
 		},
 		{
-			"return Bad Request when given no tags",
+			"return Conflict when given no tags",
 			testHandlePublishCollectionNoTags,
 		},
 		{
-			"return Bad Request when given empty tags",
+			"return Conflict when given empty tags",
 			testHandlePublishCollectionEmptyTags,
 		},
 		{
@@ -742,50 +728,28 @@ func TestHandlePublishCollection(t *testing.T) {
 	}
 }
 
-func testHandlePublishCollectionNoBody(t *testing.T) {
-	ctx := context.Background()
-	callingUser := userstest.SeedUser1
-
-	mockCollectionStore := mocks.NewCollectionsStore()
-
-	claims := apitest.DefaultClaims(callingUser)
-
-	params := Params{
-		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
-			WithClaims(claims).
-			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
-			Build(),
-		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
-		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
-		Claims:    &claims,
-	}
-	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-
-	assert.Contains(t, response.Body, "missing request body")
-
-}
-
 func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 	ctx := context.Background()
 	callingUser := userstest.SeedUser1
 
-	publishRequest := dto.PublishCollectionRequest{
-		License: "",
-		Tags:    []string{"test"},
-	}
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithLicense("").
+		WithNTags(1)
 
-	mockCollectionStore := mocks.NewCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
+		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
+		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.FailedStatus))
 
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
-			WithBody(t, publishRequest).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
@@ -794,29 +758,31 @@ func testHandlePublishCollectionEmptyLicense(t *testing.T) {
 	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
 	require.NoError(t, err)
 
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
 
-	assert.Contains(t, response.Body, "license cannot be empty")
+	assert.Contains(t, response.Body, `missing required license`)
 }
 
-func testHandlePublishCollectionLicenseTooLong(t *testing.T) {
+func testHandlePublishCollectionNoLicense(t *testing.T) {
 	ctx := context.Background()
 	callingUser := userstest.SeedUser1
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithNTags(1)
 
-	publishRequest := dto.PublishCollectionRequest{
-		License: strings.Repeat("a", 256),
-		Tags:    []string{"test"},
-	}
-
-	mockCollectionStore := mocks.NewCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
+		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
+		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.FailedStatus))
 
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
-			WithBody(t, publishRequest).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
@@ -825,9 +791,9 @@ func testHandlePublishCollectionLicenseTooLong(t *testing.T) {
 	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
 	require.NoError(t, err)
 
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
 
-	assert.Contains(t, response.Body, "license cannot have more than 255 characters")
+	assert.Contains(t, response.Body, "missing required license")
 
 }
 
@@ -835,19 +801,23 @@ func testHandlePublishCollectionNoTags(t *testing.T) {
 	ctx := context.Background()
 	callingUser := userstest.SeedUser1
 
-	publishRequest := dto.PublishCollectionRequest{
-		License: "Creative Commons something",
-	}
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithRandomLicense()
 
-	mockCollectionStore := mocks.NewCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
+		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
+		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.FailedStatus))
 
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
-			WithBody(t, publishRequest).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
@@ -856,7 +826,7 @@ func testHandlePublishCollectionNoTags(t *testing.T) {
 	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
 	require.NoError(t, err)
 
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
 
 	assert.Contains(t, response.Body, "tags array cannot be empty")
 
@@ -866,20 +836,24 @@ func testHandlePublishCollectionEmptyTags(t *testing.T) {
 	ctx := context.Background()
 	callingUser := userstest.SeedUser1
 
-	publishRequest := dto.PublishCollectionRequest{
-		License: "Creative Commons something",
-		Tags:    []string{},
-	}
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithRandomLicense()
+	expectedCollection.Tags = []string{}
 
-	mockCollectionStore := mocks.NewCollectionsStore()
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
+		WithStartPublishFunc(expectedCollection.StartPublishFunc(t, callingUser.ID, publishing.PublicationType)).
+		WithFinishPublishFunc(expectedCollection.FinishPublishFunc(t, publishing.FailedStatus))
 
 	claims := apitest.DefaultClaims(callingUser)
 
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
-			WithPathParam(NodeIDPathParamKey, uuid.NewString()).
-			WithBody(t, publishRequest).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
@@ -888,7 +862,7 @@ func testHandlePublishCollectionEmptyTags(t *testing.T) {
 	response, err := Handle(ctx, NewPublishCollectionRouteHandler(), params)
 	require.NoError(t, err)
 
-	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	assert.Equal(t, http.StatusConflict, response.StatusCode)
 
 	assert.Contains(t, response.Body, "tags array cannot be empty")
 
@@ -911,10 +885,6 @@ func testHandlePublishCollectionNotFound(t *testing.T) {
 	params := Params{
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
-			WithBody(t, dto.PublishCollectionRequest{
-				License: "Creative Commons",
-				Tags:    []string{"test"},
-			}).
 			WithPathParam(NodeIDPathParamKey, nonExistentNodeID).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
@@ -938,7 +908,12 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 
 	for _, tooLowPerm := range []pgdb.DbPermission{pgdb.Guest, pgdb.Read, pgdb.Write, pgdb.Delete, pgdb.Administer} {
 		t.Run(tooLowPerm.String(), func(t *testing.T) {
-			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, tooLowPerm)
+			expectedCollection := apitest.NewExpectedCollection().
+				WithRandomID().
+				WithNodeID().
+				WithUser(callingUser.ID, tooLowPerm).
+				WithRandomLicense().
+				WithNTags(2)
 
 			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil))
@@ -947,10 +922,6 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 				Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-					WithBody(t, dto.PublishCollectionRequest{
-						License: "Creative Commons",
-						Tags:    []string{"test"},
-					}).
 					Build(),
 				Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
 				Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
@@ -976,7 +947,13 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 
 			mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
 
-			expectedCollection := apitest.NewExpectedCollection().WithRandomID().WithNodeID().WithUser(callingUser.ID, okPerm).WithPublicDatasets(dataset)
+			expectedCollection := apitest.NewExpectedCollection().
+				WithRandomID().
+				WithNodeID().
+				WithUser(callingUser.ID, okPerm).
+				WithPublicDatasets(dataset).
+				WithRandomLicense().
+				WithNTags(2)
 
 			mockCollectionStore := mocks.NewCollectionsStore().
 				WithGetCollectionFunc(expectedCollection.GetCollectionFunc(t, nil)).
@@ -1038,10 +1015,6 @@ func testHandlePublishCollectionAuthz(t *testing.T) {
 				Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 					WithClaims(claims).
 					WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-					WithBody(t, dto.PublishCollectionRequest{
-						License: "Creative Commons",
-						Tags:    []string{"test"},
-					}).
 					Build(),
 				Container: apitest.NewTestContainer().
 					WithCollectionsStore(mockCollectionStore).
@@ -1066,11 +1039,6 @@ func testHandlePublishCollectionPublishAlreadyInProgress(t *testing.T) {
 	ctx := context.Background()
 	callingUser := userstest.SeedUser1
 
-	publishRequest := dto.PublishCollectionRequest{
-		License: "Creative Commons",
-		Tags:    []string{"test"},
-	}
-
 	expectedCollection := apitest.NewExpectedCollection().
 		WithRandomID().
 		WithNodeID().
@@ -1089,7 +1057,6 @@ func testHandlePublishCollectionPublishAlreadyInProgress(t *testing.T) {
 		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
 			WithClaims(claims).
 			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
-			WithBody(t, publishRequest).
 			Build(),
 		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore),
 		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),

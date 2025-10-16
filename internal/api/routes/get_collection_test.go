@@ -102,11 +102,11 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	// Set up using the ExpectationDB
-	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner)
+	user1CollectionNoDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithRandomLicense()
 	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
 
 	user1CollectionOneDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
-		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()))
+		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor())).WithNTags(2)
 	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
 
 	user1CollectionFiveDOI := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).
@@ -116,11 +116,15 @@ func testGetCollection(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())),
 			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid()), apitest.NewPublicContributor(apitest.WithOrcid(), apitest.WithDegree())),
 			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithOrcid())),
-		)
+		).WithRandomLicense().WithNTags(6)
 	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
 
 	user2Collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user2.ID, pgdb.Owner).
-		WithPublicDatasets(expectedDatasets.NewPublished(apitest.NewPublicContributor()), expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial(), apitest.WithDegree(), apitest.WithOrcid())))
+		WithPublicDatasets(
+			expectedDatasets.NewPublished(apitest.NewPublicContributor()),
+			expectedDatasets.NewPublished(apitest.NewPublicContributor(apitest.WithMiddleInitial(), apitest.WithDegree(), apitest.WithOrcid())),
+		).
+		WithRandomLicense()
 	expectationDB.CreateCollection(ctx, t, user2Collection)
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))

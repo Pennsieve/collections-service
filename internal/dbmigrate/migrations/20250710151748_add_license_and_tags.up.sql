@@ -1,0 +1,3 @@
+ALTER TABLE collections
+    ADD COLUMN IF NOT EXISTS license VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS tags    TEXT[];

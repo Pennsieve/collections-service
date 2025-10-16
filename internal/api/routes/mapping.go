@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/publishing"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
+	"github.com/pennsieve/collections-service/internal/shared/util"
 )
 
 func ToDTOPublication(storePublication *collections.Publication, fromDiscover *service.DatasetPublishStatusResponse) *dto.Publication {
@@ -39,6 +40,8 @@ func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collec
 			Description: storeCollection.Description,
 			Size:        storeCollection.Size,
 			UserRole:    storeCollection.UserRole.String(),
+			License:     util.SafeDeref(storeCollection.License),
+			Tags:        storeCollection.Tags,
 			Publication: ToDTOPublication(storeCollection.Publication, datasetPublishStatus),
 		},
 	}

@@ -6,6 +6,16 @@ import (
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 )
 
+type CreateCollectionRequest struct {
+	NodeID      string
+	Name        string
+	Description string
+	DOIs        []DOI
+	UserID      int64
+	License     *string
+	Tags        []string
+}
+
 type CreateCollectionResponse struct {
 	ID          int64
 	CreatorRole role.Role
@@ -21,6 +31,8 @@ type CollectionBase struct {
 	NodeID      string
 	Name        string
 	Description string
+	License     *string
+	Tags        []string
 	Size        int
 	UserRole    role.Role
 	// Publication is nil when this is part of GetCollectionsResponse
@@ -67,5 +79,7 @@ type DOIUpdate struct {
 type UpdateCollectionRequest struct {
 	Name        *string
 	Description *string
+	License     *string
+	Tags        []string
 	DOIs        DOIUpdate
 }

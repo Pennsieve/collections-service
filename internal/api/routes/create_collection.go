@@ -74,7 +74,16 @@ func CreateCollection(ctx context.Context, params Params) (dto.CreateCollectionR
 	}
 	collectionsStore := ccParams.Container.CollectionsStore()
 
-	storeResp, err := collectionsStore.CreateCollection(ctx, params.Claims.UserClaim.Id, nodeID, createRequest.Name, createRequest.Description, doisToAdd)
+	createCollection := collections.CreateCollectionRequest{
+		NodeID:      nodeID,
+		Name:        createRequest.Name,
+		Description: createRequest.Description,
+		DOIs:        doisToAdd,
+		UserID:      params.Claims.UserClaim.Id,
+		License:     createRequest.License,
+		Tags:        createRequest.Tags,
+	}
+	storeResp, err := collectionsStore.CreateCollection(ctx, createCollection)
 	if err != nil {
 		return dto.CreateCollectionResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error creating collection %s", createRequest.Name), err)
 	}
@@ -105,6 +114,12 @@ func (p createCollectionParams) ValidateCreateRequest(request *dto.CreateCollect
 	}
 	if err := validate.CollectionDescription(request.Description); err != nil {
 		return err
+	}
+	if err := validate.License(request.License, false); err != nil {
+		return apierrors.NewBadRequestError(err.Error())
+	}
+	if err := validate.Tags(request.Tags, false); err != nil {
+		return apierrors.NewBadRequestError(err.Error())
 	}
 	return nil
 }

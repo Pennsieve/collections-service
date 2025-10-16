@@ -52,11 +52,12 @@ func testCreateCollectionNoDTOs(t *testing.T, expectationDB *fixtures.Expectatio
 	expectationDB.CreateTestUser(ctx, t, callingUser)
 
 	expectedCollection := apitest.NewExpectedCollection().
-		WithUser(*callingUser.ID, pgdb.Owner)
+		WithUser(*callingUser.ID, pgdb.Owner).WithRandomLicense()
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        expectedCollection.Name,
 		Description: expectedCollection.Description,
+		License:     expectedCollection.License,
 	}
 
 	claims := apitest.DefaultClaims(callingUser)
@@ -103,12 +104,14 @@ func testCreateCollectionTwoDTOs(t *testing.T, expectationDB *fixtures.Expectati
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(*callingUser.ID, pgdb.Owner).
-		WithPublicDatasets(published1, published2)
+		WithPublicDatasets(published1, published2).
+		WithNTags(1)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        expectedCollection.Name,
 		Description: expectedCollection.Description,
 		DOIs:        expectedCollection.DOIs.Strings(),
+		Tags:        expectedCollection.Tags,
 	}
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
@@ -164,12 +167,16 @@ func testCreateCollectionFiveDTOs(t *testing.T, expectationDB *fixtures.Expectat
 
 	expectedCollection := apitest.NewExpectedCollection().
 		WithUser(*callingUser.ID, pgdb.Owner).
-		WithPublicDatasets(published1, published2, published3, published4, published5)
+		WithPublicDatasets(published1, published2, published3, published4, published5).
+		WithRandomLicense().
+		WithNTags(2)
 
 	createCollectionRequest := dto.CreateCollectionRequest{
 		Name:        expectedCollection.Name,
 		Description: expectedCollection.Description,
 		DOIs:        expectedCollection.DOIs.Strings(),
+		License:     expectedCollection.License,
+		Tags:        expectedCollection.Tags,
 	}
 
 	mockDiscoverServer := httptest.NewServer(mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)))
@@ -354,6 +361,9 @@ func TestHandleCreateCollection(t *testing.T) {
 		{
 			"return Bad Request when given a Pennsieve collection DOI", testRejectCollectionDOI,
 		},
+		{
+			"return Bad Request when given an invalid license string", testRejectInvalidLicense,
+		},
 	}
 
 	for _, tt := range tests {
@@ -380,9 +390,9 @@ func testHandleCreateCollectionEmptyBannerArray(t *testing.T) {
 
 	var collectionNodeID string
 
-	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, userID int64, nodeID, name, description string, dois []collections.DOI) (collections.CreateCollectionResponse, error) {
+	mockCollectionsStore := mocks.NewCollectionsStore().WithCreateCollectionsFunc(func(_ context.Context, storeRequest collections.CreateCollectionRequest) (collections.CreateCollectionResponse, error) {
 		t.Helper()
-		collectionNodeID = nodeID
+		collectionNodeID = storeRequest.NodeID
 		return collections.CreateCollectionResponse{
 			ID:          1,
 			CreatorRole: role.Owner,
@@ -501,4 +511,47 @@ func testRejectCollectionDOI(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 
 	assert.Contains(t, response.Body, collectionDataset.DOI)
+}
+
+func testRejectInvalidLicense(t *testing.T) {
+	ctx := context.Background()
+
+	callingUser := userstest.SeedUser1
+
+	expectedCollection := apitest.NewExpectedCollection().
+		WithUser(callingUser.ID, pgdb.Owner).
+		WithNPennsieveDOIs(1).
+		WithLicense(uuid.NewString())
+
+	createCollectionRequest := dto.CreateCollectionRequest{
+		Name:        expectedCollection.Name,
+		Description: expectedCollection.Description,
+		DOIs:        expectedCollection.DOIs.Strings(),
+		License:     expectedCollection.License,
+	}
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	config := apitest.NewConfigBuilder().
+		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+		Build()
+
+	container := apitest.NewTestContainer()
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(CreateCollectionRouteKey).
+			WithClaims(claims).
+			WithBody(t, createCollectionRequest).
+			Build(),
+		Container: container,
+		Config:    config,
+		Claims:    &claims,
+	}
+
+	response, err := Handle(ctx, NewCreateCollectionRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+
+	assert.Contains(t, response.Body, *expectedCollection.License)
 }
