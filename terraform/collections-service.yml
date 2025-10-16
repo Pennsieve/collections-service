@@ -227,12 +227,6 @@ paths:
           schema:
             type: string
           description: ID of the collection node to publish
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PublishCollectionRequest'
       security:
         - token_auth: [ ]
       tags:
@@ -854,18 +848,6 @@ components:
         - status
         - doi
         - updatedAt
-
-    PublishCollectionRequest:
-      properties:
-        license:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-      required:
-        - license
-        - tags
 
     PublishCollectionResponse:
       properties:
