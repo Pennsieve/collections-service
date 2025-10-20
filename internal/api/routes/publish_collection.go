@@ -80,26 +80,34 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 
 	pennsieveDOIs, _ := GroupByDatasource(collection.DOIs)
 
-	banners := make([]string, 0)
-	if len(pennsieveDOIs) > 0 {
-		discoverDOIRes, err := params.Container.Discover().GetDatasetsByDOI(ctx, pennsieveDOIs)
-		if err != nil {
-			return dto.PublishCollectionResponse{},
-				cleanupOnError(ctx, params.Container.Logger(),
-					apierrors.NewInternalServerError("error getting DOI info from Discover", err),
-					cleanupStatus(params.Container.CollectionsStore(), collection.ID),
-				)
-		}
-		if len(discoverDOIRes.Unpublished) > 0 {
-			return dto.PublishCollectionResponse{},
-				cleanupOnError(ctx, params.Container.Logger(),
-					apierrors.NewConflictError(fmt.Sprintf("collection contains unpublished DOIs: %s", strings.Join(slices.Collect(maps.Keys(discoverDOIRes.Unpublished)), ", "))),
-					cleanupStatus(params.Container.CollectionsStore(), collection.ID),
-				)
-		}
-
-		banners = collectBanners(pennsieveDOIs, discoverDOIRes.Published)
+	// this is really a check on whether the collection contains any DOIs, not Pennsieve specific.
+	// It just so happens that there are only pennsieve DOIs now. I guess should really be
+	// len(pennsieveDOIs) + len(externalDOIs) == 0 if we ever get there.
+	if len(pennsieveDOIs) == 0 {
+		return dto.PublishCollectionResponse{}, cleanupOnError(ctx, params.Container.Logger(),
+			apierrors.NewConflictError("published collection must contain DOIs"),
+			cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+		)
 	}
+
+	banners := make([]string, 0)
+	discoverDOIRes, err := params.Container.Discover().GetDatasetsByDOI(ctx, pennsieveDOIs)
+	if err != nil {
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx, params.Container.Logger(),
+				apierrors.NewInternalServerError("error getting DOI info from Discover", err),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
+	}
+	if len(discoverDOIRes.Unpublished) > 0 {
+		return dto.PublishCollectionResponse{},
+			cleanupOnError(ctx, params.Container.Logger(),
+				apierrors.NewConflictError(fmt.Sprintf("collection contains unpublished DOIs: %s", strings.Join(slices.Collect(maps.Keys(discoverDOIRes.Unpublished)), ", "))),
+				cleanupStatus(params.Container.CollectionsStore(), collection.ID),
+			)
+	}
+
+	banners = collectBanners(pennsieveDOIs, discoverDOIRes.Published)
 
 	userResp, err := params.Container.UsersStore().GetUser(ctx, userClaim.Id)
 	if err != nil {
@@ -114,7 +122,7 @@ func PublishCollection(ctx context.Context, params Params) (dto.PublishCollectio
 		Name:             collection.Name,
 		Description:      collection.Description,
 		Banners:          banners,
-		DOIs:             collection.DOIs.Strings(),
+		DOIs:             pennsieveDOIs,
 		License:          *collection.License,
 		Tags:             collection.Tags,
 		OwnerID:          userClaim.Id,
