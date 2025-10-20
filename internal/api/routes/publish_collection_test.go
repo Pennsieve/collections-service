@@ -40,6 +40,7 @@ func TestPublishCollection(t *testing.T) {
 		{"publish collection with existing publish status", testPublishWithPublishStatus},
 		{"should return Conflict if description is empty", testPublishNoDescription},
 		{"should return Conflict if collection contains unpublished datasets", testPublishContainsTombstones},
+		{"should return Conflict if collection contains no DOIs", testPublishContainsNoDOIs},
 		{"should clean up publish status and Discover if SaveManifest fails", testPublishSaveManifestFails},
 		{"should clean up S3, publish status, and Discover if Discover finalize fails", testPublishFinalizeFails},
 	}
@@ -473,6 +474,52 @@ func testPublishContainsTombstones(t *testing.T, expectationDB *fixtures.Expecta
 
 }
 
+func testPublishContainsNoDOIs(t *testing.T, expectationDB *fixtures.ExpectationDB, _ *fixtures.MinIO) {
+	ctx := context.Background()
+
+	callingUser := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, callingUser)
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	// The collection
+	expectedCollection := apitest.NewExpectedCollection().
+		WithRandomID().
+		WithNodeID().
+		WithUser(*callingUser.ID, pgdb.Owner).
+		WithRandomLicense().
+		WithNTags(3)
+	createCollectionResp := expectationDB.CreateCollection(ctx, t, expectedCollection)
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).
+		Build()
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(PublishCollectionRouteKey).
+			WithClaims(claims).
+			WithPathParam(NodeIDPathParamKey, *expectedCollection.NodeID).
+			Build(),
+		Container: apitest.NewTestContainer().
+			WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+			WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase),
+		Config: apiConfig,
+		Claims: &claims,
+	}
+
+	_, err := PublishCollection(ctx, params)
+	var apiError *apierrors.Error
+	require.ErrorAs(t, err, &apiError)
+
+	assert.Equal(t, http.StatusConflict, apiError.StatusCode)
+	assert.Contains(t, apiError.UserMessage, "must contain DOIs")
+
+	expectedPublishStatus := collectionstest.NewExpectedFailedPublishStatus(createCollectionResp.ID, *callingUser.ID)
+	expectationDB.RequirePublishStatus(ctx, t, expectedPublishStatus, nil)
+
+}
+
 func testPublishSaveManifestFails(t *testing.T, expectationDB *fixtures.ExpectationDB, _ *fixtures.MinIO) {
 	ctx := context.Background()
 
@@ -700,11 +747,11 @@ func TestHandlePublishCollection(t *testing.T) {
 			testHandlePublishCollectionNoLicense,
 		},
 		{
-			"return Conflict when given no tags",
+			"return Conflict when no tags",
 			testHandlePublishCollectionNoTags,
 		},
 		{
-			"return Conflict when given empty tags",
+			"return Conflict when empty tags",
 			testHandlePublishCollectionEmptyTags,
 		},
 		{
