@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -143,9 +142,11 @@ func respond(t require.TestingT, writer http.ResponseWriter, mockResponse any, m
 	switch e := mockErr.(type) {
 	case nil:
 		httpResponse = mockResponse
-	case *apierrors.Error:
-		writer.WriteHeader(e.StatusCode)
-		httpResponse = e
+	// Maybe TODO handle a mock error with a given status code
+	// Don't think apierrors makes sense here since that is what we return, not external services.
+	/*case *apierrors.Error:
+	writer.WriteHeader(e.StatusCode)
+	httpResponse = e*/
 	default:
 		writer.WriteHeader(http.StatusInternalServerError)
 		httpResponse = fmt.Sprintf(`{"error":%q}`, e.Error())
