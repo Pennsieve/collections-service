@@ -31,8 +31,11 @@ func (d *HTTPDiscover) GetDatasetsByDOI(ctx context.Context, dois []string) (Dat
 	for _, doi := range dois {
 		doiQueryParams.Add("doi", doi)
 	}
-	requestURL := fmt.Sprintf("%s/datasets/doi?%s", d.host, doiQueryParams.Encode())
-	response, err := d.InvokePennsieve(ctx, http.MethodGet, requestURL, nil)
+	requestParams := requestParameters{
+		method: http.MethodGet,
+		url:    fmt.Sprintf("%s/datasets/doi?%s", d.host, doiQueryParams.Encode()),
+	}
+	response, err := d.InvokePennsieve(ctx, requestParams)
 	if err != nil {
 		return DatasetsByDOIResponse{}, err
 	}
@@ -40,37 +43,47 @@ func (d *HTTPDiscover) GetDatasetsByDOI(ctx context.Context, dois []string) (Dat
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return DatasetsByDOIResponse{}, fmt.Errorf("error reading response from GET %s: %w", requestURL, err)
+		return DatasetsByDOIResponse{}, fmt.Errorf("error reading response from %s: %w", requestParams, err)
 	}
 	var responseDTO DatasetsByDOIResponse
 	if err := json.Unmarshal(body, &responseDTO); err != nil {
 		rawResponse := string(body)
 		return DatasetsByDOIResponse{}, fmt.Errorf(
-			"error unmarshalling response [%s] from GET %s: %w",
+			"error unmarshalling response [%s] from %s: %w",
 			rawResponse,
-			requestURL,
+			requestParams,
 			err)
 	}
 	return responseDTO, nil
 }
 
-func (d *HTTPDiscover) InvokePennsieve(ctx context.Context, method string, url string, structBody any) (*http.Response, error) {
-	req, err := newPennsieveRequest(ctx, method, url, structBody)
+func (d *HTTPDiscover) InvokePennsieve(ctx context.Context, requestParams requestParameters) (*http.Response, error) {
+	req, err := newPennsieveRequest(ctx, requestParams)
 	if err != nil {
-		return nil, fmt.Errorf("error creating %s %s request: %w", method, url, err)
+		return nil, fmt.Errorf("error creating %s request: %w", requestParams, err)
 	}
 	return util.Invoke(req, d.logger)
 }
 
-func newPennsieveRequest(ctx context.Context, method string, url string, structBody any) (*http.Request, error) {
-	body, err := makeJSONBody(structBody)
+type requestParameters struct {
+	method string
+	url    string
+	body   any
+}
+
+func (p requestParameters) String() string {
+	return fmt.Sprintf("%s %s", p.method, p.url)
+}
+
+func newPennsieveRequest(ctx context.Context, requestParams requestParameters) (*http.Request, error) {
+	body, err := makeJSONBody(requestParams.body)
 	if err != nil {
-		return nil, fmt.Errorf("error for %s %s request: %w",
-			method, url, err)
+		return nil, fmt.Errorf("error for %s request: %w",
+			requestParams, err)
 	}
-	request, err := http.NewRequestWithContext(ctx, method, url, body)
+	request, err := http.NewRequestWithContext(ctx, requestParams.method, requestParams.url, body)
 	if err != nil {
-		return nil, fmt.Errorf("error creating %s %s request: %w", method, url, err)
+		return nil, fmt.Errorf("error creating %s request: %w", requestParams, err)
 	}
 	request.Header.Add("accept", util.ApplicationJSON)
 	request.Header.Add("Content-Type", util.ApplicationJSON)

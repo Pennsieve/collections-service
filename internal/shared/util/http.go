@@ -59,12 +59,30 @@ func checkHTTPStatus(response *http.Response) error {
 		if response.StatusCode >= http.StatusInternalServerError {
 			errorType = "server"
 		}
-		return fmt.Errorf("%s error %s calling %s %s; response body: %s",
-			errorType,
-			response.Status,
-			response.Request.Method,
-			response.Request.URL,
-			displayBody)
+		return &HTTPError{
+			errorType:   errorType,
+			response:    response,
+			displayBody: displayBody,
+		}
 	}
 	return nil
+}
+
+type HTTPError struct {
+	errorType   string
+	response    *http.Response
+	displayBody string
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("%s error %s calling %s %s; response body: %s",
+		e.errorType,
+		e.response.Status,
+		e.response.Request.Method,
+		e.response.Request.URL,
+		e.displayBody)
+}
+
+func (e *HTTPError) StatusCode() int {
+	return e.response.StatusCode
 }
