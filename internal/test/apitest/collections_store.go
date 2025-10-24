@@ -18,8 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"math/rand/v2"
 	"slices"
-	"strconv"
-	"strings"
 )
 
 // ExpectedCollection is what we expect the collection to look like
@@ -428,12 +426,16 @@ func (c *ExpectedCollection) FinalizeCollectionPublishFunc(t require.TestingT, m
 }
 
 func (c *ExpectedCollection) DatasetServiceRole(expectedRole role.Role) jwtdiscover.ServiceRole {
-	return jwtdiscover.ServiceRole{
-		Type:   jwtdiscover.DatasetServiceRoleType,
-		Id:     strconv.FormatInt(*c.ID, 10),
-		NodeId: *c.NodeID,
-		Role:   strings.ToLower(expectedRole.String()),
-	}
+	return jwtdiscover.NewDatasetServiceRole(*c.ID, *c.NodeID, expectedRole)
+}
+
+func (c *ExpectedCollection) DatasetServiceRoleForUser(t require.TestingT, user userstest.User) jwtdiscover.ServiceRole {
+	index := slices.IndexFunc(c.Users, func(u ExpectedUser) bool {
+		return u.UserID == user.GetID()
+	})
+	require.True(t, index >= 0, "no user with id %d found", user.GetID())
+	return jwtdiscover.NewDatasetServiceRole(*c.ID, *c.NodeID, c.Users[index].PermissionBit.ToRole())
+
 }
 
 func (c *ExpectedCollection) StartPublishFunc(t require.TestingT, expectedUserID int64, expectedType publishing.Type) mocks.StartPublishFunc {
@@ -494,5 +496,19 @@ func (c *ExpectedCollection) UnpublishCollectionFunc(t require.TestingT, mockRes
 		assert.Equal(t, *c.NodeID, collectionNodeID)
 		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
 		return mockResponse, nil
+	}
+}
+
+func (c *ExpectedCollection) GetLatestDOIFunc(t require.TestingT, mockResponse *dto.GetLatestDOIResponse) mocks.GetLatestDOIFunc {
+	return func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (dto.GetLatestDOIResponse, error) {
+		test.Helper(t)
+		require.NotNil(t, c.ID, "expected collection does not have ID set")
+		assert.Equal(t, *c.ID, collectionID)
+		require.NotNil(t, c.NodeID, "expected collection does not have NodeID set")
+		assert.Equal(t, *c.NodeID, collectionNodeID)
+		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
+
+		mockResponse.DatasetID = *c.ID
+		return *mockResponse, nil
 	}
 }

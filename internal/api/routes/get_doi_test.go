@@ -13,6 +13,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -94,19 +95,25 @@ func testGetDOINoDOI(t *testing.T, db *fixtures.ExpectationDB) {
 	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner)
 	db.CreateCollection(ctx, t, collection)
 
-	mockDOIService := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		assert.Equal(t,
-			fmt.Sprintf("/organizations/%d/datasets/%d/doi", apitest.CollectionsIDSpaceID, *collection.ID),
-			request.RequestURI,
-		)
-		assert.Equal(t, http.MethodGet, request.Method)
-		writer.WriteHeader(http.StatusNotFound)
-	}))
+	jwtSecretKey := uuid.NewString()
+	doiMux := mocks.NewDOIMux(jwtSecretKey).WithGetLatestDOIFunc(ctx, t,
+		func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (dto.GetLatestDOIResponse, error) {
+			assert.Equal(t, *collection.ID, collectionID)
+			assert.Equal(t, *collection.NodeID, collectionNodeID)
+			return dto.GetLatestDOIResponse{}, mocks.HTTPError{StatusCode: http.StatusNotFound}
+		},
+		apitest.ExpectedOrgServiceRole(apitest.CollectionsIDSpaceID),
+		collection.DatasetServiceRoleForUser(t, user),
+	)
+	mockDOIService := httptest.NewServer(doiMux)
 	defer mockDOIService.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
-		WithPennsieveConfig(apitest.PennsieveConfigWithOptions(config.WithDOIServiceURL(mockDOIService.URL))).
+		WithPennsieveConfig(apitest.PennsieveConfigWithOptions(
+			config.WithDOIServiceURL(mockDOIService.URL),
+			config.WithJWTSecretKey(jwtSecretKey),
+		)).
 		Build()
 
 	container := apitest.NewTestContainer().
@@ -156,20 +163,22 @@ func testGetDOI(t *testing.T, db *fixtures.ExpectationDB) {
 		Creators:        []string{uuid.NewString(), uuid.NewString()},
 	}
 
-	mockDOIService := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		assert.Equal(t,
-			fmt.Sprintf("/organizations/%d/datasets/%d/doi", apitest.CollectionsIDSpaceID, *collection.ID),
-			request.RequestURI,
-		)
-		assert.Equal(t, http.MethodGet, request.Method)
-		writer.WriteHeader(http.StatusOK)
-		mocks.WriteJSONHTTPResponse(t, writer, doiResponse)
-	}))
+	jwtSecretKey := uuid.NewString()
+	doiMux := mocks.NewDOIMux(jwtSecretKey).WithGetLatestDOIFunc(ctx, t,
+		collection.GetLatestDOIFunc(t, &doiResponse),
+		apitest.ExpectedOrgServiceRole(apitest.CollectionsIDSpaceID),
+		collection.DatasetServiceRoleForUser(t, user),
+	)
+
+	mockDOIService := httptest.NewServer(doiMux)
 	defer mockDOIService.Close()
 
 	apiConfig := apitest.NewConfigBuilder().
 		WithPostgresDBConfig(test.PostgresDBConfig(t)).
-		WithPennsieveConfig(apitest.PennsieveConfigWithOptions(config.WithDOIServiceURL(mockDOIService.URL))).
+		WithPennsieveConfig(apitest.PennsieveConfigWithOptions(
+			config.WithDOIServiceURL(mockDOIService.URL),
+			config.WithJWTSecretKey(jwtSecretKey),
+		)).
 		Build()
 
 	container := apitest.NewTestContainer().

@@ -2,10 +2,10 @@ package service_test
 
 import (
 	"context"
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/api/service/jwtdiscover"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
@@ -18,13 +18,15 @@ import (
 )
 
 func TestHTTPDOI_GetLatestDOI_OK(t *testing.T) {
+	ctx := context.Background()
 
-	collectionID := int64(6)
-	collectionNodeID := uuid.NewString()
+	expectedCollectionID := int64(6)
+	expectedCollectionNodeID := uuid.NewString()
+	expectedRole := role.Owner
 
 	doiResponse := dto.GetLatestDOIResponse{
 		OrganizationID:  apitest.CollectionsIDSpaceID,
-		DatasetID:       collectionID,
+		DatasetID:       expectedCollectionID,
 		DOI:             apitest.NewPennsieveDOI().Value,
 		Title:           uuid.NewString(),
 		URL:             uuid.NewString(),
@@ -35,20 +37,23 @@ func TestHTTPDOI_GetLatestDOI_OK(t *testing.T) {
 		Creators:        []string{uuid.NewString(), uuid.NewString()},
 	}
 
-	mockServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		assert.Equal(t,
-			fmt.Sprintf("/organizations/%d/datasets/%d/doi", apitest.CollectionsIDSpaceID, collectionID),
-			request.RequestURI,
-		)
-		assert.Equal(t, http.MethodGet, request.Method)
-		writer.WriteHeader(http.StatusOK)
-		mocks.WriteJSONHTTPResponse(t, writer, doiResponse)
-	}))
+	jwtSecreteKey := uuid.NewString()
+	doiMux := mocks.NewDOIMux(jwtSecreteKey).WithGetLatestDOIFunc(ctx, t,
+		func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (dto.GetLatestDOIResponse, error) {
+			assert.Equal(t, expectedCollectionID, collectionID)
+			assert.Equal(t, expectedCollectionNodeID, collectionNodeID)
+			assert.Equal(t, expectedRole, userRole)
+			return doiResponse, nil
+		},
+		apitest.ExpectedOrgServiceRole(apitest.CollectionsIDSpaceID),
+		jwtdiscover.NewDatasetServiceRole(expectedCollectionID, expectedCollectionNodeID, expectedRole))
+
+	mockServer := httptest.NewServer(doiMux)
 	defer mockServer.Close()
 
-	doiService := service.NewHTTPDOI(mockServer.URL, uuid.NewString(), apitest.CollectionsIDSpaceID, logging.Default)
+	doiService := service.NewHTTPDOI(mockServer.URL, jwtSecreteKey, apitest.CollectionsIDSpaceID, logging.Default)
 
-	response, err := doiService.GetLatestDOI(context.Background(), collectionID, collectionNodeID, role.Owner)
+	response, err := doiService.GetLatestDOI(context.Background(), expectedCollectionID, expectedCollectionNodeID, expectedRole)
 	require.NoError(t, err)
 
 	assert.Equal(t, doiResponse, response)
@@ -57,25 +62,32 @@ func TestHTTPDOI_GetLatestDOI_OK(t *testing.T) {
 
 func TestHTTPDOI_GetLatestDOI_NotFound(t *testing.T) {
 
-	collectionID := int64(6)
-	collectionNodeID := uuid.NewString()
+	ctx := context.Background()
 
-	mockServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		assert.Equal(t,
-			fmt.Sprintf("/organizations/%d/datasets/%d/doi", apitest.CollectionsIDSpaceID, collectionID),
-			request.RequestURI,
-		)
-		assert.Equal(t, http.MethodGet, request.Method)
-		writer.WriteHeader(http.StatusNotFound)
-	}))
+	expectedCollectionID := int64(6)
+	expectedCollectionNodeID := uuid.NewString()
+	expectedRole := role.Owner
+
+	jwtSecretKey := uuid.NewString()
+	doiMux := mocks.NewDOIMux(jwtSecretKey).WithGetLatestDOIFunc(ctx, t,
+		func(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (dto.GetLatestDOIResponse, error) {
+			return dto.GetLatestDOIResponse{}, mocks.HTTPError{
+				StatusCode: http.StatusNotFound,
+			}
+		},
+		apitest.ExpectedOrgServiceRole(apitest.CollectionsIDSpaceID),
+		jwtdiscover.NewDatasetServiceRole(expectedCollectionID, expectedCollectionNodeID, expectedRole),
+	)
+
+	mockServer := httptest.NewServer(doiMux)
 	defer mockServer.Close()
 
-	doiService := service.NewHTTPDOI(mockServer.URL, uuid.NewString(), apitest.CollectionsIDSpaceID, logging.Default)
+	doiService := service.NewHTTPDOI(mockServer.URL, jwtSecretKey, apitest.CollectionsIDSpaceID, logging.Default)
 
-	_, err := doiService.GetLatestDOI(context.Background(), collectionID, collectionNodeID, role.Owner)
+	_, err := doiService.GetLatestDOI(context.Background(), expectedCollectionID, expectedCollectionNodeID, expectedRole)
 
 	var notFoundErr service.LatestDOINotFoundError
 	require.ErrorAs(t, err, &notFoundErr)
-	assert.Equal(t, collectionID, notFoundErr.ID)
-	assert.Equal(t, collectionNodeID, notFoundErr.NodeID)
+	assert.Equal(t, expectedCollectionID, notFoundErr.ID)
+	assert.Equal(t, expectedCollectionNodeID, notFoundErr.NodeID)
 }

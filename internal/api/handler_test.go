@@ -711,12 +711,7 @@ func testGetDOI(t *testing.T) {
 			mocks.NewCollectionsStore().
 				WithGetCollectionFunc(collection.GetCollectionFunc(t, nil)),
 		).
-		WithDOI(mocks.NewDOI().WithGetLatestDOIFunc(func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (dto.GetLatestDOIResponse, error) {
-			assert.Equal(t, *collection.ID, collectionID)
-			assert.Equal(t, *collection.NodeID, collectionNodeID)
-			assert.Equal(t, collection.Users[0].PermissionBit.ToRole(), userRole)
-			return doiResponse, nil
-		}))
+		WithDOI(mocks.NewDOI().WithGetLatestDOIFunc(collection.GetLatestDOIFunc(t, &doiResponse)))
 
 	handler := CollectionsServiceAPIHandler(container, apiConfig)
 	request := apitest.NewAPIGatewayRequestBuilder(routes.GetDOIRouteKey).

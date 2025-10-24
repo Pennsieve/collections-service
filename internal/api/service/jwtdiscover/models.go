@@ -5,6 +5,8 @@ import (
 	"github.com/pennsieve/pennsieve-go-core/pkg/authorizer"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/dataset"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/organization"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +36,24 @@ type ServiceRole struct {
 	Role   string `json:"role"`
 }
 
+func NewDatasetServiceRole(id int64, nodeID string, role role.Role) ServiceRole {
+	return ServiceRole{
+		Type:   DatasetServiceRoleType,
+		Id:     strconv.FormatInt(id, 10),
+		NodeId: nodeID,
+		Role:   strings.ToLower(role.String()),
+	}
+}
+
+func NewOrganizationServiceRole(id int64, nodeID string, role pgdb.DbPermission) ServiceRole {
+	return ServiceRole{
+		Type:   OrganizationServiceRoleType,
+		Id:     strconv.FormatInt(id, 10),
+		NodeId: nodeID,
+		Role:   strings.ToLower(role.String()),
+	}
+}
+
 type ServiceClaim struct {
 	Type  string        `json:"type"`
 	Roles []ServiceRole `json:"roles"`
@@ -45,22 +65,12 @@ type ServiceToken struct {
 }
 
 func (c *ServiceClaim) WithOrganizationClaim(claim *organization.Claim) *ServiceClaim {
-	c.Roles = append(c.Roles, ServiceRole{
-		Type:   OrganizationServiceRoleType,
-		Id:     strconv.FormatInt(claim.IntId, 10),
-		NodeId: claim.NodeId,
-		Role:   claim.Role.AsRoleString(),
-	})
+	c.Roles = append(c.Roles, NewOrganizationServiceRole(claim.IntId, claim.NodeId, claim.Role))
 	return c
 }
 
 func (c *ServiceClaim) WithDatasetClaim(claim *dataset.Claim) *ServiceClaim {
-	c.Roles = append(c.Roles, ServiceRole{
-		Type:   DatasetServiceRoleType,
-		Id:     strconv.FormatInt(claim.IntId, 10),
-		NodeId: claim.NodeId,
-		Role:   strings.ToLower(claim.Role.String()),
-	})
+	c.Roles = append(c.Roles, NewDatasetServiceRole(claim.IntId, claim.NodeId, claim.Role))
 	return c
 }
 
