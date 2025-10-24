@@ -146,6 +146,16 @@ func (m *DiscoverMux) WithUnpublishCollectionFunc(ctx context.Context, t require
 	return m
 }
 
+// WriteJSONHTTPResponse json marshals responseBody and sends the bytes with writer.Write.
+// Any errors cause the test to fail via t.
+func WriteJSONHTTPResponse(t require.TestingT, writer http.ResponseWriter, responseBody any) int {
+	resBytes, err := json.Marshal(responseBody)
+	require.NoError(t, err)
+	n, err := writer.Write(resBytes)
+	require.NoError(t, err)
+	return n
+}
+
 func respond(t require.TestingT, writer http.ResponseWriter, mockResponse any, mockErr error) {
 	test.Helper(t)
 	var httpResponse any
@@ -159,10 +169,7 @@ func respond(t require.TestingT, writer http.ResponseWriter, mockResponse any, m
 		writer.WriteHeader(http.StatusInternalServerError)
 		httpResponse = fmt.Sprintf(`{"error":%q}`, e.Error())
 	}
-	resBytes, err := json.Marshal(httpResponse)
-	require.NoError(t, err)
-	_, err = writer.Write(resBytes)
-	require.NoError(t, err)
+	WriteJSONHTTPResponse(t, writer, httpResponse)
 }
 
 func (m *DiscoverMux) RequireExpectedAuthorization(t require.TestingT, collectionIDParam string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole, request *http.Request) (actualOrgRole jwtdiscover.ServiceRole, actualDatasetRole jwtdiscover.ServiceRole) {

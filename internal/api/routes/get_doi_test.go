@@ -6,9 +6,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/config"
+	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
 	"github.com/pennsieve/collections-service/internal/test/fixtures"
+	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/collections-service/internal/test/userstest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/pgdb"
 	"github.com/stretchr/testify/assert"
@@ -131,5 +133,61 @@ func testGetDOINoDOI(t *testing.T, db *fixtures.ExpectationDB) {
 }
 
 func testGetDOI(t *testing.T, db *fixtures.ExpectationDB) {
-	// TODO make this test
+	ctx := context.Background()
+
+	user := userstest.NewTestUser()
+	db.CreateTestUser(ctx, t, user)
+
+	claims := apitest.DefaultClaims(user)
+
+	collection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner)
+	db.CreateCollection(ctx, t, collection)
+
+	doiResponse := dto.GetLatestDOIResponse{
+		OrganizationID:  apitest.CollectionsIDSpaceID,
+		DatasetID:       *collection.ID,
+		DOI:             apitest.NewPennsieveDOI().Value,
+		Title:           uuid.NewString(),
+		URL:             uuid.NewString(),
+		Publisher:       uuid.NewString(),
+		CreatedAt:       uuid.NewString(),
+		PublicationYear: 2024,
+		State:           uuid.NewString(),
+		Creators:        []string{uuid.NewString(), uuid.NewString()},
+	}
+
+	mockDOIService := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		assert.Equal(t,
+			fmt.Sprintf("/organizations/%d/datasets/%d/doi", apitest.CollectionsIDSpaceID, *collection.ID),
+			request.RequestURI,
+		)
+		assert.Equal(t, http.MethodGet, request.Method)
+		writer.WriteHeader(http.StatusOK)
+		mocks.WriteJSONHTTPResponse(t, writer, doiResponse)
+	}))
+	defer mockDOIService.Close()
+
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(apitest.PennsieveConfigWithOptions(config.WithDOIServiceURL(mockDOIService.URL))).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDOI(apiConfig.PennsieveConfig)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetDOIRouteKey).
+			WithPathParam(NodeIDPathParamKey, *collection.NodeID).
+			WithClaims(claims).
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &claims,
+	}
+	response, err := GetDOI(ctx, params)
+	require.NoError(t, err)
+
+	assert.Equal(t, doiResponse, response)
 }

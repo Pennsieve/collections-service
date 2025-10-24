@@ -2,13 +2,13 @@ package service_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
+	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,10 +42,7 @@ func TestHTTPDOI_GetLatestDOI_OK(t *testing.T) {
 		)
 		assert.Equal(t, http.MethodGet, request.Method)
 		writer.WriteHeader(http.StatusOK)
-		respBytes, err := json.Marshal(doiResponse)
-		require.NoError(t, err)
-		_, err = writer.Write(respBytes)
-		require.NoError(t, err)
+		mocks.WriteJSONHTTPResponse(t, writer, doiResponse)
 	}))
 	defer mockServer.Close()
 
