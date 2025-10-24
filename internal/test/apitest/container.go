@@ -18,6 +18,7 @@ type TestContainer struct {
 	TestPostgresDB       postgres.DB
 	TestDiscover         service.Discover
 	TestInternalDiscover service.InternalDiscover
+	TestDOI              service.DOI
 	TestCollectionsStore collections.Store
 	TestUsersStore       users.Store
 	TestManifestStore    manifests.Store
@@ -50,6 +51,13 @@ func (c *TestContainer) InternalDiscover(_ context.Context) (service.InternalDis
 		panic("no service.InternalDiscover set for this TestContainer")
 	}
 	return c.TestInternalDiscover, nil
+}
+
+func (c *TestContainer) DOI(_ context.Context) (service.DOI, error) {
+	if c.TestDOI == nil {
+		panic("no service.DOI set for this TestContainer")
+	}
+	return c.TestDOI, nil
 }
 
 func (c *TestContainer) UsersStore() users.Store {
@@ -124,6 +132,21 @@ func (c *TestContainer) WithHTTPTestInternalDiscover(pennsieveConfig config.Penn
 		*pennsieveConfig.JWTSecretKey.Value,
 		pennsieveConfig.CollectionsIDSpace.ID,
 		c.Logger())
+	return c
+}
+
+func (c *TestContainer) WithDOI(doi service.DOI) *TestContainer {
+	c.TestDOI = doi
+	return c
+}
+
+func (c *TestContainer) WithHTTPTestDOI(pennsieveConfig config.PennsieveConfig) *TestContainer {
+	c.TestDOI = service.NewHTTPDOI(
+		pennsieveConfig.DOIServiceURL,
+		*pennsieveConfig.JWTSecretKey.Value,
+		pennsieveConfig.CollectionsIDSpace.ID,
+		c.Logger(),
+	)
 	return c
 }
 

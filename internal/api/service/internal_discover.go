@@ -2,11 +2,9 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/role"
-	"io"
 	"log/slog"
 	"net/http"
 )
@@ -24,15 +22,15 @@ type InternalDiscover interface {
 
 type HTTPInternalDiscover struct {
 	InternalService
-	host                  string
+	url                   string
 	collectionNamespaceID int64
 	logger                *slog.Logger
 }
 
-func NewHTTPInternalDiscover(host, jwtSecretKey string, collectionNamespaceID int64, logger *slog.Logger) *HTTPInternalDiscover {
+func NewHTTPInternalDiscover(internalDiscoverURL, jwtSecretKey string, collectionNamespaceID int64, logger *slog.Logger) *HTTPInternalDiscover {
 	return &HTTPInternalDiscover{
 		InternalService:       InternalService{jwtSecretKey: jwtSecretKey},
-		host:                  host,
+		url:                   internalDiscoverURL,
 		collectionNamespaceID: collectionNamespaceID,
 		logger:                logger,
 	}
@@ -42,7 +40,7 @@ func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collection
 	internalClaims := NewInternalClaims(d.collectionNamespaceID, request.CollectionNodeID, collectionID, userRole)
 	requestParams := requestParameters{
 		method: http.MethodPost,
-		url:    fmt.Sprintf("%s/collection/%d/publish", d.host, collectionID),
+		url:    fmt.Sprintf("%s/collection/%d/publish", d.url, collectionID),
 		body:   request,
 	}
 	response, err := d.InvokePennsieve(ctx, d.logger, internalClaims, requestParams)
@@ -51,16 +49,10 @@ func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collection
 	}
 	defer util.CloseAndWarn(response, d.logger)
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return PublishDOICollectionResponse{}, fmt.Errorf("error reading response from %s: %w", requestParams, err)
-	}
 	var responseDTO PublishDOICollectionResponse
-	if err := json.Unmarshal(body, &responseDTO); err != nil {
-		rawResponse := string(body)
+	if err := util.UnmarshallResponse(response, &responseDTO); err != nil {
 		return PublishDOICollectionResponse{}, fmt.Errorf(
-			"error unmarshalling response [%s] from %s: %w",
-			rawResponse,
+			"error unmarshalling response to %s: %w",
 			requestParams,
 			err)
 	}
@@ -71,7 +63,7 @@ func (d *HTTPInternalDiscover) PublishCollection(ctx context.Context, collection
 func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role, request FinalizeDOICollectionPublishRequest) (FinalizeDOICollectionPublishResponse, error) {
 	requestParams := requestParameters{
 		method: http.MethodPost,
-		url:    fmt.Sprintf("%s/collection/%d/finalize", d.host, collectionID),
+		url:    fmt.Sprintf("%s/collection/%d/finalize", d.url, collectionID),
 		body:   request,
 	}
 
@@ -83,16 +75,10 @@ func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, co
 	}
 	defer util.CloseAndWarn(response, d.logger)
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return FinalizeDOICollectionPublishResponse{}, fmt.Errorf("error reading response from %s: %w", requestParams, err)
-	}
 	var responseDTO FinalizeDOICollectionPublishResponse
-	if err := json.Unmarshal(body, &responseDTO); err != nil {
-		rawResponse := string(body)
+	if err := util.UnmarshallResponse(response, &responseDTO); err != nil {
 		return FinalizeDOICollectionPublishResponse{}, fmt.Errorf(
-			"error unmarshalling response [%s] from POST %s: %w",
-			rawResponse,
+			"error unmarshalling response to %s: %w",
 			requestParams,
 			err)
 	}
@@ -100,7 +86,7 @@ func (d *HTTPInternalDiscover) FinalizeCollectionPublish(ctx context.Context, co
 }
 
 func (d *HTTPInternalDiscover) UnpublishCollection(ctx context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (DatasetPublishStatusResponse, error) {
-	requestParams := requestParameters{method: http.MethodPost, url: fmt.Sprintf("%s/collection/%d/unpublish", d.host, collectionID)}
+	requestParams := requestParameters{method: http.MethodPost, url: fmt.Sprintf("%s/collection/%d/unpublish", d.url, collectionID)}
 
 	internalClaims := NewInternalClaims(d.collectionNamespaceID, collectionNodeID, collectionID, userRole)
 
@@ -118,16 +104,10 @@ func (d *HTTPInternalDiscover) UnpublishCollection(ctx context.Context, collecti
 		}
 	}
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return DatasetPublishStatusResponse{}, fmt.Errorf("error reading response from %s: %w", requestParams, err)
-	}
 	var responseDTO DatasetPublishStatusResponse
-	if err := json.Unmarshal(body, &responseDTO); err != nil {
-		rawResponse := string(body)
+	if err := util.UnmarshallResponse(response, &responseDTO); err != nil {
 		return DatasetPublishStatusResponse{}, fmt.Errorf(
-			"error unmarshalling response [%s] from %s: %w",
-			rawResponse,
+			"error unmarshalling response to %s: %w",
 			requestParams,
 			err)
 	}
@@ -139,7 +119,7 @@ func (d *HTTPInternalDiscover) GetCollectionPublishStatus(ctx context.Context, c
 	requestParams := requestParameters{
 		method: http.MethodGet,
 		url: fmt.Sprintf("%s/organizations/%d/datasets/%d",
-			d.host,
+			d.url,
 			d.collectionNamespaceID,
 			collectionID),
 	}
@@ -152,16 +132,10 @@ func (d *HTTPInternalDiscover) GetCollectionPublishStatus(ctx context.Context, c
 	}
 	defer util.CloseAndWarn(response, d.logger)
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return DatasetPublishStatusResponse{}, fmt.Errorf("error reading response from %s: %w", requestParams, err)
-	}
 	var responseDTO DatasetPublishStatusResponse
-	if err := json.Unmarshal(body, &responseDTO); err != nil {
-		rawResponse := string(body)
+	if err := util.UnmarshallResponse(response, &responseDTO); err != nil {
 		return DatasetPublishStatusResponse{}, fmt.Errorf(
-			"error unmarshalling response [%s] from %s: %w",
-			rawResponse,
+			"error unmarshalling response to %s: %w",
 			requestParams,
 			err)
 	}

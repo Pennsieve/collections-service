@@ -36,6 +36,12 @@ func WithDiscoverServiceURL(url string) PennsieveOption {
 	}
 }
 
+func WithDOIServiceURL(url string) PennsieveOption {
+	return func(pennsieveConfig *PennsieveConfig) {
+		pennsieveConfig.DOIServiceURL = url
+	}
+}
+
 func WithDOIPrefix(doiPrefix string) PennsieveOption {
 	return func(pennsieveConfig *PennsieveConfig) {
 		pennsieveConfig.DOIPrefix = doiPrefix

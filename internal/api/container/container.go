@@ -21,6 +21,7 @@ import (
 
 type DependencyContainer interface {
 	PostgresDB() postgres.DB
+
 	Discover() service.Discover
 	// InternalDiscover returns a Discover service for calling
 	// the internal endpoints. Since these require authz, the setup
@@ -28,9 +29,12 @@ type DependencyContainer interface {
 	// out from Discover so that we only do this setup if the internal
 	// endpoints will be used.
 	InternalDiscover(ctx context.Context) (service.InternalDiscover, error)
+	DOI(ctx context.Context) (service.DOI, error)
+
 	CollectionsStore() collections.Store
 	UsersStore() users.Store
 	ManifestStore() manifests.Store
+
 	Logger() *slog.Logger
 	SetLogger(logger *slog.Logger)
 	AddLoggingContext(args ...any)
@@ -42,6 +46,7 @@ type Container struct {
 	postgresdb       *postgres.RDSProxy
 	discover         *service.HTTPDiscover
 	internalDiscover *service.HTTPInternalDiscover
+	doi              *service.HTTPDOI
 	collectionsStore *collections.PostgresStore
 	usersStore       *users.PostgresStore
 	manifestStore    *manifests.S3Store
@@ -138,13 +143,21 @@ func (c *Container) ParameterStore() ssm.ParameterStore {
 	return c.parameterStore
 }
 
+func (c *Container) loadJWTSecretKey(ctx context.Context) (string, error) {
+	jwtSecretKey, err := c.Config.PennsieveConfig.JWTSecretKey.Load(
+		ctx,
+		c.ParameterStore().GetParameter)
+	if err != nil {
+		return "", fmt.Errorf("error creating internal service; cannot get JWT secret Key from SSM: %w", err)
+	}
+	return jwtSecretKey, nil
+}
+
 func (c *Container) InternalDiscover(ctx context.Context) (service.InternalDiscover, error) {
 	if c.internalDiscover == nil {
-		jwtSecretKey, err := c.Config.PennsieveConfig.JWTSecretKey.Load(
-			ctx,
-			c.ParameterStore().GetParameter)
+		jwtSecretKey, err := c.loadJWTSecretKey(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("error creating internal discover service; cannot get JWT secret Key from SSM: %w", err)
+			return nil, fmt.Errorf("error creating internal discover: %w", err)
 		}
 		c.internalDiscover = service.NewHTTPInternalDiscover(
 			c.Config.PennsieveConfig.DiscoverServiceURL,
@@ -153,4 +166,20 @@ func (c *Container) InternalDiscover(ctx context.Context) (service.InternalDisco
 			c.Logger())
 	}
 	return c.internalDiscover, nil
+}
+
+func (c *Container) DOI(ctx context.Context) (service.DOI, error) {
+	if c.doi == nil {
+		jwtSecretKey, err := c.loadJWTSecretKey(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error creating doi service: %w", err)
+		}
+		c.doi = service.NewHTTPDOI(
+			c.Config.PennsieveConfig.DOIServiceURL,
+			jwtSecretKey,
+			c.Config.PennsieveConfig.CollectionsIDSpace.ID,
+			c.Logger(),
+		)
+	}
+	return c.doi, nil
 }

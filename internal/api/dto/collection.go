@@ -361,3 +361,30 @@ type UnpublishCollectionResponse struct {
 func (r UnpublishCollectionResponse) Marshal() (string, error) {
 	return defaultMarshalImpl(r)
 }
+
+// GetLatestDOIResponse is copied from doi-service. We get it from the doi-service and pass it back in
+// the /collections/{nodeId}/doi endpoint.
+type GetLatestDOIResponse struct {
+	OrganizationID  int64    `json:"organizationId"`
+	DatasetID       int64    `json:"datasetId"`
+	DOI             string   `json:"doi"`
+	Title           string   `json:"title,omitempty"`
+	URL             string   `json:"url,omitempty"`
+	Publisher       string   `json:"publisher"`
+	CreatedAt       string   `json:"createdAt,omitempty"`
+	PublicationYear int      `json:"publicationYear,omitempty"`
+	State           string   `json:"state,omitempty"`
+	Creators        []string `json:"creators"`
+}
+
+func (r GetLatestDOIResponse) Marshal() (string, error) {
+	return defaultMarshalImpl(r)
+}
+
+func (r GetLatestDOIResponse) MarshalJSON() ([]byte, error) {
+	type alias GetLatestDOIResponse
+	if r.Creators == nil {
+		r.Creators = []string{}
+	}
+	return json.Marshal(alias(r))
+}

@@ -18,12 +18,12 @@ type Discover interface {
 }
 
 type HTTPDiscover struct {
-	host   string
+	url    string
 	logger *slog.Logger
 }
 
-func NewHTTPDiscover(discoverHost string, logger *slog.Logger) *HTTPDiscover {
-	return &HTTPDiscover{host: discoverHost, logger: logger}
+func NewHTTPDiscover(discoverURL string, logger *slog.Logger) *HTTPDiscover {
+	return &HTTPDiscover{url: discoverURL, logger: logger}
 }
 
 func (d *HTTPDiscover) GetDatasetsByDOI(ctx context.Context, dois []string) (DatasetsByDOIResponse, error) {
@@ -33,7 +33,7 @@ func (d *HTTPDiscover) GetDatasetsByDOI(ctx context.Context, dois []string) (Dat
 	}
 	requestParams := requestParameters{
 		method: http.MethodGet,
-		url:    fmt.Sprintf("%s/datasets/doi?%s", d.host, doiQueryParams.Encode()),
+		url:    fmt.Sprintf("%s/datasets/doi?%s", d.url, doiQueryParams.Encode()),
 	}
 	response, err := d.InvokePennsieve(ctx, requestParams)
 	if err != nil {
@@ -41,16 +41,10 @@ func (d *HTTPDiscover) GetDatasetsByDOI(ctx context.Context, dois []string) (Dat
 	}
 	defer util.CloseAndWarn(response, d.logger)
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return DatasetsByDOIResponse{}, fmt.Errorf("error reading response from %s: %w", requestParams, err)
-	}
 	var responseDTO DatasetsByDOIResponse
-	if err := json.Unmarshal(body, &responseDTO); err != nil {
-		rawResponse := string(body)
+	if err := util.UnmarshallResponse(response, &responseDTO); err != nil {
 		return DatasetsByDOIResponse{}, fmt.Errorf(
-			"error unmarshalling response [%s] from %s: %w",
-			rawResponse,
+			"error unmarshalling response to %s: %w",
 			requestParams,
 			err)
 	}

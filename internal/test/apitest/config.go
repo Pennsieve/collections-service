@@ -50,6 +50,7 @@ func (b *ConfigBuilder) Build() config.Config {
 func PennsieveConfigWithOptions(opts ...config.PennsieveOption) config.PennsieveConfig {
 	pennsieveConfig := config.NewPennsieveConfig(
 		config.WithDiscoverServiceURL("http://example.com/discover"),
+		config.WithDOIServiceURL("http://example.com/doi-service"),
 		config.WithDOIPrefix(PennsieveDOIPrefix),
 		config.WithJWTSecretKey(uuid.NewString()),
 		config.WithCollectionsIDSpace(CollectionsIDSpaceID, CollectionsIDSpaceName),

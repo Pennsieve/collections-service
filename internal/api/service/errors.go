@@ -13,3 +13,13 @@ type CollectionNeverPublishedError struct {
 func (e CollectionNeverPublishedError) Error() string {
 	return fmt.Sprintf("collection %s (%d) has not been published", e.NodeID, e.ID)
 }
+
+// LatestDOINotFoundError is returned by DOI.GetLatestDOI if the DOI service returns a 404.
+type LatestDOINotFoundError struct {
+	ID     int64
+	NodeID string
+}
+
+func (e LatestDOINotFoundError) Error() string {
+	return fmt.Sprintf("most recent DOI for %s (%d) not found", e.NodeID, e.ID)
+}

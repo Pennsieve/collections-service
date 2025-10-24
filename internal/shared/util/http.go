@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +19,9 @@ func CloseAndWarn(response *http.Response, logger *slog.Logger) {
 	}
 }
 
+// Invoke makes the given request with http.DefaultClient.
+// If an error is being returned, this method will consume response.Body so it should be
+// called before the caller has read the body.
 func Invoke(request *http.Request, logger *slog.Logger) (*http.Response, error) {
 
 	res, err := http.DefaultClient.Do(request)
@@ -85,4 +89,19 @@ func (e *HTTPError) Error() string {
 
 func (e *HTTPError) StatusCode() int {
 	return e.response.StatusCode
+}
+
+func UnmarshallResponse(response *http.Response, dtoPointer any) error {
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response: %w", err)
+	}
+	if err := json.Unmarshal(body, dtoPointer); err != nil {
+		rawResponse := string(body)
+		return fmt.Errorf(
+			"error unmarshalling response [%s]: %w",
+			rawResponse,
+			err)
+	}
+	return nil
 }

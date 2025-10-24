@@ -32,6 +32,16 @@ func ToDiscoverHandlerFunc(ctx context.Context, t require.TestingT, f GetDataset
 	}
 }
 
+type HTTPError struct {
+	StatusCode int
+	// Body needs to be json marshalable
+	Body any
+}
+
+func (e HTTPError) Error() string {
+	return fmt.Sprintf("mock error: http status code %d", e.StatusCode)
+}
+
 // DiscoverMux holds the mocked handlers for Discover. Even though the dependency container separates
 // Discover and InternalDiscover, we allow both to be served by a single httptest.Server instance using
 // this DiscoverMux
@@ -142,11 +152,9 @@ func respond(t require.TestingT, writer http.ResponseWriter, mockResponse any, m
 	switch e := mockErr.(type) {
 	case nil:
 		httpResponse = mockResponse
-	// Maybe TODO handle a mock error with a given status code
-	// Don't think apierrors makes sense here since that is what we return, not external services.
-	/*case *apierrors.Error:
-	writer.WriteHeader(e.StatusCode)
-	httpResponse = e*/
+	case HTTPError:
+		writer.WriteHeader(e.StatusCode)
+		httpResponse = e.Body
 	default:
 		writer.WriteHeader(http.StatusInternalServerError)
 		httpResponse = fmt.Sprintf(`{"error":%q}`, e.Error())

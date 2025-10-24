@@ -58,6 +58,10 @@ func NewCollectionNotFoundError(missingID string) *Error {
 	return NewError(fmt.Sprintf("collection %s not found", missingID), nil, http.StatusNotFound)
 }
 
+func NewCollectionDOINotFoundError(collectionID string) *Error {
+	return NewError(fmt.Sprintf("DOI for collection %s not found", collectionID), nil, http.StatusNotFound)
+}
+
 func NewConflictError(userMessage string) *Error {
 	return NewConflictErrorWithCause(userMessage, nil)
 }
