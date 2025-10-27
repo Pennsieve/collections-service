@@ -691,8 +691,6 @@ func testGetDOI(t *testing.T) {
 	collection := apitest.NewExpectedCollection().WithNodeID().WithRandomID().WithUser(user.ID, pgdb.Owner)
 
 	doiResponse := dto.GetLatestDOIResponse{
-		OrganizationID:  apitest.CollectionsIDSpaceID,
-		DatasetID:       *collection.ID,
 		DOI:             apitest.NewPennsieveDOI().Value,
 		Title:           uuid.NewString(),
 		URL:             uuid.NewString(),
@@ -711,7 +709,7 @@ func testGetDOI(t *testing.T) {
 			mocks.NewCollectionsStore().
 				WithGetCollectionFunc(collection.GetCollectionFunc(t, nil)),
 		).
-		WithDOI(mocks.NewDOI().WithGetLatestDOIFunc(collection.GetLatestDOIFunc(t, &doiResponse)))
+		WithDOI(mocks.NewDOI().WithGetLatestDOIFunc(collection.GetLatestDOIFunc(t, doiResponse)))
 
 	handler := CollectionsServiceAPIHandler(container, apiConfig)
 	request := apitest.NewAPIGatewayRequestBuilder(routes.GetDOIRouteKey).

@@ -25,8 +25,6 @@ func TestHTTPDOI_GetLatestDOI_OK(t *testing.T) {
 	expectedRole := role.Owner
 
 	doiResponse := dto.GetLatestDOIResponse{
-		OrganizationID:  apitest.CollectionsIDSpaceID,
-		DatasetID:       expectedCollectionID,
 		DOI:             apitest.NewPennsieveDOI().Value,
 		Title:           uuid.NewString(),
 		URL:             uuid.NewString(),

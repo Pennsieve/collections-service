@@ -499,7 +499,7 @@ func (c *ExpectedCollection) UnpublishCollectionFunc(t require.TestingT, mockRes
 	}
 }
 
-func (c *ExpectedCollection) GetLatestDOIFunc(t require.TestingT, mockResponse *dto.GetLatestDOIResponse) mocks.GetLatestDOIFunc {
+func (c *ExpectedCollection) GetLatestDOIFunc(t require.TestingT, mockResponse dto.GetLatestDOIResponse) mocks.GetLatestDOIFunc {
 	return func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (dto.GetLatestDOIResponse, error) {
 		test.Helper(t)
 		require.NotNil(t, c.ID, "expected collection does not have ID set")
@@ -508,7 +508,6 @@ func (c *ExpectedCollection) GetLatestDOIFunc(t require.TestingT, mockResponse *
 		assert.Equal(t, *c.NodeID, collectionNodeID)
 		require.Equal(t, role.Owner, userRole, "requested user role %s does not match expected user role %s", userRole, role.Owner)
 
-		mockResponse.DatasetID = *c.ID
-		return *mockResponse, nil
+		return mockResponse, nil
 	}
 }

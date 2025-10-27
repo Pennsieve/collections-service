@@ -151,8 +151,6 @@ func testGetDOI(t *testing.T, db *fixtures.ExpectationDB) {
 	db.CreateCollection(ctx, t, collection)
 
 	doiResponse := dto.GetLatestDOIResponse{
-		OrganizationID:  apitest.CollectionsIDSpaceID,
-		DatasetID:       *collection.ID,
 		DOI:             apitest.NewPennsieveDOI().Value,
 		Title:           uuid.NewString(),
 		URL:             uuid.NewString(),
@@ -165,7 +163,7 @@ func testGetDOI(t *testing.T, db *fixtures.ExpectationDB) {
 
 	jwtSecretKey := uuid.NewString()
 	doiMux := mocks.NewDOIMux(jwtSecretKey).WithGetLatestDOIFunc(ctx, t,
-		collection.GetLatestDOIFunc(t, &doiResponse),
+		collection.GetLatestDOIFunc(t, doiResponse),
 		apitest.ExpectedOrgServiceRole(apitest.CollectionsIDSpaceID),
 		collection.DatasetServiceRoleForUser(t, user),
 	)
