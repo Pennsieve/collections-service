@@ -92,7 +92,7 @@ func NewGetCollectionsRouteHandler() Handler[dto.GetCollectionsResponse] {
 
 func lookupPennsieveDatasets(ctx context.Context, container container.DependencyContainer, pennsieveDOIs []string) (map[string]dto.PublicDataset, error) {
 	const (
-		batchSize  = 10 // how many DOIs per request
+		batchSize  = 50 // how many DOIs per request. >= 100 leads to URL-too-long errors. See discover_benchmark_test.go
 		numWorkers = 5  // how many concurrent requests
 	)
 
