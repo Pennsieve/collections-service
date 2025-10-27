@@ -26,6 +26,7 @@ resource "aws_lambda_function" "collections_service_api_lambda" {
       POSTGRES_USER                 = var.api_postgres_user,
       POSTGRES_COLLECTIONS_DATABASE = var.pennsieve_postgres_database,
       DISCOVER_SERVICE_HOST         = local.discover_service_host,
+      DOI_SERVICE_HOST              = local.doi_service_host,
       PENNSIEVE_DOI_PREFIX          = local.pennsieve_doi_prefix,
       COLLECTIONS_ID_SPACE_ID       = local.collections_id_space_id,
       COLLECTIONS_ID_SPACE_NAME     = local.collections_id_space_name,
