@@ -36,6 +36,7 @@ locals {
   }
   rds_db_connect_arn        = "${replace(replace(data.terraform_remote_state.pennsieve_postgres.outputs.rds_proxy_endpoint_arn, ":rds:", ":rds-db:"), ":db-proxy:", ":dbuser:")}/${var.api_postgres_user}"
   discover_service_host     = data.terraform_remote_state.discover_service.outputs.internal_fqdn
+  doi_service_host          = data.terraform_remote_state.doi_service.outputs.internal_fqdn
   pennsieve_doi_prefix      = var.environment_name == "prod" ? "10.26275" : "10.21397"
   collections_id_space_id   = data.terraform_remote_state.discover_service.outputs.doi_collections_id_space_id
   collections_id_space_name = data.terraform_remote_state.discover_service.outputs.doi_collections_id_space_name

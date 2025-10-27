@@ -48,6 +48,7 @@ func CollectionsServiceAPIHandler(
 				slog.String("discoverURL", config.PennsieveConfig.DiscoverServiceURL),
 				slog.String("jwtSecretKey", config.PennsieveConfig.JWTSecretKey.String()),
 				slog.String("publishBucket", config.PennsieveConfig.PublishBucket),
+				slog.String("doiServiceURL", config.PennsieveConfig.DOIServiceURL),
 				slog.Group("collectionsIDSpace",
 					slog.Int64("id", config.PennsieveConfig.CollectionsIDSpace.ID),
 					slog.String("name", config.PennsieveConfig.CollectionsIDSpace.Name),
@@ -84,6 +85,8 @@ func CollectionsServiceAPIHandler(
 			return routes.Handle(ctx, routes.NewPublishCollectionRouteHandler(), routeParams)
 		case routes.UnpublishCollectionRouteKey:
 			return routes.Handle(ctx, routes.NewUnpublishCollectionRouteHandler(), routeParams)
+		case routes.GetDOIRouteKey:
+			return routes.Handle(ctx, routes.NewGetDOIRouteHandler(), routeParams)
 		default:
 			routeNotFound := apierrors.NewError(fmt.Sprintf("route [%s] not found", routeKey), nil, http.StatusNotFound)
 			routeNotFound.LogError(logger)

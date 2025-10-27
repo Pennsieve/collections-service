@@ -17,18 +17,21 @@ func TestPennsieveConfig_Load(t *testing.T) {
 	expectedCollectionsIDSpaceID := apitest.CollectionsIDSpaceID
 	expectedCollectionsIDSpaceName := apitest.CollectionsIDSpaceName
 	expectedPublishBucket := uuid.NewString()
+	expectedDOIServiceHost := uuid.NewString()
 
 	t.Setenv(config.DiscoverServiceHostKey, expectedDiscoverHost)
 	t.Setenv(config.PennsieveDOIPrefixKey, expectedPennsieveDOIPrefix)
 	t.Setenv(config.CollectionsIDSpaceIDKey, strconv.FormatInt(expectedCollectionsIDSpaceID, 10))
 	t.Setenv(config.CollectionsIDSpaceNameKey, expectedCollectionsIDSpaceName)
 	t.Setenv(config.PublishBucketKey, expectedPublishBucket)
+	t.Setenv(config.DOIServiceHostKey, expectedDOIServiceHost)
 
 	expectedEnvironment := uuid.NewString()
 	actualConfig, err := config.NewPennsieveConfig().Load(expectedEnvironment)
 	require.NoError(t, err)
 
 	assert.Equal(t, fmt.Sprintf("https://%s", expectedDiscoverHost), actualConfig.DiscoverServiceURL)
+	assert.Equal(t, fmt.Sprintf("https://%s", expectedDOIServiceHost), actualConfig.DOIServiceURL)
 	assert.Equal(t, expectedPennsieveDOIPrefix, actualConfig.DOIPrefix)
 	assert.Equal(t, expectedCollectionsIDSpaceID, actualConfig.CollectionsIDSpace.ID)
 	assert.Equal(t, expectedCollectionsIDSpaceName, actualConfig.CollectionsIDSpace.Name)

@@ -11,6 +11,7 @@ type PennsieveConfig struct {
 	DOIPrefix          string
 	JWTSecretKey       *sharedconfig.SSMSetting
 	CollectionsIDSpace CollectionsPublishingIDSpace
+	DOIServiceURL      string
 	PublishBucket      string
 }
 
@@ -32,6 +33,12 @@ type PennsieveOption func(pennsieveConfig *PennsieveConfig)
 func WithDiscoverServiceURL(url string) PennsieveOption {
 	return func(pennsieveConfig *PennsieveConfig) {
 		pennsieveConfig.DiscoverServiceURL = url
+	}
+}
+
+func WithDOIServiceURL(url string) PennsieveOption {
+	return func(pennsieveConfig *PennsieveConfig) {
+		pennsieveConfig.DOIServiceURL = url
 	}
 }
 
@@ -70,10 +77,14 @@ func (c PennsieveConfig) LoadWithSettings(environmentName string, settings Penns
 		if err != nil {
 			return PennsieveConfig{}, err
 		}
-		if !strings.HasPrefix(url, "http") {
-			url = fmt.Sprintf("https://%s", url)
+		c.DiscoverServiceURL = ensureURL(url)
+	}
+	if len(c.DOIServiceURL) == 0 {
+		url, err := settings.DOIServiceHost.Get()
+		if err != nil {
+			return PennsieveConfig{}, err
 		}
-		c.DiscoverServiceURL = url
+		c.DOIServiceURL = ensureURL(url)
 	}
 	if len(c.DOIPrefix) == 0 {
 		prefix, err := settings.DOIPrefix.Get()
@@ -116,4 +127,12 @@ func (c PennsieveConfig) LoadWithSettings(environmentName string, settings Penns
 // given DeployedPennsieveSettings.
 func (c PennsieveConfig) Load(environmentName string) (PennsieveConfig, error) {
 	return c.LoadWithSettings(environmentName, DeployedPennsieveSettings)
+}
+
+func ensureURL(hostOnlyMaybe string) string {
+	url := hostOnlyMaybe
+	if !strings.HasPrefix(hostOnlyMaybe, "http") {
+		url = fmt.Sprintf("https://%s", hostOnlyMaybe)
+	}
+	return url
 }

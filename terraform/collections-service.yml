@@ -212,6 +212,41 @@ paths:
           $ref: '#/components/responses/NotFound'
         '5XX':
           $ref: '#/components/responses/Error'
+  /{nodeId}/doi:
+    get:
+      x-amazon-apigateway-integration:
+        $ref: '#/components/x-amazon-apigateway-integrations/collections-service'
+      operationId: getDOI
+      summary: Returns the most recent DOI of the published version of this collection
+      description: |
+        Returns the most recent DOI of the published version of this collection.
+        Returns 404 if the collection does not have a DOI.
+      parameters:
+        - in: path
+          name: nodeId
+          schema:
+            type: string
+          required: true
+          description: The nodeId of the collection
+      security:
+        - token_auth: [ ]
+      tags:
+        - Collections Service
+      responses:
+        '200':
+          description: The collection's DOI was returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetLatestDOIResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '5XX':
+          $ref: '#/components/responses/Error'
   /{nodeId}/publish:
     post:
       x-amazon-apigateway-integration:
@@ -878,3 +913,26 @@ components:
         - publishedDatasetId
         - publishedVersion
         - status
+
+    GetLatestDOIResponse:
+      properties:
+        doi:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+        publisher:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        publicationYear:
+          type: integer
+        state:
+          type: string
+          description: The state of the DOI. Either draft, registered, or findable
+        creators:
+          type: array
+          items:
+            type: string

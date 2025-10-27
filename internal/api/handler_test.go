@@ -46,6 +46,7 @@ func TestAPILambdaHandler(t *testing.T) {
 		{"update collection", testUpdateCollection},
 		{"publish collection", testPublishCollection},
 		{"unpublish collection", testUnpublishCollection},
+		{"get doi", testGetDOI},
 	}
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
@@ -678,4 +679,52 @@ func testUnpublishCollection(t *testing.T) {
 	assert.Equal(t, expectedPublishedDatasetID, responseDTO.PublishedDatasetID)
 	assert.Equal(t, expectedPublishedVersion, responseDTO.PublishedVersion)
 	assert.Equal(t, expectedDiscoverPublishStatus, responseDTO.Status)
+}
+
+func testGetDOI(t *testing.T) {
+	ctx := context.Background()
+
+	user := userstest.SeedUser1
+
+	claims := apitest.DefaultClaims(user)
+
+	collection := apitest.NewExpectedCollection().WithNodeID().WithRandomID().WithUser(user.ID, pgdb.Owner)
+
+	doiResponse := dto.GetLatestDOIResponse{
+		DOI:             apitest.NewPennsieveDOI().Value,
+		Title:           uuid.NewString(),
+		URL:             uuid.NewString(),
+		Publisher:       uuid.NewString(),
+		CreatedAt:       uuid.NewString(),
+		PublicationYear: 2024,
+		State:           uuid.NewString(),
+		Creators:        []string{uuid.NewString(), uuid.NewString()},
+	}
+
+	apiConfig := apitest.NewConfigBuilder().
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithCollectionsStore(
+			mocks.NewCollectionsStore().
+				WithGetCollectionFunc(collection.GetCollectionFunc(t, nil)),
+		).
+		WithDOI(mocks.NewDOI().WithGetLatestDOIFunc(collection.GetLatestDOIFunc(t, doiResponse)))
+
+	handler := CollectionsServiceAPIHandler(container, apiConfig)
+	request := apitest.NewAPIGatewayRequestBuilder(routes.GetDOIRouteKey).
+		WithPathParam(routes.NodeIDPathParamKey, *collection.NodeID).
+		WithClaims(claims).
+		Build()
+
+	response, err := handler(ctx, request)
+	require.NoError(t, err)
+
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	var responseDTO dto.GetLatestDOIResponse
+	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
+
+	assert.Equal(t, doiResponse, responseDTO)
+
 }
