@@ -2,16 +2,15 @@ package routes
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
 	"github.com/pennsieve/collections-service/internal/api/container"
 	"github.com/pennsieve/collections-service/internal/api/dto"
+	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"log/slog"
 	"net/http"
 	"sync"
-	"time"
 )
 
 const GetCollectionsRouteKey = "GET /"
@@ -92,73 +91,94 @@ func NewGetCollectionsRouteHandler() Handler[dto.GetCollectionsResponse] {
 
 func lookupPennsieveDatasets(ctx context.Context, container container.DependencyContainer, pennsieveDOIs []string) (map[string]dto.PublicDataset, error) {
 	const (
-		batchSize  = 50 // how many DOIs per request. >= 100 leads to URL-too-long errors. See discover_benchmark_test.go
-		numWorkers = 5  // how many concurrent requests
+		batchSize  = 80 // how many DOIs per request. >= 90 leads to URL-too-long errors. See discover_benchmark_test.go
+		numWorkers = 3  // how many concurrent requests
 	)
 
 	discoverService := container.Discover()
-	doiToPublicDataset := make(map[string]dto.PublicDataset)
-	var errs []error
+	// In reality, len(pennsieveDOIs) <= 40 == FE page size * 4 banner DOIs per collection
+	// Testing in discover_benchmark_test.go showed not much point in doing concurrent batches in this case.
+	if len(pennsieveDOIs) <= batchSize {
+		discoverResp, err := discoverService.GetDatasetsByDOI(ctx, pennsieveDOIs)
+		if err != nil {
+			return nil, fmt.Errorf("error looking up Datasets in Discover by DOI: %w", err)
+		}
+		return discoverResp.Published, nil
+	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	// But we do get URL-to-long errors if we request 90 or more DOIs at a time. So
+	// to keep things working if someone scripts calls with larger page sizes, we'll
+	// batch things here.
+	return batchLookupPennsieveDatasets(ctx, discoverService, pennsieveDOIs, batchSize, numWorkers)
+}
+
+// batchLookupPennsieveDatasets fetches datasets by DOI in concurrent batches.
+// Safe for arbitrary input sizes and avoids URL length limits.
+// Typical use: up to ~80 DOIs per batch, 3 workers.
+func batchLookupPennsieveDatasets(
+	ctx context.Context,
+	discover service.Discover,
+	dois []string,
+	batchSize int,
+	numWorkers int,
+) (map[string]dto.PublicDataset, error) {
+
+	type batchResult struct {
+		data map[string]dto.PublicDataset
+		err  error
+	}
 
 	jobs := make(chan []string)
+	results := make(chan batchResult)
+
 	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var errsMu sync.Mutex
+	wg.Add(numWorkers)
 
 	for w := 0; w < numWorkers; w++ {
-		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for batch := range jobs {
-				discoverResp, err := discoverService.GetDatasetsByDOI(ctx, batch)
-				if err != nil {
-					errsMu.Lock()
-					errs = append(errs, fmt.Errorf("batch %v: %w", batch, err))
-					errsMu.Unlock()
-					continue // keep going even if one batch fails
+				select {
+				case <-ctx.Done():
+					return
+				default:
 				}
 
-				mu.Lock()
-				for doi, ds := range discoverResp.Published {
-					doiToPublicDataset[doi] = ds
+				resp, err := discover.GetDatasetsByDOI(ctx, batch)
+				if err != nil {
+					results <- batchResult{err: fmt.Errorf("fetch batch failed: %w", err)}
+					continue
 				}
-				mu.Unlock()
+				results <- batchResult{data: resp.Published}
 			}
 		}()
 	}
 
 	go func() {
-		defer close(jobs)
-		for i := 0; i < len(pennsieveDOIs); i += batchSize {
+		for i := 0; i < len(dois); i += batchSize {
 			end := i + batchSize
-			if end > len(pennsieveDOIs) {
-				end = len(pennsieveDOIs)
+			if end > len(dois) {
+				end = len(dois)
 			}
-			select {
-			case jobs <- pennsieveDOIs[i:end]:
-			case <-ctx.Done():
-				return
-			}
+			jobs <- dois[i:end]
 		}
+		close(jobs)
 	}()
 
-	start := time.Now()
-	wg.Wait()
-	elapsed := time.Since(start)
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
 
-	if len(errs) > 0 {
-		combinedErr := errors.Join(errs...)
-		return nil, combinedErr
+	doiToDataset := make(map[string]dto.PublicDataset)
+	for res := range results {
+		if res.err != nil {
+			return nil, fmt.Errorf("error fetching datasets from Discover by DOI: %w", res.err)
+		}
+		for k, v := range res.data {
+			doiToDataset[k] = v
+		}
 	}
-	container.Logger().Info("looked up DOIs in Discover",
-		slog.Int("totalDOIs", len(pennsieveDOIs)),
-		slog.Int("batchSize", batchSize),
-		slog.Int("numWorkers", numWorkers),
-		slog.String("totalTime", elapsed.Truncate(time.Millisecond).String()),
-		slog.Float64("DOIs/sec", float64(len(pennsieveDOIs))/elapsed.Seconds()),
-	)
-	return doiToPublicDataset, nil
+
+	return doiToDataset, nil
 }

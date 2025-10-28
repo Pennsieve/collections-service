@@ -2,6 +2,9 @@ package routes
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/apitest"
@@ -290,6 +293,10 @@ func TestHandleGetCollections(t *testing.T) {
 			"return empty banners array instead of null",
 			testHandleGetCollectionsEmptyBannersArray,
 		},
+		{
+			"handle batched Discover GetDatasetsByDOIs calls correctly",
+			testHandleGetCollectionsLargePageSize,
+		},
 	}
 
 	for _, tt := range tests {
@@ -372,5 +379,80 @@ func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 
 	assert.NotContains(t, response.Body, `"banners":null`)
 	assert.Contains(t, response.Body, `"banners":[]`)
+
+}
+
+// testHandleGetCollectionsLargePageSize tests that we handle the batched, concurrent calls
+// to discover to turn banner DOIs into banner URLs correctly. GetCollections only batches
+// these calls if the number of banner DOIs needed for the response page is large enough
+func testHandleGetCollectionsLargePageSize(t *testing.T) {
+	ctx := context.Background()
+	callingUser := userstest.SeedUser1
+
+	largePageSize := 30
+	collectionSummaries := make([]collections.CollectionSummary, 0, largePageSize)
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	for i := 0; i < largePageSize; i++ {
+		var bannerDOIs []string
+		for j := 0; j < collections.MaxBannerDOIsPerCollection; j++ {
+			publicDataset := expectedDatasets.NewPublishedWithOptions()
+			bannerDOIs = append(bannerDOIs, publicDataset.DOI)
+		}
+		summary := collections.CollectionSummary{
+			CollectionBase: collections.CollectionBase{
+				ID:     int64(i),
+				NodeID: uuid.NewString(),
+				Name:   uuid.NewString(),
+			},
+			BannerDOIs: bannerDOIs,
+		}
+		collectionSummaries = append(collectionSummaries, summary)
+	}
+
+	mockCollectionStore := mocks.NewCollectionsStore().
+		WithGetCollectionsFunc(func(ctx context.Context, userID int64, limit int, offset int) (collections.GetCollectionsResponse, error) {
+			return collections.GetCollectionsResponse{
+				Limit:       largePageSize,
+				Offset:      DefaultGetCollectionsOffset,
+				TotalCount:  largePageSize,
+				Collections: collectionSummaries,
+			}, nil
+		})
+
+	mockDiscover := mocks.NewDiscover().WithGetDatasetsByDOIFunc(expectedDatasets.GetDatasetsByDOIFunc(t))
+
+	claims := apitest.DefaultClaims(callingUser)
+
+	params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
+			WithIntQueryParam("limit", largePageSize).
+			WithClaims(claims).
+			Build(),
+		Container: apitest.NewTestContainer().WithCollectionsStore(mockCollectionStore).WithDiscover(mockDiscover),
+		Config:    apitest.NewConfigBuilder().WithPennsieveConfig(apitest.PennsieveConfigWithFakeURL()).Build(),
+		Claims:    &claims,
+	}
+	response, err := Handle(ctx, NewGetCollectionsRouteHandler(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	var responseDTO dto.GetCollectionsResponse
+	require.NoError(t, json.Unmarshal([]byte(response.Body), &responseDTO))
+
+	assert.Equal(t, largePageSize, responseDTO.Limit)
+	assert.Equal(t, largePageSize, responseDTO.TotalCount)
+	assert.Len(t, responseDTO.Collections, largePageSize)
+
+	for i := 0; i < largePageSize; i++ {
+		expected := collectionSummaries[i]
+		actual := responseDTO.Collections[i]
+		assert.Equal(t, expected.NodeID, actual.NodeID)
+		expectedBannerDOIs := expected.BannerDOIs
+		expectedBannerURLs := expectedDatasets.ExpectedBannersForDOIs(t, expectedBannerDOIs)
+		actualBannerURLs := actual.Banners
+		assert.Equal(t, expectedBannerURLs, actualBannerURLs)
+	}
 
 }

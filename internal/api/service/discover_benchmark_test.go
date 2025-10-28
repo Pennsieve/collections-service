@@ -65,12 +65,12 @@ func lookupDOIs(ctx context.Context, t *testing.T, discoverService *HTTPDiscover
 
 // --- Main benchmark ---
 func TestBatchSize(t *testing.T) {
-	t.Skip("just meant to be run manually to see how many DOIs we should request in a batch")
+	//t.Skip("just meant to be run manually to see how many DOIs we should request in a batch")
 	ctx := context.Background()
 	discover := NewHTTPDiscover("https://api.pennsieve.io/discover", logging.Default)
 
 	// Try these batch sizes
-	batchSizes := []int{1, 5, 10, 25, 50, 60, 70, 80, 90}
+	batchSizes := []int{1, 5, 10, 25, 50, 60, 70, 80}
 	trials := 5
 
 	fmt.Printf("%8s %8s %12s %12s %12s\n",
@@ -79,13 +79,9 @@ func TestBatchSize(t *testing.T) {
 
 	for _, n := range batchSizes {
 		durations := make([]time.Duration, 0, trials)
+		dois := lookupDOIs(ctx, t, discover, n)
 
 		for trialIdx := 0; trialIdx < trials; trialIdx++ {
-			dois := lookupDOIs(ctx, t, discover, n)
-			for i := range dois {
-				dois[i] = fmt.Sprintf("10.1234/fake%d", i)
-			}
-
 			start := time.Now()
 			if _, err := discover.GetDatasetsByDOI(ctx, dois); err != nil {
 				fmt.Printf("%4d DOIs -> trial %d failed: %v\n", n, trialIdx+1, err)
