@@ -7,6 +7,7 @@ import (
 	"github.com/pennsieve/collections-service/internal/api/container"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
+	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/shared/util"
 	"log/slog"
 	"net/http"
@@ -25,6 +26,10 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 		return dto.GetCollectionsResponse{}, apiErr
 	}
 	offset, apiErr := GetIntQueryParam(params.Request.QueryStringParameters, "offset", 0, DefaultGetCollectionsOffset)
+	if apiErr != nil {
+		return dto.GetCollectionsResponse{}, apiErr
+	}
+	includePublishedDataset, apiErr := GetBoolQueryParam(params.Request.QueryStringParameters, IncludePublishedDatasetQueryParamKey, false)
 	if apiErr != nil {
 		return dto.GetCollectionsResponse{}, apiErr
 	}
@@ -60,10 +65,25 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	if len(pennsieveDOIs) > 0 {
 		doiToPublicDataset, err = fetchPennsieveDatasets(ctx, params.Container, pennsieveDOIs)
 		if err != nil {
-			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error looking up DOIs in Discover for user %s", userClaim.NodeId), err)
+			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError("error looking up DOIs in Discover", err)
+		}
+	}
+
+	var nodeIDToPublishedCollection map[string]service.DatasetPublishStatusResponse
+	if includePublishedDataset {
+		numWorkers := min(10, limit)
+		nodeIDToPublishedCollection, err = fetchCollectionPublishStatuses(ctx, params.Container, storeResp.Collections, numWorkers)
+		if err != nil {
+			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError("error looking up collections publish status", err)
 		}
 	}
 	for _, storeCollection := range storeResp.Collections {
+		var collectionPublishStatusMaybe *service.DatasetPublishStatusResponse
+		if includePublishedDataset {
+			if collectionPublishStatus, found := nodeIDToPublishedCollection[storeCollection.NodeID]; found {
+				collectionPublishStatusMaybe = &collectionPublishStatus
+			}
+		}
 		collectionDTO := dto.CollectionSummary{
 			NodeID:      storeCollection.NodeID,
 			Name:        storeCollection.Name,
@@ -73,7 +93,7 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 			Banners:     collectBanners(storeCollection.BannerDOIs, doiToPublicDataset),
 			Size:        storeCollection.Size,
 			UserRole:    storeCollection.UserRole.String(),
-			Publication: ToDTOPublication(storeCollection.Publication, nil),
+			Publication: ToDTOPublication(storeCollection.Publication, collectionPublishStatusMaybe),
 		}
 		response.Collections = append(response.Collections, collectionDTO)
 	}
@@ -131,6 +151,9 @@ func fetchPennsieveDatasetsInBatches(
 	jobs := make(chan []string, numWorkers)
 	results := make(chan batchResult, numWorkers)
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	var wg sync.WaitGroup
 	wg.Add(numWorkers)
 
@@ -173,6 +196,7 @@ func fetchPennsieveDatasetsInBatches(
 	doiToDataset := make(map[string]dto.PublicDataset)
 	for res := range results {
 		if res.err != nil {
+			cancel()
 			return nil, fmt.Errorf("error fetching datasets from Discover by DOI: %w", res.err)
 		}
 		for k, v := range res.data {
@@ -181,4 +205,67 @@ func fetchPennsieveDatasetsInBatches(
 	}
 
 	return doiToDataset, nil
+}
+
+func fetchCollectionPublishStatuses(ctx context.Context, container container.DependencyContainer, summaries []collections.CollectionSummary, numWorkers int) (map[string]service.DatasetPublishStatusResponse, error) {
+	nodeIDToPublishStatus := make(map[string]service.DatasetPublishStatusResponse)
+	if len(summaries) == 0 {
+		return nodeIDToPublishStatus, nil
+	}
+	internalDiscover, err := container.InternalDiscover(ctx)
+	if err != nil {
+		return nil, err
+	}
+	type result struct {
+		nodeID string
+		pub    service.DatasetPublishStatusResponse
+		err    error
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	jobs := make(chan collections.CollectionSummary, len(summaries))
+	results := make(chan result, numWorkers)
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+
+	for w := 0; w < numWorkers; w++ {
+		go func() {
+			defer wg.Done()
+			for c := range jobs {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				pub, err := internalDiscover.GetCollectionPublishStatus(ctx, c.ID, c.NodeID, c.UserRole)
+				results <- result{nodeID: c.NodeID, pub: pub, err: err}
+			}
+		}()
+	}
+
+	go func() {
+		for _, c := range summaries {
+			jobs <- c
+		}
+		close(jobs)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	for r := range results {
+		if r.err != nil {
+			cancel()
+			return nil, fmt.Errorf("publish status lookup for collection %s failed: %w", r.nodeID, r.err)
+		}
+		nodeIDToPublishStatus[r.nodeID] = r.pub
+	}
+
+	return nodeIDToPublishStatus, nil
 }
