@@ -58,7 +58,7 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	var doiToPublicDataset map[string]dto.PublicDataset
 	pennsieveDOIs, _ := CategorizeDOIs(params.Config.PennsieveConfig.DOIPrefix, dois)
 	if len(pennsieveDOIs) > 0 {
-		doiToPublicDataset, err = lookupPennsieveDatasets(ctx, params.Container, pennsieveDOIs)
+		doiToPublicDataset, err = fetchPennsieveDatasets(ctx, params.Container, pennsieveDOIs)
 		if err != nil {
 			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError(fmt.Sprintf("error looking up DOIs in Discover for user %s", userClaim.NodeId), err)
 		}
@@ -89,7 +89,7 @@ func NewGetCollectionsRouteHandler() Handler[dto.GetCollectionsResponse] {
 	}
 }
 
-func lookupPennsieveDatasets(ctx context.Context, container container.DependencyContainer, pennsieveDOIs []string) (map[string]dto.PublicDataset, error) {
+func fetchPennsieveDatasets(ctx context.Context, container container.DependencyContainer, pennsieveDOIs []string) (map[string]dto.PublicDataset, error) {
 	const (
 		batchSize  = 80 // how many DOIs per request. >= 90 leads to URL-too-long errors. See discover_benchmark_test.go
 		numWorkers = 3  // how many concurrent requests
@@ -109,13 +109,13 @@ func lookupPennsieveDatasets(ctx context.Context, container container.Dependency
 	// But we do get URL-to-long errors if we request 90 or more DOIs at a time. So
 	// to keep things working if someone scripts calls with larger page sizes, we'll
 	// batch things here.
-	return batchLookupPennsieveDatasets(ctx, discoverService, pennsieveDOIs, batchSize, numWorkers)
+	return fetchPennsieveDatasetsInBatches(ctx, discoverService, pennsieveDOIs, batchSize, numWorkers)
 }
 
-// batchLookupPennsieveDatasets fetches datasets by DOI in concurrent batches.
+// fetchPennsieveDatasetsInBatches fetches datasets by DOI in concurrent batches.
 // Safe for arbitrary input sizes and avoids URL length limits.
 // Typical use: up to ~80 DOIs per batch, 3 workers.
-func batchLookupPennsieveDatasets(
+func fetchPennsieveDatasetsInBatches(
 	ctx context.Context,
 	discover service.Discover,
 	dois []string,
@@ -128,8 +128,8 @@ func batchLookupPennsieveDatasets(
 		err  error
 	}
 
-	jobs := make(chan []string)
-	results := make(chan batchResult)
+	jobs := make(chan []string, numWorkers)
+	results := make(chan batchResult, numWorkers)
 
 	var wg sync.WaitGroup
 	wg.Add(numWorkers)

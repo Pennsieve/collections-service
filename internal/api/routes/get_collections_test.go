@@ -394,7 +394,7 @@ func testHandleGetCollectionsLargePageSize(t *testing.T) {
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
 	for i := 0; i < largePageSize; i++ {
-		var bannerDOIs []string
+		bannerDOIs := make([]string, 0, collections.MaxBannerDOIsPerCollection)
 		for j := 0; j < collections.MaxBannerDOIsPerCollection; j++ {
 			publicDataset := expectedDatasets.NewPublishedWithOptions()
 			bannerDOIs = append(bannerDOIs, publicDataset.DOI)
