@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func ToDiscoverHandlerFunc(ctx context.Context, t require.TestingT, f GetDatasetsByDOIFunc) http.HandlerFunc {
@@ -96,19 +97,44 @@ func (m *DiscoverMux) WithFinalizeCollectionPublishFunc(ctx context.Context, t r
 }
 
 func (m *DiscoverMux) WithGetCollectionPublishStatusFunc(ctx context.Context, t require.TestingT, f GetCollectionPublishStatusFunc, expectedCollectionNodeID string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole) *DiscoverMux {
+	factory := func(organizationID int64, datasetID int64, organizationServiceRole, datasetServiceRole jwtdiscover.ServiceRole) (service.DatasetPublishStatusResponse, error) {
+
+		require.Equal(t, expectedCollectionNodeID, datasetServiceRole.NodeId)
+		require.Equal(t, expectedOrgServiceRole, organizationServiceRole)
+		require.Equal(t, expectedDatasetServiceRole, datasetServiceRole)
+
+		userRole, _ := role.RoleFromString(datasetServiceRole.Role)
+		return f(ctx, datasetID, datasetServiceRole.NodeId, userRole)
+	}
+	return m.WithGetCollectionPublishStatusFuncFactory(t, factory)
+}
+
+type DatasetPublishStatusResponseFactory func(organizationID int64, datasetID int64, organizationServiceRole, datasetServiceRole jwtdiscover.ServiceRole) (service.DatasetPublishStatusResponse, error)
+
+func (m *DiscoverMux) WithGetCollectionPublishStatusFuncFactory(t require.TestingT, factory DatasetPublishStatusResponseFactory) *DiscoverMux {
 	m.HandleFunc("GET /organizations/{organizationId}/datasets/{datasetId}", func(writer http.ResponseWriter, request *http.Request) {
 		test.Helper(t)
+
+		orgIDParam := request.PathValue("organizationId")
+		orgID, err := strconv.ParseInt(orgIDParam, 10, 64)
+		require.NoError(t, err)
+
 		collectionIDParam := request.PathValue("datasetId")
 		collectionID, err := strconv.ParseInt(collectionIDParam, 10, 64)
 		require.NoError(t, err)
 
-		require.Equal(t, expectedOrgServiceRole.Id, request.PathValue("organizationId"))
+		authHeader := request.Header.Get("Authorization")
+		require.NotEmpty(t, authHeader)
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		require.False(t, tokenString == authHeader, "auth header value %s does not start with 'Bearer '", authHeader)
 
-		_, actualDatasetRole := m.RequireExpectedAuthorization(t, collectionIDParam, expectedOrgServiceRole, expectedDatasetServiceRole, request)
-		require.Equal(t, expectedCollectionNodeID, actualDatasetRole.NodeId)
+		actualOrgRole, actualDatasetRole := m.ParseJWT(t, tokenString)
 
-		datasetRoleRole, _ := role.RoleFromString(actualDatasetRole.Role)
-		publishStatusResponse, err := f(ctx, collectionID, expectedCollectionNodeID, datasetRoleRole)
+		require.Equal(t, orgIDParam, actualOrgRole.Id)
+		require.Equal(t, collectionIDParam, actualDatasetRole.Id)
+
+		publishStatusResponse, err := factory(orgID, collectionID, actualOrgRole, actualDatasetRole)
+
 		respond(t, writer, publishStatusResponse, err)
 	})
 	return m

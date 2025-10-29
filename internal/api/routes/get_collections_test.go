@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/pennsieve/collections-service/internal/api/config"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
 	"github.com/pennsieve/collections-service/internal/test"
@@ -29,6 +30,7 @@ func TestGetCollections(t *testing.T) {
 	}{
 		{"get collections, none", testGetCollectionsNone},
 		{"get collections", testGetCollections},
+		{"get collections with includePublishedDataset", testGetCollectionsWithIncludePublishedDataset},
 		{"get collections, limit and offset", testGetCollectionsLimitOffset},
 	}
 
@@ -194,6 +196,99 @@ func testGetCollections(t *testing.T, expectationDB *fixtures.ExpectationDB) {
 
 	actualUser2Collection := user2CollectionResp.Collections[0]
 	assertEqualExpectedCollectionSummary(t, user2Collection, actualUser2Collection, expectedDatasets)
+}
+
+func testGetCollectionsWithIncludePublishedDataset(t *testing.T, expectationDB *fixtures.ExpectationDB) {
+	ctx := context.Background()
+
+	user1 := userstest.NewTestUser()
+	expectationDB.CreateTestUser(ctx, t, user1)
+
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+
+	// Set up using the ExpectationDB
+	user1CollectionNoDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithRandomLicense()
+	expectationDB.CreateCollection(ctx, t, user1CollectionNoDOI)
+
+	user1CollectionOneDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished()).
+		WithNTags(3)
+	expectationDB.CreateCollection(ctx, t, user1CollectionOneDOI)
+
+	user1CollectionOneDOIPublishStatus := collectionstest.NewCompletedPublishStatus(*user1CollectionOneDOI.ID, *user1.ID)
+	expectationDB.CreatePublishStatus(ctx, t, user1CollectionOneDOIPublishStatus)
+
+	user1CollectionFiveDOI := apitest.NewExpectedCollection().
+		WithNodeID().
+		WithUser(*user1.ID, pgdb.Owner).
+		WithPublicDatasets(expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished(), expectedDatasets.NewPublished()).
+		WithRandomLicense().
+		WithNTags(1)
+	expectationDB.CreateCollection(ctx, t, user1CollectionFiveDOI)
+
+	// Test route
+	user1Claims := apitest.DefaultClaims(user1)
+
+	jwtSecretKey := uuid.NewString()
+
+	discoverMux := mocks.NewDiscoverMux(jwtSecretKey).
+		WithGetDatasetsByDOIFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t))
+
+	mockDiscoverServer := httptest.NewServer(discoverMux)
+	defer mockDiscoverServer.Close()
+
+	pennsieveConfig := apitest.PennsieveConfigWithOptions(
+		config.WithDiscoverServiceURL(mockDiscoverServer.URL),
+		config.WithJWTSecretKey(jwtSecretKey),
+	)
+	apiConfig := apitest.NewConfigBuilder().
+		WithPostgresDBConfig(test.PostgresDBConfig(t)).
+		WithPennsieveConfig(pennsieveConfig).
+		Build()
+
+	container := apitest.NewTestContainer().
+		WithPostgresDB(test.NewPostgresDBFromConfig(t, apiConfig.PostgresDB)).
+		WithCollectionsStoreFromPostgresDB(apiConfig.PostgresDB.CollectionsDatabase).
+		WithHTTPTestDiscover(mockDiscoverServer.URL).
+		WithHTTPTestInternalDiscover(pennsieveConfig)
+
+	user1Params := Params{
+		Request: apitest.NewAPIGatewayRequestBuilder(GetCollectionsRouteKey).
+			WithClaims(user1Claims).
+			WithQueryParam(IncludePublishedDatasetQueryParamKey, "true").
+			Build(),
+		Container: container,
+		Config:    apiConfig,
+		Claims:    &user1Claims,
+	}
+
+	response, err := GetCollections(ctx, user1Params)
+	require.NoError(t, err)
+
+	assert.Equal(t, DefaultGetCollectionsLimit, response.Limit)
+	assert.Equal(t, DefaultGetCollectionsOffset, response.Offset)
+	assert.Equal(t, 3, response.TotalCount)
+
+	assert.Len(t, response.Collections, 3)
+
+	// They should be returned in oldest first order
+	actualCollection1 := response.Collections[0]
+	assertEqualExpectedCollectionSummary(t, user1CollectionNoDOI, actualCollection1, expectedDatasets)
+	assertDraftPublication(t, actualCollection1, false)
+
+	actualCollection2 := response.Collections[1]
+	assertEqualExpectedCollectionSummary(t, user1CollectionOneDOI, actualCollection2, expectedDatasets)
+	assertEqualExpectedPublishStatus(t, user1CollectionOneDOIPublishStatus, actualCollection2)
+
+	actualCollection3 := response.Collections[2]
+	assertEqualExpectedCollectionSummary(t, user1CollectionFiveDOI, actualCollection3, expectedDatasets)
+	assertDraftPublication(t, actualCollection3, false)
+
 }
 
 func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.ExpectationDB) {
