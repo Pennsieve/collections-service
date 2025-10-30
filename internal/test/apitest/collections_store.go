@@ -487,6 +487,16 @@ func (c *ExpectedCollection) GetCollectionPublishStatusFunc(t require.TestingT, 
 	}
 }
 
+func (c *ExpectedCollection) DatasetPublishStatusResponse(t require.TestingT) service.DatasetPublishStatusResponse {
+	test.Helper(t)
+	require.NotNil(t, c.ID, "expected collection does not have ID set")
+	return service.DatasetPublishStatusResponse{
+		Name:                 c.Name,
+		SourceOrganizationID: int(CollectionsIDSpaceID),
+		SourceDatasetID:      int(*c.ID),
+	}
+}
+
 func (c *ExpectedCollection) UnpublishCollectionFunc(t require.TestingT, mockResponse service.DatasetPublishStatusResponse) mocks.UnpublishCollectionFunc {
 	return func(_ context.Context, collectionID int64, collectionNodeID string, userRole role.Role) (service.DatasetPublishStatusResponse, error) {
 		test.Helper(t)
