@@ -10,6 +10,8 @@ import (
 	"github.com/pennsieve/collections-service/internal/test"
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/stretchr/testify/require"
+	"math/rand/v2"
+	"time"
 )
 
 // ExpectedPennsieveDatasets are the datasets expected to exist in Discover for a given test
@@ -127,6 +129,8 @@ func (e *ExpectedPennsieveDatasets) GetDatasetsByDOIFunc(t require.TestingT) moc
 				require.FailNow(t, "requested DOI not found", "DOI %s is not expected as Published or Unpublished", doi)
 			}
 		}
+		sleepMillis := rand.N(10) + 150
+		time.Sleep(time.Duration(sleepMillis) * time.Millisecond)
 		return response, nil
 	}
 }

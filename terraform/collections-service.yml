@@ -48,6 +48,13 @@ paths:
             type: integer
             minimum: 0
           description: The offset at which the returned list should start
+        - in: query
+          name: includePublishedDataset
+          schema:
+            type: boolean
+            default: false
+          required: false
+          description: if true, include publishing info obtained from Discover service
       security:
         - token_auth: [ ]
       tags:

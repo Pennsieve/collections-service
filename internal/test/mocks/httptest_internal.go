@@ -12,6 +12,13 @@ type InternalServer struct {
 	jwtSecretKey string
 }
 
+func RequireExpectedAuthorization(t require.TestingT, collectionIDParam string, expectedOrgServiceRole, expectedDatasetServiceRole, actualOrgRole, actualDatasetRole jwtdiscover.ServiceRole) {
+	require.Equal(t, expectedOrgServiceRole, actualOrgRole)
+	require.Equal(t, expectedDatasetServiceRole, actualDatasetRole)
+	require.Equal(t, collectionIDParam, actualDatasetRole.Id)
+	return
+}
+
 func (m InternalServer) RequireExpectedAuthorization(t require.TestingT, collectionIDParam string, expectedOrgServiceRole, expectedDatasetServiceRole jwtdiscover.ServiceRole, request *http.Request) (actualOrgRole jwtdiscover.ServiceRole, actualDatasetRole jwtdiscover.ServiceRole) {
 	authHeader := request.Header.Get("Authorization")
 	require.NotEmpty(t, authHeader)
@@ -19,10 +26,8 @@ func (m InternalServer) RequireExpectedAuthorization(t require.TestingT, collect
 	require.False(t, tokenString == authHeader, "auth header value %s does not start with 'Bearer '", authHeader)
 
 	actualOrgRole, actualDatasetRole = m.ParseJWT(t, tokenString)
+	RequireExpectedAuthorization(t, collectionIDParam, expectedOrgServiceRole, expectedDatasetServiceRole, actualOrgRole, actualDatasetRole)
 
-	require.Equal(t, expectedOrgServiceRole, actualOrgRole)
-	require.Equal(t, expectedDatasetServiceRole, actualDatasetRole)
-	require.Equal(t, collectionIDParam, actualDatasetRole.Id)
 	return
 }
 
