@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/pennsieve/collections-service/internal/api/apierrors"
-	"github.com/pennsieve/collections-service/internal/api/container"
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/api/store/collections"
@@ -63,18 +62,22 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	var doiToPublicDataset map[string]dto.PublicDataset
 	pennsieveDOIs, _ := CategorizeDOIs(params.Config.PennsieveConfig.DOIPrefix, dois)
 	if len(pennsieveDOIs) > 0 {
-		doiToPublicDataset, err = fetchPennsieveDatasets(ctx, params.Container, pennsieveDOIs)
+		doiToPublicDataset, err = fetchPennsieveDatasets(ctx, params.Container.Discover(), pennsieveDOIs)
 		if err != nil {
-			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError("error looking up DOIs in Discover", err)
+			return dto.GetCollectionsResponse{}, err
 		}
 	}
 
 	var nodeIDToPublishedCollection map[string]service.DatasetPublishStatusResponse
 	if includePublishedDataset {
 		numWorkers := min(10, limit)
-		nodeIDToPublishedCollection, err = fetchCollectionPublishStatuses(ctx, params.Container, storeResp.Collections, numWorkers)
+		internalDiscover, err := params.Container.InternalDiscover(ctx)
 		if err != nil {
-			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError("error looking up collections publish status", err)
+			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError("error creating internal discover client for collection publish status lookup", err)
+		}
+		nodeIDToPublishedCollection, err = fetchCollectionPublishStatuses(ctx, internalDiscover, storeResp.Collections, numWorkers)
+		if err != nil {
+			return dto.GetCollectionsResponse{}, err
 		}
 	}
 	for _, storeCollection := range storeResp.Collections {
@@ -109,19 +112,18 @@ func NewGetCollectionsRouteHandler() Handler[dto.GetCollectionsResponse] {
 	}
 }
 
-func fetchPennsieveDatasets(ctx context.Context, container container.DependencyContainer, pennsieveDOIs []string) (map[string]dto.PublicDataset, error) {
+func fetchPennsieveDatasets(ctx context.Context, discoverService service.Discover, pennsieveDOIs []string) (map[string]dto.PublicDataset, error) {
 	const (
 		batchSize  = 80 // how many DOIs per request. >= 90 leads to URL-too-long errors. See discover_benchmark_test.go
 		numWorkers = 3  // how many concurrent requests
 	)
 
-	discoverService := container.Discover()
 	// In reality, len(pennsieveDOIs) <= 40 == FE page size * 4 banner DOIs per collection
 	// Testing in discover_benchmark_test.go showed not much point in doing concurrent batches in this case.
 	if len(pennsieveDOIs) <= batchSize {
 		discoverResp, err := discoverService.GetDatasetsByDOI(ctx, pennsieveDOIs)
 		if err != nil {
-			return nil, fmt.Errorf("error looking up Datasets in Discover by DOI: %w", err)
+			return nil, apierrors.NewInternalServerError("error looking up Datasets in Discover by DOI", err)
 		}
 		return discoverResp.Published, nil
 	}
@@ -197,7 +199,7 @@ func fetchPennsieveDatasetsInBatches(
 	for res := range results {
 		if res.err != nil {
 			cancel()
-			return nil, fmt.Errorf("error fetching datasets from Discover by DOI: %w", res.err)
+			return nil, apierrors.NewInternalServerError("error fetching datasets from Discover by DOI", res.err)
 		}
 		for k, v := range res.data {
 			doiToDataset[k] = v
@@ -207,15 +209,12 @@ func fetchPennsieveDatasetsInBatches(
 	return doiToDataset, nil
 }
 
-func fetchCollectionPublishStatuses(ctx context.Context, container container.DependencyContainer, summaries []collections.CollectionSummary, numWorkers int) (map[string]service.DatasetPublishStatusResponse, error) {
+func fetchCollectionPublishStatuses(ctx context.Context, internalDiscover service.InternalDiscover, summaries []collections.CollectionSummary, numWorkers int) (map[string]service.DatasetPublishStatusResponse, error) {
 	nodeIDToPublishStatus := make(map[string]service.DatasetPublishStatusResponse)
 	if len(summaries) == 0 {
 		return nodeIDToPublishStatus, nil
 	}
-	internalDiscover, err := container.InternalDiscover(ctx)
-	if err != nil {
-		return nil, err
-	}
+
 	type result struct {
 		nodeID string
 		pub    service.DatasetPublishStatusResponse
@@ -262,7 +261,7 @@ func fetchCollectionPublishStatuses(ctx context.Context, container container.Dep
 	for r := range results {
 		if r.err != nil {
 			cancel()
-			return nil, fmt.Errorf("publish status lookup for collection %s failed: %w", r.nodeID, r.err)
+			return nil, apierrors.NewInternalServerError(fmt.Sprintf("publish status lookup for collection %s failed", r.nodeID), r.err)
 		}
 		nodeIDToPublishStatus[r.nodeID] = r.pub
 	}
