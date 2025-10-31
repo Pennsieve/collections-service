@@ -35,12 +35,12 @@ func stats(durations []time.Duration) (avg, stddev time.Duration) {
 }
 
 func lookupDOIs(ctx context.Context, t *testing.T, discoverService *HTTPDiscover, limit int) []string {
-	doiQueryParams := url.Values{}
-	doiQueryParams.Add("limit", fmt.Sprintf("%d", limit))
+	limitQueryParam := url.Values{}
+	limitQueryParam.Add("limit", fmt.Sprintf("%d", limit))
 
 	requestParams := requestParameters{
 		method: http.MethodGet,
-		url:    fmt.Sprintf("%s/datasets?%s", discoverService.url, doiQueryParams.Encode()),
+		url:    fmt.Sprintf("%s/datasets?%s", discoverService.url, limitQueryParam.Encode()),
 	}
 	response, err := discoverService.InvokePennsieve(ctx, requestParams)
 	require.NoError(t, err)
@@ -65,11 +65,11 @@ func lookupDOIs(ctx context.Context, t *testing.T, discoverService *HTTPDiscover
 
 // --- Main benchmark ---
 func TestBatchSize(t *testing.T) {
-	//t.Skip("just meant to be run manually to see how many DOIs we should request in a batch")
+	t.Skip("just meant to be run manually to see how many DOIs we should request in a batch")
 	ctx := context.Background()
 	discover := NewHTTPDiscover("https://api.pennsieve.io/discover", logging.Default)
 
-	// Try these batch sizes
+	// Try these batch sizes. When more than 80 we start to get URL-too-long errors.
 	batchSizes := []int{1, 5, 10, 25, 50, 60, 70, 80}
 	trials := 5
 
