@@ -2,6 +2,11 @@ package service_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
+	"testing"
+
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/api/service"
 	"github.com/pennsieve/collections-service/internal/shared/logging"
@@ -9,8 +14,6 @@ import (
 	"github.com/pennsieve/collections-service/internal/test/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http/httptest"
-	"testing"
 )
 
 func TestHTTPDiscover_GetDatasetsByDOI(t *testing.T) {
@@ -32,4 +35,44 @@ func TestHTTPDiscover_GetDatasetsByDOI(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedResponse, response)
 
+}
+
+// TestHTTPDiscover_GetDatasetsByDOI_Batches verifies that a large DOI set is
+// split across multiple discover requests so that no single request exceeds
+// the discover front-end's URI length limit, and that the per-batch responses
+// are merged correctly.
+func TestHTTPDiscover_GetDatasetsByDOI_Batches(t *testing.T) {
+
+	const largeCollectionSize = 500
+	const discoverURILimit = 2048
+
+	ctx := context.Background()
+	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
+	var dois []string
+	for range largeCollectionSize {
+		dois = append(dois, expectedDatasets.NewPublished().DOI)
+	}
+
+	var requestCount atomic.Int32
+	var maxURILen atomic.Int32
+	discoverServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount.Add(1)
+		if int32(len(r.URL.RequestURI())) > maxURILen.Load() {
+			maxURILen.Store(int32(len(r.URL.RequestURI())))
+		}
+		mocks.ToDiscoverHandlerFunc(ctx, t, expectedDatasets.GetDatasetsByDOIFunc(t)).ServeHTTP(w, r)
+	}))
+	defer discoverServer.Close()
+
+	discover := service.NewHTTPDiscover(discoverServer.URL, logging.Default)
+
+	response, err := discover.GetDatasetsByDOI(ctx, dois)
+	require.NoError(t, err)
+
+	assert.Len(t, response.Published, largeCollectionSize)
+	for _, doi := range dois {
+		assert.Contains(t, response.Published, doi)
+	}
+	assert.Greater(t, requestCount.Load(), int32(1), "expected multiple batched requests for %d DOIs", largeCollectionSize)
+	assert.LessOrEqual(t, maxURILen.Load(), int32(discoverURILimit), "no batch request URI should exceed the discover URI limit")
 }
