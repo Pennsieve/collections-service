@@ -37,6 +37,32 @@ func TestHTTPDiscover_GetDatasetsByDOI(t *testing.T) {
 
 }
 
+// TestHTTPDiscover_GetDatasetsByDOI_Empty verifies that calling with no DOIs
+// short-circuits without making any HTTP requests to discover.
+func TestHTTPDiscover_GetDatasetsByDOI_Empty(t *testing.T) {
+	ctx := context.Background()
+
+	var requestCount atomic.Int32
+	discoverServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount.Add(1)
+	}))
+	defer discoverServer.Close()
+
+	discover := service.NewHTTPDiscover(discoverServer.URL, logging.Default)
+
+	response, err := discover.GetDatasetsByDOI(ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, response.Published)
+	assert.Empty(t, response.Unpublished)
+
+	response, err = discover.GetDatasetsByDOI(ctx, []string{})
+	require.NoError(t, err)
+	assert.Empty(t, response.Published)
+	assert.Empty(t, response.Unpublished)
+
+	assert.Zero(t, requestCount.Load(), "no HTTP requests should be made for an empty DOI list")
+}
+
 // TestHTTPDiscover_GetDatasetsByDOI_Batches verifies that a large DOI set is
 // split across multiple discover requests so that no single request exceeds
 // the discover front-end's URI length limit, and that the per-batch responses
