@@ -62,10 +62,11 @@ func GetCollections(ctx context.Context, params Params) (dto.GetCollectionsRespo
 	var doiToPublicDataset map[string]dto.PublicDataset
 	pennsieveDOIs, _ := CategorizeDOIs(params.Config.PennsieveConfig.DOIPrefix, dois)
 	if len(pennsieveDOIs) > 0 {
-		doiToPublicDataset, err = fetchPennsieveDatasets(ctx, params.Container.Discover(), pennsieveDOIs)
+		discoverResp, err := params.Container.Discover().GetDatasetsByDOI(ctx, pennsieveDOIs)
 		if err != nil {
-			return dto.GetCollectionsResponse{}, err
+			return dto.GetCollectionsResponse{}, apierrors.NewInternalServerError("error looking up Datasets in Discover by DOI", err)
 		}
+		doiToPublicDataset = discoverResp.Published
 	}
 
 	var nodeIDToPublishedCollection map[string]service.DatasetPublishStatusResponse
@@ -110,103 +111,6 @@ func NewGetCollectionsRouteHandler() Handler[dto.GetCollectionsResponse] {
 		SuccessStatusCode: http.StatusOK,
 		Headers:           DefaultResponseHeaders(),
 	}
-}
-
-func fetchPennsieveDatasets(ctx context.Context, discoverService service.Discover, pennsieveDOIs []string) (map[string]dto.PublicDataset, error) {
-	const (
-		batchSize  = 80 // how many DOIs per request. >= 90 leads to URL-too-long errors. See discover_benchmark_test.go
-		numWorkers = 3  // how many concurrent requests
-	)
-
-	// In reality, len(pennsieveDOIs) <= 40 == FE page size * 4 banner DOIs per collection
-	// Testing in discover_benchmark_test.go showed not much point in doing concurrent batches in this case.
-	if len(pennsieveDOIs) <= batchSize {
-		discoverResp, err := discoverService.GetDatasetsByDOI(ctx, pennsieveDOIs)
-		if err != nil {
-			return nil, apierrors.NewInternalServerError("error looking up Datasets in Discover by DOI", err)
-		}
-		return discoverResp.Published, nil
-	}
-
-	// But we do get URL-to-long errors if we request 90 or more DOIs at a time. So
-	// to keep things working if someone scripts calls with larger page sizes, we'll
-	// batch things here.
-	return fetchPennsieveDatasetsInBatches(ctx, discoverService, pennsieveDOIs, batchSize, numWorkers)
-}
-
-// fetchPennsieveDatasetsInBatches fetches datasets by DOI in concurrent batches.
-// Safe for arbitrary input sizes and avoids URL length limits.
-// Typical use: up to ~80 DOIs per batch, 3 workers.
-func fetchPennsieveDatasetsInBatches(
-	ctx context.Context,
-	discover service.Discover,
-	dois []string,
-	batchSize int,
-	numWorkers int,
-) (map[string]dto.PublicDataset, error) {
-
-	type batchResult struct {
-		data map[string]dto.PublicDataset
-		err  error
-	}
-
-	jobs := make(chan []string, numWorkers)
-	results := make(chan batchResult, numWorkers)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	var wg sync.WaitGroup
-	wg.Add(numWorkers)
-
-	for w := 0; w < numWorkers; w++ {
-		go func() {
-			defer wg.Done()
-			for batch := range jobs {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-				}
-
-				resp, err := discover.GetDatasetsByDOI(ctx, batch)
-				if err != nil {
-					results <- batchResult{err: fmt.Errorf("fetch batch failed: %w", err)}
-					continue
-				}
-				results <- batchResult{data: resp.Published}
-			}
-		}()
-	}
-
-	go func() {
-		for i := 0; i < len(dois); i += batchSize {
-			end := i + batchSize
-			if end > len(dois) {
-				end = len(dois)
-			}
-			jobs <- dois[i:end]
-		}
-		close(jobs)
-	}()
-
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	doiToDataset := make(map[string]dto.PublicDataset)
-	for res := range results {
-		if res.err != nil {
-			cancel()
-			return nil, apierrors.NewInternalServerError("error fetching datasets from Discover by DOI", res.err)
-		}
-		for k, v := range res.data {
-			doiToDataset[k] = v
-		}
-	}
-
-	return doiToDataset, nil
 }
 
 func fetchCollectionPublishStatuses(ctx context.Context, internalDiscover service.InternalDiscover, summaries []collections.CollectionSummary, numWorkers int) (map[string]service.DatasetPublishStatusResponse, error) {

@@ -10,6 +10,7 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"github.com/pennsieve/collections-service/internal/api/dto"
 	"github.com/pennsieve/collections-service/internal/shared/util"
@@ -28,37 +29,101 @@ func NewHTTPDiscover(discoverURL string, logger *slog.Logger) *HTTPDiscover {
 	return &HTTPDiscover{url: discoverURL, logger: logger}
 }
 
-// maxDOIQueryLength is the maximum length of the query string portion of a
-// GetDatasetsByDOI request. Kept comfortably below the default 2048-character
-// URI limit
-const maxDOIQueryLength = 1800
+// maxRequestURILength: hard cap Discover enforces on the request URI
+const maxRequestURILength = 2048
+
+// uriLengthSafetyMargin: headroom reserved below maxRequestURILength to
+// absorb minor variations (longer DOIs, slight URL changes, etc.). 100 chars
+// is roughly 5 DOIs of headroom.
+const uriLengthSafetyMargin = 100
+
+// numDOIBatchWorkers: the number of concurrent workers
+const numDOIBatchWorkers = 3
+
+const datasetsByDOIPath = "/datasets/doi"
 
 func (d *HTTPDiscover) GetDatasetsByDOI(ctx context.Context, dois []string) (DatasetsByDOIResponse, error) {
-	batches := batchDOIsByQueryLength(dois, maxDOIQueryLength)
+
+	urlPrefix := fmt.Sprintf("%s%s?", d.url, datasetsByDOIPath)
+	queryBudget := maxRequestURILength - len(urlPrefix) - uriLengthSafetyMargin
+	batches := batchDOIsByQueryLength(dois, queryBudget)
 	if len(batches) == 0 {
 		return DatasetsByDOIResponse{}, nil
 	}
 	if len(batches) == 1 {
 		return d.fetchDatasetsByDOI(ctx, batches[0])
 	}
-	var merged DatasetsByDOIResponse
-	for _, batch := range batches {
-		batchResponse, err := d.fetchDatasetsByDOI(ctx, batch)
-		// Return fast if any batch request fails
-		if err != nil {
-			return DatasetsByDOIResponse{}, err
+	return d.fetchDatasetsByDOIConcurrent(ctx, batches, numDOIBatchWorkers)
+}
+
+// fetchDatasetsByDOIConcurrent fans batches out to a pool of workers and merges
+// the responses. Fast-fails on the first error via context cancellation.
+func (d *HTTPDiscover) fetchDatasetsByDOIConcurrent(ctx context.Context, batches [][]string, numWorkers int) (DatasetsByDOIResponse, error) {
+	type batchResult struct {
+		resp DatasetsByDOIResponse
+		err  error
+	}
+
+	if numWorkers > len(batches) {
+		numWorkers = len(batches)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	jobs := make(chan []string)
+	results := make(chan batchResult, len(batches))
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+	for w := 0; w < numWorkers; w++ {
+		go func() {
+			defer wg.Done()
+			for batch := range jobs {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+				resp, err := d.fetchDatasetsByDOI(ctx, batch)
+				results <- batchResult{resp: resp, err: err}
+			}
+		}()
+	}
+
+	go func() {
+		defer close(jobs)
+		for _, batch := range batches {
+			select {
+			case <-ctx.Done():
+				return
+			case jobs <- batch:
+			}
 		}
-		if len(batchResponse.Published) > 0 {
+	}()
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var merged DatasetsByDOIResponse
+	for res := range results {
+		if res.err != nil {
+			cancel()
+			return DatasetsByDOIResponse{}, res.err
+		}
+		if len(res.resp.Published) > 0 {
 			if merged.Published == nil {
 				merged.Published = map[string]dto.PublicDataset{}
 			}
-			maps.Copy(merged.Published, batchResponse.Published)
+			maps.Copy(merged.Published, res.resp.Published)
 		}
-		if len(batchResponse.Unpublished) > 0 {
+		if len(res.resp.Unpublished) > 0 {
 			if merged.Unpublished == nil {
 				merged.Unpublished = map[string]dto.Tombstone{}
 			}
-			maps.Copy(merged.Unpublished, batchResponse.Unpublished)
+			maps.Copy(merged.Unpublished, res.resp.Unpublished)
 		}
 	}
 	return merged, nil
@@ -71,7 +136,7 @@ func (d *HTTPDiscover) fetchDatasetsByDOI(ctx context.Context, dois []string) (D
 	}
 	requestParams := requestParameters{
 		method: http.MethodGet,
-		url:    fmt.Sprintf("%s/datasets/doi?%s", d.url, doiQueryParams.Encode()),
+		url:    fmt.Sprintf("%s%s?%s", d.url, datasetsByDOIPath, doiQueryParams.Encode()),
 	}
 	response, err := d.InvokePennsieve(ctx, requestParams)
 	if err != nil {
