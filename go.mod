@@ -1,8 +1,6 @@
 module github.com/pennsieve/collections-service
 
-go 1.23.0
-
-toolchain go1.23.4
+go 1.27
 
 require (
 	github.com/aws/aws-lambda-go v1.47.0

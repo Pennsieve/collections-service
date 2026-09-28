@@ -353,14 +353,12 @@ func testGetCollections(t *testing.T) {
 				Offset:     expectedOffset,
 				TotalCount: 101,
 				Collections: []collections.CollectionSummary{{
-					CollectionBase: collections.CollectionBase{
-						NodeID:      *expectedCollection.NodeID,
-						Name:        expectedCollection.Name,
-						Description: expectedCollection.Description,
-						Size:        len(expectedCollection.DOIs),
-						UserRole:    expectedCollection.Users[0].PermissionBit.ToRole(),
-					},
-					BannerDOIs: []string{expectedDataset.DOI},
+					NodeID:      *expectedCollection.NodeID,
+					Name:        expectedCollection.Name,
+					Description: expectedCollection.Description,
+					Size:        len(expectedCollection.DOIs),
+					UserRole:    expectedCollection.Users[0].PermissionBit.ToRole(),
+					BannerDOIs:  []string{expectedDataset.DOI},
 				}},
 			}, nil
 		})

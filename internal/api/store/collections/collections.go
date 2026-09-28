@@ -160,16 +160,14 @@ func (s *PostgresStore) GetCollections(ctx context.Context, userID int64, limit 
 		collectionIDs = append(collectionIDs, id)
 
 		return CollectionSummary{
-			CollectionBase: CollectionBase{
-				ID:          id,
-				NodeID:      nodeID,
-				Name:        name,
-				Description: description,
-				License:     license,
-				Tags:        tags,
-				UserRole:    role.AsRole(),
-				Publication: newPublication(pubStatusOpt, pubTypeOpt),
-			}}, nil
+			ID:          id,
+			NodeID:      nodeID,
+			Name:        name,
+			Description: description,
+			License:     license,
+			Tags:        tags,
+			UserRole:    role.AsRole(),
+			Publication: newPublication(pubStatusOpt, pubTypeOpt)}, nil
 
 	})
 	if err != nil {
@@ -270,16 +268,14 @@ func getCollectionByIDColumn(ctx context.Context, conn *pgx.Conn, userID int64, 
 	_, err := pgx.ForEachRow(rows, []any{&id, &nodeID, &name, &description, &license, &tags, &pgxRole, &doiOpt, &datasourceOpt, &publishTypeOpt, &publishStatusOpt}, func() error {
 		if response == nil {
 			response = &GetCollectionResponse{
-				CollectionBase: CollectionBase{
-					ID:          id,
-					NodeID:      nodeID,
-					Name:        name,
-					Description: description,
-					License:     license,
-					Tags:        tags,
-					UserRole:    pgxRole.AsRole(),
-					Publication: newPublication(publishStatusOpt, publishTypeOpt),
-				},
+				ID:          id,
+				NodeID:      nodeID,
+				Name:        name,
+				Description: description,
+				License:     license,
+				Tags:        tags,
+				UserRole:    pgxRole.AsRole(),
+				Publication: newPublication(publishStatusOpt, publishTypeOpt),
 			}
 		}
 		if doiOpt != nil {

@@ -134,7 +134,7 @@ func fetchCollectionPublishStatuses(ctx context.Context, internalDiscover servic
 	var wg sync.WaitGroup
 	wg.Add(numWorkers)
 
-	for w := 0; w < numWorkers; w++ {
+	for range numWorkers {
 		go func() {
 			defer wg.Done()
 			for c := range jobs {

@@ -21,11 +21,9 @@ func GenerateServiceClaim(duration time.Duration) *ServiceClaim {
 	issuedTime := jwt.NewNumericDate(time.Now())
 	expiresAt := jwt.NewNumericDate(issuedTime.Add(duration))
 	return &ServiceClaim{
-		Type: authorizer.LabelServiceClaim,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: expiresAt,
-			IssuedAt:  issuedTime,
-		},
+		Type:      authorizer.LabelServiceClaim,
+		ExpiresAt: expiresAt,
+		IssuedAt:  issuedTime,
 	}
 }
 

@@ -19,7 +19,7 @@ func NewAPIGatewayRequestBuilder(routeKey string) *APIGatewayRequestBuilder {
 		RouteKey: routeKey,
 		RequestContext: events.APIGatewayV2HTTPRequestContext{
 			Authorizer: &events.APIGatewayV2HTTPRequestContextAuthorizerDescription{
-				Lambda: make(map[string]interface{}),
+				Lambda: make(map[string]any),
 			},
 		},
 	}}
@@ -80,7 +80,7 @@ func DefaultClaims(testUser userstest.User) authorizer.Claims {
 	}
 }
 
-func ClaimsToMap(claims authorizer.Claims) map[string]interface{} {
+func ClaimsToMap(claims authorizer.Claims) map[string]any {
 	asMap := map[string]any{}
 	if claims.UserClaim != nil {
 		asMap[authorizer.LabelUserClaim] = map[string]any{
