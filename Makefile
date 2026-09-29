@@ -39,7 +39,7 @@ package: package-dbmigrate
 	@echo "*   Building API lambda   *"
 	@echo "***************************"
 	@echo ""
-		env GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -o $(WORKING_DIR)/bin/api/bootstrap $(WORKING_DIR)/cmd/api; \
+		env GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -o $(WORKING_DIR)/bin/api/bootstrap $(WORKING_DIR)/cmd/api; \
 		cd $(WORKING_DIR)/bin/api/; \
 		zip -r $(WORKING_DIR)/bin/api/$(API_PACKAGE_NAME) .
 

@@ -76,7 +76,7 @@ func WithMiddleInitial() PublicContributorOptionFunc {
 func WithDegree() PublicContributorOptionFunc {
 	return func(contributor *dto.PublicContributor) {
 		var sb strings.Builder
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			sb.WriteString(randomLetter())
 		}
 		degree := sb.String()

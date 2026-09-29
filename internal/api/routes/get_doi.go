@@ -43,8 +43,7 @@ func GetDOI(ctx context.Context, params Params) (dto.GetLatestDOIResponse, error
 	}
 	latestDOI, err := doiService.GetLatestDOI(ctx, storeResp.ID, nodeID, storeResp.UserRole)
 	if err != nil {
-		var notFoundErr service.LatestDOINotFoundError
-		if errors.As(err, &notFoundErr) {
+		if _, ok := errors.AsType[service.LatestDOINotFoundError](err); ok {
 			return dto.GetLatestDOIResponse{}, apierrors.NewCollectionDOINotFoundError(storeResp.NodeID)
 		}
 		return dto.GetLatestDOIResponse{}, apierrors.NewInternalServerError("error calling DOI service", err)

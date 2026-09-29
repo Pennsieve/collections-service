@@ -29,7 +29,7 @@ type HTTPInternalDiscover struct {
 
 func NewHTTPInternalDiscover(internalDiscoverURL, jwtSecretKey string, collectionNamespaceID int64, logger *slog.Logger) *HTTPInternalDiscover {
 	return &HTTPInternalDiscover{
-		InternalService:       InternalService{jwtSecretKey: jwtSecretKey},
+		jwtSecretKey:          jwtSecretKey,
 		url:                   internalDiscoverURL,
 		collectionNamespaceID: collectionNamespaceID,
 		logger:                logger,

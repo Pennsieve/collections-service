@@ -81,7 +81,7 @@ func TestBatchSize(t *testing.T) {
 		durations := make([]time.Duration, 0, trials)
 		dois := lookupDOIs(ctx, t, discover, n)
 
-		for trialIdx := 0; trialIdx < trials; trialIdx++ {
+		for trialIdx := range trials {
 			start := time.Now()
 			if _, err := discover.GetDatasetsByDOI(ctx, dois); err != nil {
 				fmt.Printf("%4d DOIs -> trial %d failed: %v\n", n, trialIdx+1, err)

@@ -34,16 +34,14 @@ func ToDTOPublication(storePublication *collections.Publication, fromDiscover *s
 
 func (p Params) StoreToDTOCollection(ctx context.Context, storeCollection collections.GetCollectionResponse, datasetPublishStatus *service.DatasetPublishStatusResponse) (dto.GetCollectionResponse, error) {
 	response := dto.GetCollectionResponse{
-		CollectionSummary: dto.CollectionSummary{
-			NodeID:      storeCollection.NodeID,
-			Name:        storeCollection.Name,
-			Description: storeCollection.Description,
-			Size:        storeCollection.Size,
-			UserRole:    storeCollection.UserRole.String(),
-			License:     util.SafeDeref(storeCollection.License),
-			Tags:        storeCollection.Tags,
-			Publication: ToDTOPublication(storeCollection.Publication, datasetPublishStatus),
-		},
+		NodeID:      storeCollection.NodeID,
+		Name:        storeCollection.Name,
+		Description: storeCollection.Description,
+		Size:        storeCollection.Size,
+		UserRole:    storeCollection.UserRole.String(),
+		License:     util.SafeDeref(storeCollection.License),
+		Tags:        storeCollection.Tags,
+		Publication: ToDTOPublication(storeCollection.Publication, datasetPublishStatus),
 	}
 	if publication := storeCollection.Publication; publication != nil {
 		response.Publication.Status = publication.Status
