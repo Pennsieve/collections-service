@@ -3,6 +3,8 @@ FROM pennsieve/go-cloudwrap:1.27-alpine
 WORKDIR /app
 
 ENV CGO_ENABLED=0
+# go-cloudwrap:1.27-alpine ships Go 1.27.1; let go.mod pull the 1.27.2 toolchain
+ENV GOTOOLCHAIN=auto
 
 COPY go.mod go.sum ./
 RUN ["go", "mod", "download"]
