@@ -324,7 +324,7 @@ func testGetCollectionsLimitOffset(t *testing.T, store *collections.PostgresStor
 
 	totalCollections := 11
 	var expectedCollections []*apitest.ExpectedCollection
-	for i := 0; i < totalCollections; i++ {
+	for i := range totalCollections {
 		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user1.ID, pgdb.Owner).WithNPennsieveDOIs(i).WithRandomLicense().WithNTags(i)
 		expectationDB.CreateCollection(ctx, t, expectedCollection)
 		expectedCollections = append(expectedCollections, expectedCollection)
@@ -345,7 +345,7 @@ func testGetCollectionsLimitOffset(t *testing.T, store *collections.PostgresStor
 
 		expectedCollectionLen := min(limit, totalCollections-offset)
 		if assert.Len(t, resp.Collections, expectedCollectionLen) {
-			for i := 0; i < expectedCollectionLen; i++ {
+			for i := range expectedCollectionLen {
 				assertExpectedEqualCollectionSummary(t, expectedCollections[offset+i], resp.Collections[i])
 			}
 		}

@@ -24,7 +24,7 @@ type HTTPDOI struct {
 
 func NewHTTPDOI(doiServiceURL, jwtSecretKey string, collectionNamespaceID int64, logger *slog.Logger) *HTTPDOI {
 	return &HTTPDOI{
-		InternalService:       InternalService{jwtSecretKey: jwtSecretKey},
+		jwtSecretKey:          jwtSecretKey,
 		url:                   doiServiceURL,
 		collectionNamespaceID: collectionNamespaceID,
 		logger:                logger,

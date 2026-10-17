@@ -3,10 +3,11 @@ package validate
 import (
 	"errors"
 	"fmt"
-	"github.com/pennsieve/collections-service/internal/api/apierrors"
-	"github.com/pennsieve/collections-service/internal/api/dto"
 	"slices"
 	"strings"
+
+	"github.com/pennsieve/collections-service/internal/api/apierrors"
+	"github.com/pennsieve/collections-service/internal/api/dto"
 )
 
 func CollectionName(value string) error {
@@ -43,7 +44,7 @@ func License(value *string, required bool) error {
 	}
 	idx := slices.Index(dto.ValidLicenses, *value)
 	if idx == -1 {
-		return fmt.Errorf(fmt.Sprintf("invalid license: %q", *value))
+		return fmt.Errorf("invalid license: %q", *value)
 	}
 	return nil
 }

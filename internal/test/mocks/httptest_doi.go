@@ -18,8 +18,8 @@ type DOIMux struct {
 
 func NewDOIMux(jwtSecretKey string) *DOIMux {
 	return &DOIMux{
-		ServeMux:       http.NewServeMux(),
-		InternalServer: InternalServer{jwtSecretKey: jwtSecretKey},
+		ServeMux:     http.NewServeMux(),
+		jwtSecretKey: jwtSecretKey,
 	}
 }
 

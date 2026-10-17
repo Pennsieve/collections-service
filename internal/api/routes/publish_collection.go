@@ -353,8 +353,7 @@ func cleanupOnError(ctx context.Context, logger *slog.Logger, originalErr error,
 	joined := strings.Join(cleanupErrs, "; ")
 
 	// Ideally all errors will be *apierrors.Error, but just in case
-	var originalAPIError *apierrors.Error
-	if errors.As(originalErr, &originalAPIError) {
+	if originalAPIError, ok := errors.AsType[*apierrors.Error](originalErr); ok {
 		var cause error
 		if origCause := originalAPIError.Cause; origCause == nil {
 			cause = fmt.Errorf("cleanup errors not related to cause: %s", joined)

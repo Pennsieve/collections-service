@@ -104,7 +104,7 @@ func (c *ExpectedCollection) SetTags(tags []string) *ExpectedCollection {
 }
 
 func (c *ExpectedCollection) WithNTags(n int) *ExpectedCollection {
-	for i := 0; i < n; i++ {
+	for range n {
 		c.Tags = append(c.Tags, uuid.NewString())
 	}
 	return c
@@ -145,7 +145,7 @@ func (c *ExpectedCollection) SetDOIs(dois ...collections.DOI) *ExpectedCollectio
 
 func (c *ExpectedCollection) WithNPennsieveDOIs(n int) *ExpectedCollection {
 	var dois []collections.DOI
-	for i := 0; i < n; i++ {
+	for range n {
 		dois = append(dois, NewPennsieveDOI())
 	}
 	return c.WithDOIs(dois...)

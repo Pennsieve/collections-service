@@ -330,7 +330,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 	totalCollections := 12
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 	var expectedCollections []*apitest.ExpectedCollection
-	for i := 0; i < totalCollections; i++ {
+	for i := range totalCollections {
 		expectedCollection := apitest.NewExpectedCollection().WithNodeID().WithUser(*user.ID, pgdb.Owner).WithRandomLicense()
 		for j := 0; j < i; j++ {
 			expectedCollection = expectedCollection.WithPublicDatasets(expectedDatasets.NewPublished()).WithNTags(j)
@@ -378,7 +378,7 @@ func testGetCollectionsLimitOffset(t *testing.T, expectationDB *fixtures.Expecta
 
 		expectedCollectionLen := min(limit, totalCollections-offset)
 		if assert.Len(t, resp.Collections, expectedCollectionLen) {
-			for i := 0; i < expectedCollectionLen; i++ {
+			for i := range expectedCollectionLen {
 				assertEqualExpectedCollectionSummary(t, expectedCollections[offset+i], resp.Collections[i], expectedDatasets)
 			}
 		}
@@ -477,13 +477,11 @@ func testHandleGetCollectionsEmptyBannersArray(t *testing.T) {
 				Offset:     DefaultGetCollectionsOffset,
 				TotalCount: 1,
 				Collections: []collections.CollectionSummary{{
-					CollectionBase: collections.CollectionBase{
-						NodeID:      *expectedCollection.NodeID,
-						Name:        expectedCollection.Name,
-						Description: expectedCollection.Description,
-						Size:        0,
-						UserRole:    role.Owner,
-					},
+					NodeID:      *expectedCollection.NodeID,
+					Name:        expectedCollection.Name,
+					Description: expectedCollection.Description,
+					Size:        0,
+					UserRole:    role.Owner,
 				}},
 			}, nil
 		})
@@ -519,18 +517,16 @@ func testHandleGetCollectionsLargePageSize(t *testing.T) {
 	collectionSummaries := make([]collections.CollectionSummary, 0, largePageSize)
 	expectedDatasets := apitest.NewExpectedPennsieveDatasets()
 
-	for i := 0; i < largePageSize; i++ {
+	for i := range largePageSize {
 		bannerDOIs := make([]string, 0, collections.MaxBannerDOIsPerCollection)
-		for j := 0; j < collections.MaxBannerDOIsPerCollection; j++ {
+		for range collections.MaxBannerDOIsPerCollection {
 			publicDataset := expectedDatasets.NewPublishedWithOptions()
 			bannerDOIs = append(bannerDOIs, publicDataset.DOI)
 		}
 		summary := collections.CollectionSummary{
-			CollectionBase: collections.CollectionBase{
-				ID:     int64(i),
-				NodeID: uuid.NewString(),
-				Name:   uuid.NewString(),
-			},
+			ID:         int64(i),
+			NodeID:     uuid.NewString(),
+			Name:       uuid.NewString(),
 			BannerDOIs: bannerDOIs,
 		}
 		collectionSummaries = append(collectionSummaries, summary)
@@ -571,7 +567,7 @@ func testHandleGetCollectionsLargePageSize(t *testing.T) {
 	assert.Equal(t, largePageSize, responseDTO.TotalCount)
 	assert.Len(t, responseDTO.Collections, largePageSize)
 
-	for i := 0; i < largePageSize; i++ {
+	for i := range largePageSize {
 		expected := collectionSummaries[i]
 		actual := responseDTO.Collections[i]
 		assert.Equal(t, expected.NodeID, actual.NodeID)

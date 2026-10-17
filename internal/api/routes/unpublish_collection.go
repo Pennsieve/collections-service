@@ -81,8 +81,7 @@ func UnpublishCollection(ctx context.Context, params Params) (dto.UnpublishColle
 	discoverUnpubResp, err := internalDiscover.UnpublishCollection(ctx, collection.ID, collection.NodeID, collection.UserRole)
 	if err != nil {
 		var apiError *apierrors.Error
-		var neverPublishedError service.CollectionNeverPublishedError
-		if errors.As(err, &neverPublishedError) {
+		if _, ok := errors.AsType[service.CollectionNeverPublishedError](err); ok {
 			apiError = apierrors.NewConflictError("Discover reports collection not published")
 		} else {
 			apiError = apierrors.NewInternalServerError("error unpublishing with Discover", err)
